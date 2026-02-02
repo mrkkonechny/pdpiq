@@ -5,7 +5,8 @@
 
 import { ScoringEngine } from '../scoring/scoring-engine.js';
 import { RecommendationEngine } from '../recommendations/recommendation-engine.js';
-import { getGradeDescription, CATEGORY_DESCRIPTIONS } from '../scoring/weights.js';
+import { getGradeDescription, CATEGORY_DESCRIPTIONS, FACTOR_RECOMMENDATIONS } from '../scoring/weights.js';
+import { RECOMMENDATION_TEMPLATES } from '../recommendations/recommendation-rules.js';
 import {
   saveAnalysis,
   getHistory,
@@ -123,6 +124,10 @@ class SidePanelApp {
 
   async processResults() {
     try {
+      // Get current page URL for network fetches
+      const pageUrl = this.currentData.pageInfo?.url;
+      const baseUrl = pageUrl ? new URL(pageUrl).origin : null;
+
       // Verify og:image format if present
       let imageVerification = null;
       const ogImage = this.currentData.metaTags?.openGraph?.image;
@@ -131,9 +136,15 @@ class SidePanelApp {
         imageVerification = await this.verifyImageFormat(ogImage);
       }
 
+      // Fetch AI Discoverability network data
+      let aiDiscoverabilityData = null;
+      if (baseUrl) {
+        aiDiscoverabilityData = await this.fetchAIDiscoverabilityData(baseUrl, pageUrl);
+      }
+
       // Score the data
       const scoringEngine = new ScoringEngine(this.selectedContext);
-      this.scoreResult = scoringEngine.calculateScore(this.currentData, imageVerification);
+      this.scoreResult = scoringEngine.calculateScore(this.currentData, imageVerification, aiDiscoverabilityData);
 
       // Generate recommendations
       const recEngine = new RecommendationEngine(
@@ -179,6 +190,85 @@ class SidePanelApp {
     });
   }
 
+  /**
+   * Fetch AI Discoverability network data
+   * @param {string} baseUrl - Base URL of the site (origin)
+   * @param {string} pageUrl - Full page URL
+   * @returns {Promise<Object>} AI discoverability network data
+   */
+  async fetchAIDiscoverabilityData(baseUrl, pageUrl) {
+    const [robots, llms, lastModified] = await Promise.all([
+      this.fetchRobotsTxt(baseUrl),
+      this.fetchLlmsTxt(baseUrl),
+      this.fetchLastModified(pageUrl)
+    ]);
+
+    return { robots, llms, lastModified };
+  }
+
+  /**
+   * Fetch and parse robots.txt for AI crawler rules
+   * @param {string} baseUrl - Base URL of the site
+   * @returns {Promise<Object>} Parsed robots.txt data
+   */
+  async fetchRobotsTxt(baseUrl) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { type: 'FETCH_ROBOTS_TXT', baseUrl },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('robots.txt fetch error:', chrome.runtime.lastError);
+            resolve({ accessible: false, error: chrome.runtime.lastError.message });
+          } else {
+            resolve(response);
+          }
+        }
+      );
+    });
+  }
+
+  /**
+   * Check for llms.txt files
+   * @param {string} baseUrl - Base URL of the site
+   * @returns {Promise<Object>} llms.txt presence data
+   */
+  async fetchLlmsTxt(baseUrl) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { type: 'FETCH_LLMS_TXT', baseUrl },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('llms.txt fetch error:', chrome.runtime.lastError);
+            resolve({ found: false, error: chrome.runtime.lastError.message });
+          } else {
+            resolve(response);
+          }
+        }
+      );
+    });
+  }
+
+  /**
+   * Fetch Last-Modified header for a URL
+   * @param {string} url - URL to check
+   * @returns {Promise<Object>} Last-Modified header data
+   */
+  async fetchLastModified(url) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { type: 'FETCH_LAST_MODIFIED', url },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('Last-Modified fetch error:', chrome.runtime.lastError);
+            resolve({ accessible: false, error: chrome.runtime.lastError.message });
+          } else {
+            resolve(response);
+          }
+        }
+      );
+    });
+  }
+
   displayResults() {
     this.hideLoading();
     this.hideContextSelector();
@@ -216,7 +306,8 @@ class SidePanelApp {
       'protocolMeta',
       'contentQuality',
       'contentStructure',
-      'authorityTrust'
+      'authorityTrust',
+      'aiDiscoverability'
     ];
 
     categoryOrder.forEach(key => {
@@ -251,6 +342,18 @@ class SidePanelApp {
       });
 
       container.appendChild(card);
+
+      // Add click handlers for factor expand buttons
+      card.querySelectorAll('.factor-expand-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const factor = btn.closest('.factor');
+          const rec = factor.querySelector('.factor-recommendation');
+          const isExpanded = !rec.classList.contains('hidden');
+          rec.classList.toggle('hidden');
+          btn.textContent = isExpanded ? '▶' : '▼';
+        });
+      });
     });
   }
 
@@ -260,11 +363,27 @@ class SidePanelApp {
                          f.status === 'fail' ? '✗' : '⚠';
       const contextualLabel = f.contextual ? '<span class="multiplier">CTX</span>' : '';
 
+      // Get recommendation if factor has a mapping
+      const recId = FACTOR_RECOMMENDATIONS[f.name];
+      const rec = recId ? RECOMMENDATION_TEMPLATES[recId] : null;
+
+      const expandBtn = rec ? '<button class="factor-expand-btn">▶</button>' : '';
+      const recSection = rec ? `
+        <div class="factor-recommendation hidden">
+          <p class="factor-rec-text">${rec.description}</p>
+          <p class="factor-rec-impl">${rec.implementation}</p>
+        </div>
+      ` : '';
+
       return `
-        <div class="factor ${f.status}">
-          <span class="factor-name">${f.name}${contextualLabel}</span>
-          <span class="factor-status">${statusIcon}</span>
-          <span class="factor-points">${f.points}/${f.maxPoints}</span>
+        <div class="factor ${f.status}${rec ? ' has-recommendation' : ''}">
+          <div class="factor-row">
+            ${expandBtn}
+            <span class="factor-name">${f.name}${contextualLabel}</span>
+            <span class="factor-status">${statusIcon}</span>
+            <span class="factor-points">${f.points}/${f.maxPoints}</span>
+          </div>
+          ${recSection}
         </div>
       `;
     }).join('');

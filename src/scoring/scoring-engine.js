@@ -28,16 +28,18 @@ export class ScoringEngine {
    * Calculate all scores from extracted data
    * @param {Object} extractedData - Data from content script
    * @param {Object} imageVerification - og:image verification result (optional)
+   * @param {Object} aiDiscoverabilityData - AI discoverability network data (optional)
    * @returns {Object} Complete scoring result
    */
-  calculateScore(extractedData, imageVerification = null) {
+  calculateScore(extractedData, imageVerification = null, aiDiscoverabilityData = null) {
     // Calculate category scores
     const categoryScores = {
       structuredData: this.scoreStructuredData(extractedData.structuredData),
       protocolMeta: this.scoreProtocolMeta(extractedData.metaTags, imageVerification),
       contentQuality: this.scoreContentQuality(extractedData.contentQuality),
       contentStructure: this.scoreContentStructure(extractedData.contentStructure),
-      authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals)
+      authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals),
+      aiDiscoverability: this.scoreAIDiscoverability(extractedData.aiDiscoverability, aiDiscoverabilityData)
     };
 
     // Calculate weighted total
@@ -46,7 +48,8 @@ export class ScoringEngine {
       categoryScores.protocolMeta.score * CATEGORY_WEIGHTS.protocolMeta +
       categoryScores.contentQuality.score * CATEGORY_WEIGHTS.contentQuality +
       categoryScores.contentStructure.score * CATEGORY_WEIGHTS.contentStructure +
-      categoryScores.authorityTrust.score * CATEGORY_WEIGHTS.authorityTrust
+      categoryScores.authorityTrust.score * CATEGORY_WEIGHTS.authorityTrust +
+      categoryScores.aiDiscoverability.score * CATEGORY_WEIGHTS.aiDiscoverability
     );
 
     const grade = getGrade(totalScore);
@@ -141,33 +144,39 @@ export class ScoringEngine {
     // Breadcrumb Schema (5 points)
     const hasBreadcrumb = data?.schemas?.breadcrumb !== null;
     const breadcrumbScore = hasBreadcrumb ? weights.breadcrumbSchema : 0;
+    const breadcrumbCount = data?.schemas?.breadcrumb?.itemCount || 0;
     factors.push({
       name: 'Breadcrumb Schema',
       status: hasBreadcrumb ? 'pass' : 'fail',
       points: breadcrumbScore,
-      maxPoints: weights.breadcrumbSchema
+      maxPoints: weights.breadcrumbSchema,
+      details: hasBreadcrumb ? `${breadcrumbCount} level${breadcrumbCount !== 1 ? 's' : ''} found` : 'Missing breadcrumb schema'
     });
     rawScore += breadcrumbScore;
 
     // Organization Schema (5 points)
     const hasOrg = data?.schemas?.organization !== null || data?.schemas?.brand !== null;
     const orgScore = hasOrg ? weights.organizationSchema : 0;
+    const orgName = data?.schemas?.organization?.name || data?.schemas?.brand?.name;
     factors.push({
       name: 'Organization/Brand Schema',
       status: hasOrg ? 'pass' : 'fail',
       points: orgScore,
-      maxPoints: weights.organizationSchema
+      maxPoints: weights.organizationSchema,
+      details: hasOrg ? (orgName ? `Found: ${orgName}` : 'Schema present') : 'Missing organization/brand schema'
     });
     rawScore += orgScore;
 
     // Image Schema (5 points)
     const hasImageSchema = data?.schemas?.images?.length > 0;
     const imageSchemaScore = hasImageSchema ? weights.imageSchema : 0;
+    const imageCount = data?.schemas?.images?.length || 0;
     factors.push({
       name: 'ImageObject Schema',
       status: hasImageSchema ? 'pass' : 'fail',
       points: imageSchemaScore,
-      maxPoints: weights.imageSchema
+      maxPoints: weights.imageSchema,
+      details: hasImageSchema ? `${imageCount} image${imageCount !== 1 ? 's' : ''} in schema` : 'No ImageObject schema'
     });
     rawScore += imageSchemaScore;
 
@@ -383,12 +392,13 @@ export class ScoringEngine {
     // Description Length (15 points)
     const wordCount = desc.wordCount || 0;
     const descScore = desc.lengthScore ? Math.round((desc.lengthScore / 100) * weights.descriptionLength) : 0;
+    const descSource = desc.source ? ` (${desc.source})` : '';
     factors.push({
       name: 'Description Length',
       status: wordCount >= 100 ? 'pass' : wordCount >= 50 ? 'warning' : 'fail',
       points: descScore,
       maxPoints: weights.descriptionLength,
-      details: `${wordCount} words${wordCount < 100 ? ' (aim for 100+)' : ''}`
+      details: `${wordCount} words${descSource}${wordCount < 100 ? ' (aim for 100+)' : ''}`
     });
     rawScore += descScore;
 
@@ -426,6 +436,7 @@ export class ScoringEngine {
     let specScore = specs.countScore ? Math.round((specs.countScore / 100) * weights.specificationCount) : 0;
     specScore = Math.round(specScore * this.multipliers.technicalSpecifications);
     specScore = Math.min(weights.specificationCount * 1.5, specScore); // Cap at 150% of base
+    const specSource = specs.source ? ` (${specs.source})` : '';
 
     factors.push({
       name: 'Specifications',
@@ -433,31 +444,33 @@ export class ScoringEngine {
       points: Math.min(weights.specificationCount, specScore),
       maxPoints: weights.specificationCount,
       contextual: true,
-      details: `${specCount} specifications found`
+      details: `${specCount} specification${specCount !== 1 ? 's' : ''} found${specSource}`
     });
     rawScore += Math.min(weights.specificationCount, specScore);
 
     // Feature Count (10 points)
     const featureCount = features.count || 0;
     const featureScore = features.countScore ? Math.round((features.countScore / 100) * weights.featureCount) : 0;
+    const featureSource = features.source ? ` (${features.source})` : '';
     factors.push({
       name: 'Features List',
       status: featureCount >= 5 ? 'pass' : featureCount >= 3 ? 'warning' : 'fail',
       points: featureScore,
       maxPoints: weights.featureCount,
-      details: `${featureCount} features found`
+      details: `${featureCount} feature${featureCount !== 1 ? 's' : ''} found${featureSource}`
     });
     rawScore += featureScore;
 
     // FAQ Presence (10 points)
     const faqCount = faq.count || 0;
     const faqScore = faq.countScore ? Math.round((faq.countScore / 100) * weights.faqPresence) : 0;
+    const faqSource = faq.source ? ` (${faq.source})` : '';
     factors.push({
       name: 'FAQ Section',
       status: faqCount >= 3 ? 'pass' : faqCount > 0 ? 'warning' : 'fail',
       points: faqScore,
       maxPoints: weights.faqPresence,
-      details: faqCount > 0 ? `${faqCount} FAQs` : 'No FAQ found'
+      details: faqCount > 0 ? `${faqCount} FAQ${faqCount !== 1 ? 's' : ''}${faqSource}` : 'No FAQ found'
     });
     rawScore += faqScore;
 
@@ -469,7 +482,10 @@ export class ScoringEngine {
       status: details.hasDimensions ? 'pass' : 'fail',
       points: Math.min(weights.dimensions, dimensionsScore),
       maxPoints: weights.dimensions,
-      contextual: this.context === 'need'
+      contextual: this.context === 'need',
+      details: details.hasDimensions
+        ? (details.dimensionsText || 'Dimensions found')
+        : 'No dimensions found'
     });
     rawScore += Math.min(weights.dimensions, dimensionsScore);
 
@@ -479,7 +495,10 @@ export class ScoringEngine {
       name: 'Materials',
       status: details.hasMaterials ? 'pass' : 'fail',
       points: materialsScore,
-      maxPoints: weights.materials
+      maxPoints: weights.materials,
+      details: details.hasMaterials
+        ? (details.materialsText || 'Materials found')
+        : 'No materials information found'
     });
     rawScore += materialsScore;
 
@@ -489,7 +508,10 @@ export class ScoringEngine {
       name: 'Care Instructions',
       status: details.hasCareInstructions ? 'pass' : 'fail',
       points: careScore,
-      maxPoints: weights.careInstructions
+      maxPoints: weights.careInstructions,
+      details: details.hasCareInstructions
+        ? (details.careText || 'Care instructions found')
+        : 'No care instructions found'
     });
     rawScore += careScore;
 
@@ -501,7 +523,10 @@ export class ScoringEngine {
       status: details.hasWarranty ? 'pass' : 'fail',
       points: Math.min(weights.warrantyInfo, warrantyScore),
       maxPoints: weights.warrantyInfo,
-      contextual: true
+      contextual: true,
+      details: details.hasWarranty
+        ? (details.warrantyText || 'Warranty found')
+        : 'No warranty information found'
     });
     rawScore += Math.min(weights.warrantyInfo, warrantyScore);
 
@@ -511,11 +536,14 @@ export class ScoringEngine {
     factors.push({
       name: 'Compatibility Information',
       status: details.hasCompatibility ? 'pass' : 'fail',
-      points: Math.min(weights.compatibilityInfo * 2, compatScore), // Allow up to 2x for Need context
+      points: Math.min(weights.compatibilityInfo, compatScore),
       maxPoints: weights.compatibilityInfo,
-      contextual: true
+      contextual: true,
+      details: details.hasCompatibility
+        ? (details.compatibilityText || 'Compatibility info found')
+        : 'No compatibility information found'
     });
-    rawScore += Math.min(weights.compatibilityInfo * 2, compatScore);
+    rawScore += Math.min(weights.compatibilityInfo, compatScore);
 
     return {
       score: Math.min(100, rawScore),
@@ -571,12 +599,20 @@ export class ScoringEngine {
 
     // Semantic HTML (12 points)
     const semanticScore = semantic.score ? Math.round((semantic.score / 100) * weights.semanticHTML) : 0;
+    const semanticElements = semantic.elements || {};
+    const foundElements = Object.entries(semanticElements)
+      .filter(([tag, count]) => count > 0)
+      .map(([tag, count]) => `<${tag}>${count > 1 ? '×' + count : ''}`)
+      .join(', ');
+    const missingKey = [];
+    if (!semanticElements.main) missingKey.push('<main>');
+    if (!semanticElements.article) missingKey.push('<article>');
     factors.push({
       name: 'Semantic HTML',
       status: semantic.hasMain ? 'pass' : semantic.hasArticle ? 'warning' : 'fail',
       points: semanticScore,
       maxPoints: weights.semanticHTML,
-      details: semantic.hasMain ? 'Uses <main>' : semantic.hasArticle ? 'Uses <article>' : 'Limited semantic markup'
+      details: foundElements ? `Found: ${foundElements}` + (missingKey.length ? ` | Missing: ${missingKey.join(', ')}` : '') : 'No semantic elements found'
     });
     rawScore += semanticScore;
 
@@ -604,11 +640,16 @@ export class ScoringEngine {
 
     // List Structure (8 points)
     const listScore = lists.score ? Math.round((lists.score / 100) * weights.listStructure) : 0;
+    const ulCount = lists.unorderedCount || 0;
+    const olCount = lists.orderedCount || 0;
     factors.push({
       name: 'List Structure',
       status: lists.hasProperLists ? 'pass' : 'fail',
       points: listScore,
-      maxPoints: weights.listStructure
+      maxPoints: weights.listStructure,
+      details: lists.hasProperLists
+        ? `${olCount} ordered, ${ulCount} unordered list${ulCount !== 1 ? 's' : ''}`
+        : 'No structured lists found'
     });
     rawScore += listScore;
 
@@ -712,17 +753,25 @@ export class ScoringEngine {
       name: 'Review Recency',
       status: reviews.hasRecentReviews !== false ? 'pass' : 'warning',
       points: recencyScore,
-      maxPoints: weights.reviewRecency
+      maxPoints: weights.reviewRecency,
+      details: reviews.mostRecentDate
+        ? `Most recent: ${reviews.mostRecentDate}`
+        : (reviews.hasRecentReviews === null ? 'No review dates found' : 'Reviews may be outdated')
     });
     rawScore += recencyScore;
 
     // Review Depth (10 points)
     const depthScore = reviews.depthScore ? Math.round((reviews.depthScore / 100) * weights.reviewDepth) : 0;
+    const avgLength = reviews.averageReviewLength || 0;
+    const reviewsAnalyzed = reviews.reviewsAnalyzed || 0;
     factors.push({
       name: 'Review Depth',
-      status: reviews.averageReviewLength >= 100 ? 'pass' : reviews.averageReviewLength >= 50 ? 'warning' : 'fail',
+      status: avgLength >= 100 ? 'pass' : avgLength >= 50 ? 'warning' : 'fail',
       points: depthScore,
-      maxPoints: weights.reviewDepth
+      maxPoints: weights.reviewDepth,
+      details: reviewsAnalyzed > 0
+        ? `Avg ${avgLength} chars (${reviewsAnalyzed} review${reviewsAnalyzed !== 1 ? 's' : ''} analyzed)`
+        : 'No review text found to analyze'
     });
     rawScore += depthScore;
 
@@ -740,24 +789,34 @@ export class ScoringEngine {
     // Certifications (10 points) - Contextual
     let certScore = certs.score ? Math.round((certs.score / 100) * weights.certifications) : 0;
     certScore = Math.round(certScore * this.multipliers.certifications);
+    const certSource = certs.source ? ` (${certs.source})` : '';
+    // Use detailed matches if available, otherwise fall back to items
+    const certDetails = certs.details && certs.details.length > 0
+      ? certs.details.slice(0, 3).map(c => c.matched || c.name).join(', ')
+      : (certs.items || []).slice(0, 3).join(', ');
     factors.push({
       name: 'Certifications',
       status: certs.count > 0 ? 'pass' : 'fail',
       points: Math.min(weights.certifications * 1.6, certScore),
       maxPoints: weights.certifications,
       contextual: true,
-      details: certs.count > 0 ? certs.items.slice(0, 3).join(', ') : 'No certifications found'
+      details: certs.count > 0 ? `${certDetails}${certSource}` : 'No certifications found'
     });
     rawScore += Math.min(weights.certifications * 1.6, certScore);
 
     // Awards (5 points)
     const awardScore = awards.count > 0 ? weights.awards : 0;
+    const awardSource = awards.source ? ` (${awards.source})` : '';
+    // Use detailed matches if available
+    const awardDetails = awards.details && awards.details.length > 0
+      ? awards.details.slice(0, 2).map(a => a.matched || a.name).join(', ')
+      : (awards.items || []).slice(0, 2).join(', ');
     factors.push({
       name: 'Awards',
       status: awards.count > 0 ? 'pass' : 'fail',
       points: awardScore,
       maxPoints: weights.awards,
-      details: awards.count > 0 ? awards.items.slice(0, 2).join(', ') : 'No awards found'
+      details: awards.count > 0 ? `${awardDetails}${awardSource}` : 'No awards found'
     });
     rawScore += awardScore;
 
@@ -767,6 +826,274 @@ export class ScoringEngine {
       factors,
       weight: CATEGORY_WEIGHTS.authorityTrust,
       categoryName: 'Authority & Trust Signals'
+    };
+  }
+
+  /**
+   * Score AI Discoverability category (10% weight)
+   * @param {Object} pageData - AI discoverability data from content script
+   * @param {Object} networkData - Network fetch data (robots.txt, llms.txt, Last-Modified)
+   */
+  scoreAIDiscoverability(pageData, networkData) {
+    const factors = [];
+    let rawScore = 0;
+    const maxScore = 100;
+    const weights = FACTOR_WEIGHTS.aiDiscoverability;
+    const robots = networkData?.robots || {};
+    const llms = networkData?.llms || {};
+    const lastModified = networkData?.lastModified || {};
+    const schemaDate = pageData?.schemaDate || {};
+    const visibleDate = pageData?.visibleDate || {};
+
+    // AI Crawler Access (35 points)
+    const crawlerResult = this.scoreAICrawlerAccess(robots, weights.aiCrawlerAccess);
+    factors.push(crawlerResult.factor);
+    rawScore += crawlerResult.score;
+
+    // Content Freshness (30 points)
+    const freshnessResult = this.scoreContentFreshness(schemaDate, lastModified, weights.contentFreshness);
+    factors.push(freshnessResult.factor);
+    rawScore += freshnessResult.score;
+
+    // llms.txt Presence (20 points)
+    const llmsResult = this.scoreLlmsTxt(llms, weights.llmsTxtPresence);
+    factors.push(llmsResult.factor);
+    rawScore += llmsResult.score;
+
+    // Date Signals Present (15 points)
+    const dateResult = this.scoreDateSignals(schemaDate, visibleDate, weights.dateSignalsPresent);
+    factors.push(dateResult.factor);
+    rawScore += dateResult.score;
+
+    return {
+      score: Math.min(100, rawScore),
+      maxScore,
+      factors,
+      weight: CATEGORY_WEIGHTS.aiDiscoverability,
+      categoryName: 'AI Discoverability'
+    };
+  }
+
+  /**
+   * Score AI crawler access based on robots.txt rules
+   * @param {Object} robotsData - Parsed robots.txt data
+   * @param {number} maxPoints - Maximum points for this factor
+   */
+  scoreAICrawlerAccess(robotsData, maxPoints) {
+    let score = 0;
+    let status = 'unknown';
+    let details = 'Unable to check robots.txt';
+
+    if (robotsData.accessible === false && robotsData.error) {
+      // CORS blocked - can't determine
+      status = 'warning';
+      details = 'robots.txt not accessible (CORS)';
+      score = maxPoints * 0.5; // Give partial credit
+    } else if (robotsData.accessible === false) {
+      // No robots.txt - assume allowed
+      status = 'pass';
+      details = 'No robots.txt (AI crawlers allowed)';
+      score = maxPoints;
+    } else if (robotsData.accessible) {
+      const blockedCount = robotsData.blockedCrawlers?.length || 0;
+      const allowedCount = robotsData.allowedCrawlers?.length || 0;
+      const totalMajor = blockedCount + allowedCount;
+
+      if (blockedCount === 0) {
+        status = 'pass';
+        details = `All major AI crawlers allowed`;
+        score = maxPoints;
+      } else if (blockedCount < totalMajor) {
+        status = 'warning';
+        details = `${blockedCount}/${totalMajor} AI crawlers blocked: ${robotsData.blockedCrawlers.slice(0, 3).join(', ')}`;
+        score = Math.round(maxPoints * (allowedCount / totalMajor));
+      } else {
+        status = 'fail';
+        details = `All major AI crawlers blocked`;
+        score = 0;
+      }
+    }
+
+    return {
+      score,
+      factor: {
+        name: 'AI Crawler Access',
+        status,
+        points: score,
+        maxPoints,
+        critical: status === 'fail',
+        details
+      }
+    };
+  }
+
+  /**
+   * Score content freshness based on date signals
+   * Freshness thresholds:
+   * - ≤7 days: 100%
+   * - 8-30 days: 83%
+   * - 31-90 days: 67%
+   * - 91-180 days: 33%
+   * - 181-365 days: 17%
+   * - >365 days: 0%
+   */
+  scoreContentFreshness(schemaDate, lastModified, maxPoints) {
+    let score = 0;
+    let status = 'unknown';
+    let details = 'No freshness signals found';
+    let mostRecentDate = null;
+
+    // Find the most recent date from available sources
+    const dateSources = [
+      { date: schemaDate.dateModified, source: 'schema dateModified' },
+      { date: schemaDate.datePublished, source: 'schema datePublished' },
+      { date: lastModified?.lastModified, source: 'Last-Modified header' }
+    ];
+
+    for (const { date, source } of dateSources) {
+      if (date) {
+        try {
+          const parsed = new Date(date);
+          if (!isNaN(parsed.getTime())) {
+            if (!mostRecentDate || parsed > mostRecentDate.date) {
+              mostRecentDate = { date: parsed, source };
+            }
+          }
+        } catch (e) {
+          // Skip invalid dates
+        }
+      }
+    }
+
+    if (mostRecentDate) {
+      const now = new Date();
+      const ageInDays = Math.floor((now - mostRecentDate.date) / (1000 * 60 * 60 * 24));
+
+      let freshnessPercent;
+      if (ageInDays <= 7) {
+        freshnessPercent = 100;
+      } else if (ageInDays <= 30) {
+        freshnessPercent = 83;
+      } else if (ageInDays <= 90) {
+        freshnessPercent = 67;
+      } else if (ageInDays <= 180) {
+        freshnessPercent = 33;
+      } else if (ageInDays <= 365) {
+        freshnessPercent = 17;
+      } else {
+        freshnessPercent = 0;
+      }
+
+      score = Math.round((freshnessPercent / 100) * maxPoints);
+      status = freshnessPercent >= 67 ? 'pass' : freshnessPercent >= 33 ? 'warning' : 'fail';
+
+      const ageText = ageInDays === 0 ? 'today' :
+                      ageInDays === 1 ? '1 day ago' :
+                      ageInDays < 30 ? `${ageInDays} days ago` :
+                      ageInDays < 365 ? `${Math.floor(ageInDays / 30)} months ago` :
+                      `${Math.floor(ageInDays / 365)}+ years ago`;
+
+      details = `Last updated ${ageText} (${mostRecentDate.source})`;
+    } else {
+      status = 'fail';
+      score = 0;
+    }
+
+    return {
+      score,
+      factor: {
+        name: 'Content Freshness',
+        status,
+        points: score,
+        maxPoints,
+        details
+      }
+    };
+  }
+
+  /**
+   * Score llms.txt presence
+   * @param {Object} llmsData - llms.txt fetch results
+   * @param {number} maxPoints - Maximum points for this factor
+   */
+  scoreLlmsTxt(llmsData, maxPoints) {
+    let score = 0;
+    let status = 'fail';
+    let details = 'No llms.txt found';
+
+    if (llmsData.found) {
+      if (llmsData.llmsTxt?.found && llmsData.llmsFullTxt?.found) {
+        status = 'pass';
+        score = maxPoints;
+        details = 'Both llms.txt and llms-full.txt found';
+      } else if (llmsData.llmsTxt?.found) {
+        status = 'pass';
+        score = maxPoints;
+        details = 'llms.txt found';
+      } else if (llmsData.llmsFullTxt?.found) {
+        status = 'pass';
+        score = Math.round(maxPoints * 0.8);
+        details = 'llms-full.txt found (llms.txt recommended)';
+      }
+    }
+
+    return {
+      score,
+      factor: {
+        name: 'llms.txt Presence',
+        status,
+        points: score,
+        maxPoints,
+        details
+      }
+    };
+  }
+
+  /**
+   * Score date signals presence (schema + visible)
+   * @param {Object} schemaDate - Schema date signals
+   * @param {Object} visibleDate - Visible date signals
+   * @param {number} maxPoints - Maximum points for this factor
+   */
+  scoreDateSignals(schemaDate, visibleDate, maxPoints) {
+    let score = 0;
+    let status = 'fail';
+    let details = 'No date signals detected';
+    const signals = [];
+
+    // Check schema dates
+    if (schemaDate.dateModified) {
+      signals.push('dateModified');
+      score += maxPoints * 0.5;
+    }
+    if (schemaDate.datePublished) {
+      signals.push('datePublished');
+      score += maxPoints * 0.25;
+    }
+
+    // Check visible dates
+    if (visibleDate.found) {
+      signals.push(`visible (${visibleDate.dateType || 'date'})`);
+      score += maxPoints * 0.25;
+    }
+
+    // Cap at max points
+    score = Math.min(maxPoints, score);
+
+    if (signals.length > 0) {
+      status = signals.includes('dateModified') ? 'pass' : 'warning';
+      details = `Found: ${signals.join(', ')}`;
+    }
+
+    return {
+      score,
+      factor: {
+        name: 'Date Signals',
+        status,
+        points: score,
+        maxPoints,
+        details
+      }
     };
   }
 }

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 ## Project Overview
 
-pdpIQ (Product Description Page IQ) is a Chrome extension by **Tribbute** that analyzes eCommerce Product Detail Pages (PDPs) for AI citation readiness. It scores pages across ~70 factors in 5 categories and provides actionable recommendations.
+pdpIQ (Product Description Page IQ) is a Chrome extension by **Tribbute** that analyzes eCommerce Product Detail Pages (PDPs) for AI citation readiness. It scores pages across ~70 factors in 6 categories and provides actionable recommendations.
 
 ## Tech Stack
 
@@ -26,14 +26,14 @@ pdpiq/
 │   └── tribbute-logo.png        # Header branding
 ├── src/
 │   ├── background/
-│   │   └── service-worker.js    # Message routing, image format verification
+│   │   └── service-worker.js    # Message routing, image format verification, AI discoverability network fetches
 │   ├── content/
-│   │   ├── content-script.js    # Main extraction orchestrator
+│   │   ├── content-script.js    # Main extraction orchestrator (includes inline structured data extraction)
 │   │   └── extractors/
 │   │       ├── index.js         # Extractor exports
-│   │       ├── structured-data.js   # JSON-LD, Microdata, RDFa
+│   │       ├── structured-data.js   # JSON-LD, Microdata, RDFa (NOTE: not used at runtime)
 │   │       ├── meta-tags.js         # OG, Twitter Cards, canonical
-│   │       ├── content-quality.js   # Description, specs, features
+│   │       ├── content-quality.js   # Description, specs, features (NOTE: not used at runtime)
 │   │       ├── content-structure.js # Headings, semantic HTML
 │   │       └── trust-signals.js     # Reviews, ratings, certs
 │   ├── scoring/
@@ -85,22 +85,157 @@ pdpiq/
 ### Scoring System
 
 **Category Weights** (total = 100%):
-- Structured Data: 25% (JSON-LD Product/Offer schemas critical)
-- Protocol & Meta: 20% (og:image format critical - WebP fails in LLM chats)
-- Content Quality: 25% (descriptions, specs, features, FAQ)
-- Content Structure: 15% (semantic HTML, headings, accessibility)
-- Authority & Trust: 15% (reviews, ratings, certifications)
+- Structured Data: 23% (JSON-LD Product/Offer schemas critical)
+- Protocol & Meta: 18% (og:image format critical - WebP fails in LLM chats)
+- Content Quality: 23% (descriptions, specs, features, FAQ)
+- Content Structure: 13% (semantic HTML, headings, accessibility)
+- Authority & Trust: 13% (reviews, ratings, certifications)
+- AI Discoverability: 10% (AI crawler access, content freshness, llms.txt)
 
 **Context Multipliers** adjust factor weights based on purchase type:
 - **Want** (emotional): boosts social proof, benefits, reviews; reduces specs
 - **Need** (functional): boosts specs, compatibility, certifications; reduces emotional content
 - **Hybrid**: neutral (1.0x all factors)
 
+### Structured Data Extraction
+
+**Important:** `content-script.js` contains its own inline extraction logic. The files in `extractors/` (like `structured-data.js` and `content-quality.js`) exist for reference but are **not used** at runtime. When modifying extraction logic, edit `content-script.js` directly.
+
+#### JSON-LD Formats Supported
+
+The `categorizeSchemas()` function handles three JSON-LD formats:
+1. **Top-level array**: `[{"@type": "Product", ...}, {"@type": "Organization", ...}]`
+2. **Object with @graph**: `{"@graph": [{"@type": "Product", ...}]}`
+3. **Single object**: `{"@type": "Product", ...}`
+
+#### Schema Types Extracted
+
+Schema extraction supports both **JSON-LD** and **Microdata** formats for:
+- Product (including nested offers, ratings, reviews)
+- Offer (standalone and nested)
+- AggregateRating (standalone and nested)
+- Review (standalone and nested)
+- FAQPage
+- BreadcrumbList
+- Organization (standalone and nested in Product.manufacturer)
+- Brand (standalone and nested in Product.brand)
+- ImageObject
+
+#### Key Functions in `content-script.js`
+
+- `extractStructuredData()` - Main entry point
+- `categorizeSchemas()` - Processes JSON-LD into schema objects
+- `categorizeMicrodataSchemas()` - Processes microdata into schema objects
+- `extractBrandName()` - Extracts brand/org name from various formats (string, object, array)
+- `extractImageUrl()` - Extracts image URL from various formats
+
+#### Brand/Manufacturer Handling
+
+The `extractBrandName()` helper handles all common schema formats:
+- String: `"Baldwin"`
+- Object: `{"@type": "Brand", "name": "Baldwin"}`
+- Array of objects: `[{"@type": "Brand", "name": "Baldwin"}]`
+- Array of strings: `["Baldwin"]`
+
+This is necessary because different sites implement brand/manufacturer in different ways.
+
+### Description Extraction
+
+**Important:** Like structured data, description extraction logic is inlined in `content-script.js`. The `extractors/content-quality.js` file exists but is **not used** at runtime.
+
+The `analyzeDescription()` function uses a two-tier approach:
+
+1. **CSS Selectors** (tried in order):
+   - Standard: `.product-description`, `.description`, `#description`, `[data-component="description"]`
+   - Shopify: `.product-single__description`, `.product__description`, `.rte`, `.rte-formatter`
+   - Additional: `.product__info-description`, `.product-single__content`, `#tab-description`, `.accordion__content`
+   - Attribute fallbacks: `[class*="product-description"]`, `[id*="ProductDescription"]`
+
+2. **JSON-LD Fallback**: If no DOM element found (or text < 50 chars), extracts description from Product schema via `extractDescriptionFromSchema()`
+
+The returned object includes a `source` field (`'dom'` or `'schema'`) indicating where the description was found. This ensures description analysis works even on sites with dynamic rendering or non-standard CSS classes (common with Shopify themes).
+
+### Schema Fallback System
+
+Many content quality factors use a two-tier extraction approach: DOM-based extraction first, then schema fallback. This reduces false negatives when CSS selectors fail.
+
+| Factor | DOM Extraction | Schema Fallback |
+|--------|---------------|-----------------|
+| FAQ | CSS selectors (`.faq`, `#faq`, etc.) | FAQPage schema via `extractFaqFromSchema()` |
+| Certifications | Regex patterns with negative checks | Product.certification, additionalProperty |
+| Awards | Regex patterns | Product.award, additionalProperty |
+| Product Details | Regex patterns capturing matched text | Product.width/height/depth/material/warranty, additionalProperty |
+
+#### Context-Aware Regex Extraction
+
+Certification and warranty extraction uses negative pattern matching to avoid false positives:
+- "FDA Approved" won't match "Not FDA approved" or "pending FDA approval"
+- "warranty" won't match "no warranty" or "void the warranty"
+
+All regex extractors now capture the actual matched text for display in factor details (e.g., "12-month warranty" instead of just "Warranty found").
+
+### Extraction Source Tracking
+
+Most extractors return a `source` field indicating where data came from:
+- `'dom'` - Found via CSS selectors or DOM traversal
+- `'schema'` - Found in JSON-LD or microdata
+- `'product-nested'` - Found nested within Product schema (e.g., brand, manufacturer)
+
+This helps with debugging and provides transparency in the scoring UI.
+
 ### Critical Detection
 These issues have outsized impact and are flagged prominently:
 - `og:image` in WebP format (invisible in most LLM chat interfaces)
 - Missing Product schema (LLMs can't identify page as product)
 - `robots` meta with `noindex` (blocks LLM crawlers entirely)
+- All major AI crawlers blocked in robots.txt (blocks AI discovery)
+
+### AI Discoverability Category
+
+The AI Discoverability category (10% weight) evaluates whether AI systems (ChatGPT, Perplexity, Claude, Gemini) can discover and cite product content.
+
+**Factor Weights:**
+| Factor | Points | Description |
+|--------|--------|-------------|
+| AI Crawler Access | 35 | robots.txt rules for major AI bots |
+| Content Freshness | 30 | Date signals and age scoring |
+| llms.txt Presence | 20 | /llms.txt and /llms-full.txt files |
+| Date Signals Present | 15 | Schema dates + visible date patterns |
+
+**AI Crawlers Monitored:**
+- OpenAI: `GPTBot`, `ChatGPT-User`, `OAI-SearchBot`
+- Anthropic: `ClaudeBot`, `Claude-Web`, `Anthropic-AI`
+- Perplexity: `PerplexityBot`
+- Google: `Google-Extended`
+- Apple: `Applebot-Extended`
+- Training: `CCBot` (Common Crawl)
+
+**Content Freshness Scoring:**
+| Age | Score |
+|-----|-------|
+| ≤7 days | 100% |
+| 8-30 days | 83% |
+| 31-90 days | 67% |
+| 91-180 days | 33% |
+| 181-365 days | 17% |
+| >365 days | 0% |
+
+**Network Fetches (via service-worker.js):**
+- `FETCH_ROBOTS_TXT` - Parses robots.txt for AI crawler rules
+- `FETCH_LLMS_TXT` - Checks for /llms.txt and /llms-full.txt
+- `FETCH_LAST_MODIFIED` - Gets Last-Modified header for freshness
+
+**Content Script Extraction (via content-script.js):**
+- `extractAIDiscoverabilitySignals()` - Main entry point
+- `extractSchemaDateSignals()` - Extracts dateModified/datePublished from schema
+- `extractVisibleDateSignals()` - Extracts visible dates from page text
+
+### Inline Factor Recommendations
+Factors in the side panel have expandable recommendation tips:
+- `FACTOR_RECOMMENDATIONS` in `weights.js` maps factor display names to template IDs
+- `RECOMMENDATION_TEMPLATES` in `recommendation-rules.js` contains the tip content
+- Click the ▶ arrow on any mapped factor to see actionable advice
+- Tips include a description and implementation guidance
 
 ## Key Files Quick Reference
 
@@ -108,7 +243,7 @@ These issues have outsized impact and are flagged prominently:
 |------|---------|
 | `manifest.json` | Extension permissions, content script config |
 | `src/content/content-script.js` | Orchestrates all data extraction |
-| `src/scoring/weights.js` | All scoring weights and multipliers |
+| `src/scoring/weights.js` | All scoring weights, multipliers, and factor-to-recommendation mappings |
 | `src/scoring/scoring-engine.js` | Score calculation logic |
 | `src/recommendations/recommendation-rules.js` | Fix suggestions per issue |
 | `src/sidepanel/sidepanel.js` | UI state management and rendering |
@@ -116,16 +251,20 @@ These issues have outsized impact and are flagged prominently:
 ## Common Tasks
 
 ### Adding a New Factor
-1. Add extraction logic in appropriate `src/content/extractors/*.js`
+1. Add extraction logic:
+   - For structured data schemas: edit `src/content/content-script.js` (both `categorizeSchemas()` for JSON-LD and `categorizeMicrodataSchemas()` for microdata)
+   - For other factors: edit appropriate `src/content/extractors/*.js`
 2. Add factor weight in `src/scoring/weights.js` → `FACTOR_WEIGHTS`
 3. If context-sensitive, add multipliers in `CONTEXT_MULTIPLIERS`
 4. Add recommendation rule in `src/recommendations/recommendation-rules.js`
+5. Add factor-to-recommendation mapping in `src/scoring/weights.js` → `FACTOR_RECOMMENDATIONS`
 
 ### Modifying Scoring Weights
 Edit `src/scoring/weights.js`:
 - `CATEGORY_WEIGHTS` - must sum to 1.0
 - `FACTOR_WEIGHTS` - relative weights within each category
 - `CONTEXT_MULTIPLIERS` - per-context adjustments
+- `FACTOR_RECOMMENDATIONS` - maps factor names to recommendation template IDs
 
 ### Updating UI
 - Markup: `src/sidepanel/sidepanel.html`

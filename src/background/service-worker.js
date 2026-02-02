@@ -5,6 +5,41 @@
 // Open side panel on extension icon click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
+/**
+ * AI Crawlers map - user-agent names to company/product
+ */
+const AI_CRAWLERS = {
+  // OpenAI
+  'gptbot': { company: 'OpenAI', product: 'GPT/ChatGPT training' },
+  'chatgpt-user': { company: 'OpenAI', product: 'ChatGPT browsing' },
+  'oai-searchbot': { company: 'OpenAI', product: 'OpenAI search' },
+  // Anthropic
+  'claudebot': { company: 'Anthropic', product: 'Claude training' },
+  'claude-web': { company: 'Anthropic', product: 'Claude web access' },
+  'anthropic-ai': { company: 'Anthropic', product: 'Anthropic AI' },
+  // Perplexity
+  'perplexitybot': { company: 'Perplexity', product: 'Perplexity AI search' },
+  // Google
+  'google-extended': { company: 'Google', product: 'Gemini/Bard training' },
+  // Apple
+  'applebot-extended': { company: 'Apple', product: 'Apple AI features' },
+  // Training data
+  'ccbot': { company: 'Common Crawl', product: 'Training data collection' }
+};
+
+/**
+ * Major AI crawlers that should be checked
+ */
+const MAJOR_AI_CRAWLERS = [
+  'gptbot',
+  'chatgpt-user',
+  'claudebot',
+  'claude-web',
+  'anthropic-ai',
+  'perplexitybot',
+  'google-extended'
+];
+
 // Message routing between content script and side panel
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
@@ -48,6 +83,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ error: 'No active tab' });
         }
       });
+      return true;
+
+    case 'FETCH_ROBOTS_TXT':
+      // Fetch and parse robots.txt for AI crawler rules
+      fetchRobotsTxt(message.baseUrl)
+        .then(sendResponse)
+        .catch(err => sendResponse({ error: err.message, crawlerRules: {} }));
+      return true;
+
+    case 'FETCH_LLMS_TXT':
+      // Check for llms.txt and llms-full.txt
+      fetchLlmsTxt(message.baseUrl)
+        .then(sendResponse)
+        .catch(err => sendResponse({ error: err.message, found: false }));
+      return true;
+
+    case 'FETCH_LAST_MODIFIED':
+      // Get Last-Modified header for a URL
+      fetchLastModified(message.url)
+        .then(sendResponse)
+        .catch(err => sendResponse({ error: err.message, lastModified: null }));
       return true;
   }
 });
@@ -239,6 +295,222 @@ async function detectFormatFromMagicBytes(url) {
     return null;
   } catch (error) {
     return null;
+  }
+}
+
+/**
+ * Fetch and parse robots.txt for AI crawler rules
+ * @param {string} baseUrl - The base URL of the site (e.g., https://example.com)
+ * @returns {Promise<Object>} Parsed robots.txt data with AI crawler rules
+ */
+async function fetchRobotsTxt(baseUrl) {
+  try {
+    const robotsUrl = new URL('/robots.txt', baseUrl).href;
+    const response = await fetch(robotsUrl, {
+      method: 'GET',
+      mode: 'cors',
+      credentials: 'omit'
+    });
+
+    if (!response.ok) {
+      return {
+        accessible: false,
+        status: response.status,
+        crawlerRules: {},
+        blockedCrawlers: [],
+        allowedCrawlers: MAJOR_AI_CRAWLERS // If no robots.txt, assume allowed
+      };
+    }
+
+    const content = await response.text();
+    return parseRobotsTxt(content);
+  } catch (error) {
+    // CORS or network error - can't determine rules
+    return {
+      accessible: false,
+      error: error.message,
+      crawlerRules: {},
+      blockedCrawlers: [],
+      allowedCrawlers: [] // Unknown status
+    };
+  }
+}
+
+/**
+ * Parse robots.txt content and extract AI crawler rules
+ * @param {string} content - The robots.txt content
+ * @returns {Object} Parsed rules with blocked/allowed crawlers
+ */
+function parseRobotsTxt(content) {
+  const lines = content.split('\n');
+  const crawlerRules = {};
+  let currentAgent = null;
+  let hasWildcardDisallowAll = false;
+
+  // Track rules per user-agent
+  for (const line of lines) {
+    const trimmed = line.trim().toLowerCase();
+
+    // Skip comments and empty lines
+    if (trimmed.startsWith('#') || trimmed === '') continue;
+
+    // Parse user-agent line
+    if (trimmed.startsWith('user-agent:')) {
+      currentAgent = trimmed.replace('user-agent:', '').trim();
+      if (!crawlerRules[currentAgent]) {
+        crawlerRules[currentAgent] = { disallow: [], allow: [] };
+      }
+      continue;
+    }
+
+    // Parse disallow/allow rules
+    if (currentAgent) {
+      if (trimmed.startsWith('disallow:')) {
+        const path = trimmed.replace('disallow:', '').trim();
+        crawlerRules[currentAgent].disallow.push(path);
+
+        // Check for wildcard disallow all
+        if (currentAgent === '*' && (path === '/' || path === '/*')) {
+          hasWildcardDisallowAll = true;
+        }
+      } else if (trimmed.startsWith('allow:')) {
+        const path = trimmed.replace('allow:', '').trim();
+        crawlerRules[currentAgent].allow.push(path);
+      }
+    }
+  }
+
+  // Determine which AI crawlers are blocked
+  const blockedCrawlers = [];
+  const allowedCrawlers = [];
+
+  for (const crawler of MAJOR_AI_CRAWLERS) {
+    const crawlerLower = crawler.toLowerCase();
+    const rules = crawlerRules[crawlerLower];
+
+    // Check if explicitly blocked
+    if (rules && rules.disallow.some(path => path === '/' || path === '/*' || path === '')) {
+      // Check if there's an allow rule that might override
+      if (!rules.allow.some(path => path === '/' || path === '/*')) {
+        blockedCrawlers.push(crawler);
+        continue;
+      }
+    }
+
+    // Check wildcard rules if no specific rules
+    if (!rules && hasWildcardDisallowAll) {
+      blockedCrawlers.push(crawler);
+      continue;
+    }
+
+    allowedCrawlers.push(crawler);
+  }
+
+  return {
+    accessible: true,
+    crawlerRules,
+    blockedCrawlers,
+    allowedCrawlers,
+    hasWildcardDisallowAll
+  };
+}
+
+/**
+ * Check for llms.txt and llms-full.txt files
+ * @param {string} baseUrl - The base URL of the site
+ * @returns {Promise<Object>} llms.txt presence and content info
+ */
+async function fetchLlmsTxt(baseUrl) {
+  const results = {
+    found: false,
+    llmsTxt: { found: false, url: null, size: null },
+    llmsFullTxt: { found: false, url: null, size: null }
+  };
+
+  // Check /llms.txt
+  try {
+    const llmsTxtUrl = new URL('/llms.txt', baseUrl).href;
+    const response = await fetch(llmsTxtUrl, {
+      method: 'HEAD',
+      mode: 'cors',
+      credentials: 'omit'
+    });
+
+    if (response.ok) {
+      results.llmsTxt = {
+        found: true,
+        url: llmsTxtUrl,
+        size: response.headers.get('Content-Length')
+          ? parseInt(response.headers.get('Content-Length'), 10)
+          : null
+      };
+      results.found = true;
+    }
+  } catch (e) {
+    // Ignore errors - file doesn't exist or CORS blocked
+  }
+
+  // Check /llms-full.txt
+  try {
+    const llmsFullUrl = new URL('/llms-full.txt', baseUrl).href;
+    const response = await fetch(llmsFullUrl, {
+      method: 'HEAD',
+      mode: 'cors',
+      credentials: 'omit'
+    });
+
+    if (response.ok) {
+      results.llmsFullTxt = {
+        found: true,
+        url: llmsFullUrl,
+        size: response.headers.get('Content-Length')
+          ? parseInt(response.headers.get('Content-Length'), 10)
+          : null
+      };
+      results.found = true;
+    }
+  } catch (e) {
+    // Ignore errors - file doesn't exist or CORS blocked
+  }
+
+  return results;
+}
+
+/**
+ * Get Last-Modified header for a URL
+ * @param {string} url - The URL to check
+ * @returns {Promise<Object>} Last-Modified header info
+ */
+async function fetchLastModified(url) {
+  try {
+    const response = await fetch(url, {
+      method: 'HEAD',
+      mode: 'cors',
+      credentials: 'omit'
+    });
+
+    if (!response.ok) {
+      return {
+        accessible: false,
+        status: response.status,
+        lastModified: null
+      };
+    }
+
+    const lastModified = response.headers.get('Last-Modified');
+    const date = response.headers.get('Date');
+
+    return {
+      accessible: true,
+      lastModified: lastModified ? new Date(lastModified).toISOString() : null,
+      serverDate: date ? new Date(date).toISOString() : null
+    };
+  } catch (error) {
+    return {
+      accessible: false,
+      error: error.message,
+      lastModified: null
+    };
   }
 }
 

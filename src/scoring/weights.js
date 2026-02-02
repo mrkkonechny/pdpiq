@@ -11,18 +11,20 @@ export const CATEGORY_DESCRIPTIONS = {
   protocolMeta: 'Open Graph, Twitter Cards, and meta tags for sharing and discovery',
   contentQuality: 'Product descriptions, specifications, features, and FAQ content',
   contentStructure: 'Semantic HTML, headings, accessibility, and image alt text',
-  authorityTrust: 'Reviews, ratings, brand clarity, and trust signals'
+  authorityTrust: 'Reviews, ratings, brand clarity, and trust signals',
+  aiDiscoverability: 'AI crawler access, content freshness, and llms.txt presence for AI system discovery'
 };
 
 /**
  * Category weights (must sum to 1.0)
  */
 export const CATEGORY_WEIGHTS = {
-  structuredData: 0.25,    // 25%
-  protocolMeta: 0.20,      // 20%
-  contentQuality: 0.25,    // 25%
-  contentStructure: 0.15,  // 15%
-  authorityTrust: 0.15     // 15%
+  structuredData: 0.23,    // 23% (was 25%)
+  protocolMeta: 0.18,      // 18% (was 20%)
+  contentQuality: 0.23,    // 23% (was 25%)
+  contentStructure: 0.13,  // 13% (was 15%)
+  authorityTrust: 0.13,    // 13% (was 15%)
+  aiDiscoverability: 0.10  // 10% (NEW)
 };
 
 /**
@@ -135,7 +137,7 @@ export const FACTOR_WEIGHTS = {
     readability: 8
   },
 
-  // Authority & Trust (15% of total)
+  // Authority & Trust (13% of total)
   authorityTrust: {
     reviewCount: 25,         // Contextual
     averageRating: 20,       // Contextual
@@ -144,6 +146,14 @@ export const FACTOR_WEIGHTS = {
     brandClarity: 15,
     certifications: 10,      // Contextual
     awards: 5
+  },
+
+  // AI Discoverability (10% of total)
+  aiDiscoverability: {
+    aiCrawlerAccess: 35,     // robots.txt rules for major AI bots
+    contentFreshness: 30,    // Date signals and age scoring
+    llmsTxtPresence: 20,     // /llms.txt and /llms-full.txt presence
+    dateSignalsPresent: 15   // Schema dates + visible date patterns
   }
 };
 
@@ -196,3 +206,48 @@ export function getGradeDescription(grade) {
 export function getContextMultiplier(context, factor) {
   return CONTEXT_MULTIPLIERS[context]?.[factor] || 1.0;
 }
+
+/**
+ * Factor name to recommendation template ID mapping
+ * Links factor display names to their corresponding recommendation templates
+ */
+export const FACTOR_RECOMMENDATIONS = {
+  // Structured Data
+  'Product Schema': 'product-schema-missing',
+  'Offer Schema': 'offer-schema-missing',
+  'AggregateRating Schema': 'rating-schema-missing',
+  'FAQ Schema': 'faq-schema-missing',
+  'Breadcrumb Schema': 'breadcrumb-schema-missing',
+
+  // Protocol & Meta
+  'og:image Present': 'og-image-missing',
+  'og:image Format': 'og-image-webp',
+  'og:title': 'og-title-missing',
+  'og:description': 'og-description-missing',
+  'Twitter Card': 'twitter-card-missing',
+  'Robots Allows Indexing': 'robots-blocking',
+
+  // Content Quality
+  'Description Length': 'description-short',
+  'Specifications': 'specs-missing',
+  'Features List': 'features-missing',
+  'FAQ Section': 'faq-content-missing',
+  'Compatibility Information': 'compatibility-missing',
+
+  // Content Structure
+  'H1 Heading': 'h1-missing',
+  'Semantic HTML': 'semantic-html-missing',
+  'Primary Image Alt Text': 'primary-image-alt-missing',
+  'Image Alt Coverage': 'images-alt-low',
+
+  // Authority & Trust
+  'Review Count': 'reviews-missing',
+  'Brand Clarity': 'brand-unclear',
+  'Certifications': 'certifications-missing',
+
+  // AI Discoverability
+  'AI Crawler Access': 'ai-crawler-blocked',
+  'Content Freshness': 'content-outdated',
+  'llms.txt Presence': 'llms-txt-missing',
+  'Date Signals': 'date-signals-missing'
+};
