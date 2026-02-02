@@ -67,7 +67,7 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'high',
     effort: 'low',
     category: 'protocolMeta',
-    implementation: 'Add <meta property="og:image" content="https://your-site.com/product-image.jpg"> to the page head. Use JPEG or PNG format (not WebP).'
+    implementation: 'Add &lt;meta property="og:image" content="https://your-site.com/product-image.jpg"&gt; to the page head. Use JPEG or PNG format (not WebP).'
   },
 
   'og-image-webp': {
@@ -94,7 +94,7 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'medium',
     effort: 'low',
     category: 'protocolMeta',
-    implementation: 'Add <meta property="og:title" content="Product Name - Brand"> to the page head. Keep under 60 characters.'
+    implementation: 'Add &lt;meta property="og:title" content="Product Name - Brand"&gt; to the page head. Keep under 60 characters.'
   },
 
   'og-description-missing': {
@@ -103,7 +103,7 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'medium',
     effort: 'low',
     category: 'protocolMeta',
-    implementation: 'Add <meta property="og:description" content="..."> with 100-200 characters describing the product benefits.'
+    implementation: 'Add &lt;meta property="og:description" content="..."&gt; with 100-200 characters describing the product benefits.'
   },
 
   'twitter-card-missing': {
@@ -195,7 +195,7 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'medium',
     effort: 'low',
     category: 'contentQuality',
-    implementation: 'Add a bulleted list of 5-10 key product features using <ul> or <ol> elements.'
+    implementation: 'Add a bulleted list of 5-10 key product features using &lt;ul&gt; or &lt;ol&gt; elements.'
   },
 
   'compatibility-missing': {
@@ -214,7 +214,7 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'medium',
     effort: 'low',
     category: 'contentStructure',
-    implementation: 'Add a single <h1> tag containing the product name. This should match or closely align with the og:title.'
+    implementation: 'Add a single &lt;h1&gt; tag containing the product name. This should match or closely align with the og:title.'
   },
 
   'multiple-h1': {
@@ -223,7 +223,7 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'low',
     effort: 'low',
     category: 'contentStructure',
-    implementation: 'Keep only one <h1> for the product name. Convert other H1s to H2 or lower.'
+    implementation: 'Keep only one &lt;h1&gt; for the product name. Convert other H1s to H2 or lower.'
   },
 
   'semantic-html-missing': {
@@ -232,7 +232,7 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'medium',
     effort: 'medium',
     category: 'contentStructure',
-    implementation: 'Wrap main product content in <main> or <article>. Use <section> for distinct content areas. Use <nav> for navigation.'
+    implementation: 'Wrap main product content in &lt;main&gt; or &lt;article&gt;. Use &lt;section&gt; for distinct content areas. Use &lt;nav&gt; for navigation.'
   },
 
   'primary-image-alt-missing': {
