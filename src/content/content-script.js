@@ -1359,11 +1359,25 @@ function analyzeImages() {
   const ogImage = document.querySelector('meta[property="og:image"]')?.content;
 
   // Find primary product image
-  const primarySelectors = ['.product-image img', '.product-photo img', '.gallery-main img', '.primary-image img'];
+  const primarySelectors = [
+    // Standard patterns
+    '.product-image img', '.product-photo img', '.gallery-main img', '.primary-image img',
+    // Shopify patterns
+    '.product-gallery__image', '.product-featured-media img', '.product__main-image',
+    '.product-single__photo img', '.product-single__media img', '.product__media img',
+    '.product-gallery img:first-child', '.product-images img:first-child',
+    // Attribute-based fallbacks
+    'img[data-product-image]', 'img[data-product-featured-media]',
+    '[class*="product-gallery"] img:first-child', '[class*="product-image"] img:first-child'
+  ];
   let primary = null;
   for (const sel of primarySelectors) {
-    primary = document.querySelector(sel);
-    if (primary) break;
+    try {
+      primary = document.querySelector(sel);
+      if (primary) break;
+    } catch (e) {
+      // Invalid selector, skip
+    }
   }
 
   return {
