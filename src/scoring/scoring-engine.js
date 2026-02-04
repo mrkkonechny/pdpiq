@@ -748,15 +748,34 @@ export class ScoringEngine {
     rawScore += Math.min(weights.averageRating, ratingScore);
 
     // Review Recency (15 points)
-    const recencyScore = reviews.hasRecentReviews !== false ? weights.reviewRecency : weights.reviewRecency * 0.5;
+    // Only award points if we can confirm recent reviews exist
+    let recencyScore = 0;
+    let recencyStatus = 'fail';
+    let recencyDetails = 'No reviews found';
+
+    if (reviews.hasRecentReviews === true) {
+      // Confirmed recent reviews (within 6 months)
+      recencyScore = weights.reviewRecency;
+      recencyStatus = 'pass';
+      recencyDetails = reviews.mostRecentDate ? `Most recent: ${reviews.mostRecentDate}` : 'Recent reviews found';
+    } else if (reviews.hasRecentReviews === false) {
+      // Reviews exist but are outdated (older than 6 months)
+      recencyScore = Math.round(weights.reviewRecency * 0.5);
+      recencyStatus = 'warning';
+      recencyDetails = reviews.mostRecentDate ? `Most recent: ${reviews.mostRecentDate} (outdated)` : 'Reviews may be outdated';
+    } else if (reviews.count > 0) {
+      // Reviews exist but no dates found - can't verify recency
+      recencyScore = 0;
+      recencyStatus = 'fail';
+      recencyDetails = 'Reviews found but no dates to verify recency';
+    }
+
     factors.push({
       name: 'Review Recency',
-      status: reviews.hasRecentReviews !== false ? 'pass' : 'warning',
+      status: recencyStatus,
       points: recencyScore,
       maxPoints: weights.reviewRecency,
-      details: reviews.mostRecentDate
-        ? `Most recent: ${reviews.mostRecentDate}`
-        : (reviews.hasRecentReviews === null ? 'No review dates found' : 'Reviews may be outdated')
+      details: recencyDetails
     });
     rawScore += recencyScore;
 
