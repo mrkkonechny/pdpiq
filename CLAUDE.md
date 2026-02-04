@@ -90,7 +90,7 @@ pdpiq/
 - Content Quality: 23% (descriptions, specs, features, FAQ)
 - Content Structure: 13% (semantic HTML, headings, accessibility)
 - Authority & Trust: 13% (reviews, ratings, certifications)
-- AI Discoverability: 10% (AI crawler access, content freshness, llms.txt)
+- AI Discoverability: 10% (AI crawler access, llms.txt)
 
 **Context Multipliers** adjust factor weights based on purchase type:
 - **Want** (emotional): boosts social proof, benefits, reviews; reduces specs
@@ -197,10 +197,8 @@ The AI Discoverability category (10% weight) evaluates whether AI systems (ChatG
 **Factor Weights:**
 | Factor | Points | Description |
 |--------|--------|-------------|
-| AI Crawler Access | 35 | robots.txt rules for major AI bots |
-| Content Freshness | 30 | Date signals and age scoring |
-| llms.txt Presence | 20 | /llms.txt and /llms-full.txt files |
-| Date Signals Present | 15 | Schema dates + visible date patterns |
+| AI Crawler Access | 65 | robots.txt rules for major AI bots |
+| llms.txt Presence | 35 | /llms.txt and /llms-full.txt files |
 
 **AI Crawlers Monitored:**
 - OpenAI: `GPTBot`, `ChatGPT-User`, `OAI-SearchBot`
@@ -210,25 +208,9 @@ The AI Discoverability category (10% weight) evaluates whether AI systems (ChatG
 - Apple: `Applebot-Extended`
 - Training: `CCBot` (Common Crawl)
 
-**Content Freshness Scoring:**
-| Age | Score |
-|-----|-------|
-| ≤7 days | 100% |
-| 8-30 days | 83% |
-| 31-90 days | 67% |
-| 91-180 days | 33% |
-| 181-365 days | 17% |
-| >365 days | 0% |
-
 **Network Fetches (via service-worker.js):**
 - `FETCH_ROBOTS_TXT` - Parses robots.txt for AI crawler rules
 - `FETCH_LLMS_TXT` - Checks for /llms.txt and /llms-full.txt
-- `FETCH_LAST_MODIFIED` - Gets Last-Modified header for freshness
-
-**Content Script Extraction (via content-script.js):**
-- `extractAIDiscoverabilitySignals()` - Main entry point
-- `extractSchemaDateSignals()` - Extracts dateModified/datePublished from schema
-- `extractVisibleDateSignals()` - Extracts visible dates from page text
 
 ### Inline Factor Recommendations
 Factors in the side panel have expandable recommendation tips:
@@ -319,10 +301,5 @@ Storage manager monitors Chrome's 10MB quota:
 
 ### URL Validation
 Network fetch functions validate inputs before processing:
-- `fetchRobotsTxt()`, `fetchLlmsTxt()`, `fetchLastModified()`, `verifyImageFormat()`
+- `fetchRobotsTxt()`, `fetchLlmsTxt()`, `verifyImageFormat()`
 - Return graceful error objects for invalid/missing URLs instead of throwing
-
-### Date Validation
-Freshness scoring rejects future dates:
-- Dates parsed in `scoreContentFreshness()` are validated against current time
-- Prevents malformed schema dates from giving false freshness scores
