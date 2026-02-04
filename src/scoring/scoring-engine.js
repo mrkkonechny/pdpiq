@@ -780,17 +780,26 @@ export class ScoringEngine {
     rawScore += recencyScore;
 
     // Review Depth (10 points)
-    const depthScore = reviews.depthScore ? Math.round((reviews.depthScore / 100) * weights.reviewDepth) : 0;
+    // Only award points if we have reviews to analyze
     const avgLength = reviews.averageReviewLength || 0;
     const reviewsAnalyzed = reviews.reviewsAnalyzed || 0;
+    let depthScore = 0;
+    let depthStatus = 'fail';
+    let depthDetails = 'No review text found to analyze';
+
+    if (reviewsAnalyzed > 0) {
+      // Calculate score based on average review length
+      depthScore = reviews.depthScore ? Math.round((reviews.depthScore / 100) * weights.reviewDepth) : 0;
+      depthStatus = avgLength >= 100 ? 'pass' : avgLength >= 50 ? 'warning' : 'fail';
+      depthDetails = `Avg ${avgLength} chars (${reviewsAnalyzed} review${reviewsAnalyzed !== 1 ? 's' : ''} analyzed)`;
+    }
+
     factors.push({
       name: 'Review Depth',
-      status: avgLength >= 100 ? 'pass' : avgLength >= 50 ? 'warning' : 'fail',
+      status: depthStatus,
       points: depthScore,
       maxPoints: weights.reviewDepth,
-      details: reviewsAnalyzed > 0
-        ? `Avg ${avgLength} chars (${reviewsAnalyzed} review${reviewsAnalyzed !== 1 ? 's' : ''} analyzed)`
-        : 'No review text found to analyze'
+      details: depthDetails
     });
     rawScore += depthScore;
 
