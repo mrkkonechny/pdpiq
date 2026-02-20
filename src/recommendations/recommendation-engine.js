@@ -35,6 +35,7 @@ export class RecommendationEngine {
     recommendations.push(...this.checkContentQualityIssues());
     recommendations.push(...this.checkContentStructureIssues());
     recommendations.push(...this.checkAuthorityTrustIssues());
+    recommendations.push(...this.checkAIDiscoverabilityIssues());
 
     // Sort by priority (lower = higher priority)
     return this.prioritizeRecommendations(recommendations);
@@ -212,8 +213,8 @@ export class RecommendationEngine {
       recs.push(this.createRecommendation('features-missing'));
     }
 
-    // FAQ content missing
-    if (faq.count < 3) {
+    // FAQ content missing (skip if count === 0 — faq-schema-and-content-missing already covers that case)
+    if (faq.count > 0 && faq.count < 3) {
       recs.push(this.createRecommendation('faq-content-missing'));
     }
 
@@ -357,6 +358,41 @@ export class RecommendationEngine {
           priority: calculatePriority('medium', 'low'),
           contextual: true
         });
+      }
+    }
+
+    return recs;
+  }
+
+  /**
+   * Check AI Discoverability issues
+   */
+  checkAIDiscoverabilityIssues() {
+    const recs = [];
+    const aiDisc = this.scoreResult.categoryScores?.aiDiscoverability;
+    if (!aiDisc) return recs;
+
+    for (const factor of aiDisc.factors || []) {
+      if (factor.name === 'AI Crawler Access' && factor.status === 'fail') {
+        recs.push(this.createRecommendation('ai-crawler-blocked'));
+      } else if (factor.name === 'AI Crawler Access' && factor.status === 'warning' && factor.points < factor.maxPoints * 0.5) {
+        recs.push(this.createRecommendation('ai-crawler-blocked'));
+      }
+
+      if (factor.name === 'Entity Consistency' && (factor.status === 'fail' || factor.status === 'warning')) {
+        recs.push(this.createRecommendation('entity-consistency-low'));
+      }
+
+      if (factor.name === 'Answer-Format Content' && factor.status === 'fail') {
+        recs.push(this.createRecommendation('answer-format-missing'));
+      }
+
+      if (factor.name === 'Product Identifiers' && factor.status === 'fail') {
+        recs.push(this.createRecommendation('product-identifiers-missing'));
+      }
+
+      if (factor.name === 'llms.txt Presence' && factor.status === 'fail') {
+        recs.push(this.createRecommendation('llms-txt-missing'));
       }
     }
 

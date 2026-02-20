@@ -37,9 +37,9 @@ export class ScoringEngine {
       structuredData: this.scoreStructuredData(extractedData.structuredData),
       protocolMeta: this.scoreProtocolMeta(extractedData.metaTags, imageVerification),
       contentQuality: this.scoreContentQuality(extractedData.contentQuality),
-      contentStructure: this.scoreContentStructure(extractedData.contentStructure),
+      contentStructure: this.scoreContentStructure(extractedData.contentStructure, extractedData.contentQuality?.textMetrics),
       authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals),
-      aiDiscoverability: this.scoreAIDiscoverability(extractedData.aiDiscoverability, aiDiscoverabilityData)
+      aiDiscoverability: this.scoreAIDiscoverability(extractedData, aiDiscoverabilityData)
     };
 
     // Calculate weighted total
@@ -73,16 +73,48 @@ export class ScoringEngine {
     const maxScore = 100;
     const weights = FACTOR_WEIGHTS.structuredData;
 
-    // Product Schema (30 points) - Critical
-    const hasProduct = data?.schemas?.product !== null;
-    const productScore = hasProduct ? weights.productSchema : 0;
+    // Product Schema (30 points) - Critical, graduated scoring
+    const product = data?.schemas?.product;
+    const hasProduct = product !== null;
+    let productScore = 0;
+    let productDetails = 'Missing Product schema markup';
+
+    if (hasProduct) {
+      const presentFields = [];
+      const missingFields = [];
+
+      // name: 6 pts
+      if (product.name) { productScore += 6; presentFields.push('name'); } else { missingFields.push('name'); }
+      // description: 5 pts
+      if (product.description) { productScore += 5; presentFields.push('description'); } else { missingFields.push('description'); }
+      // image: 5 pts
+      if (product.image) { productScore += 5; presentFields.push('image'); } else { missingFields.push('image'); }
+      // offers: 5 pts
+      if (product.hasOffer) { productScore += 5; presentFields.push('offers'); } else { missingFields.push('offers'); }
+      // brand: 3 pts
+      if (product.brand) { productScore += 3; presentFields.push('brand'); } else { missingFields.push('brand'); }
+      // identifiers (gtin/mpn/sku): 3 pts
+      if (product.gtin || product.mpn || product.sku) { productScore += 3; presentFields.push('identifiers'); } else { missingFields.push('identifiers'); }
+      // rating: 3 pts
+      if (product.hasRating) { productScore += 3; presentFields.push('rating'); } else { missingFields.push('rating'); }
+
+      // Scale to maxPoints (30)
+      productScore = Math.round((productScore / 30) * weights.productSchema);
+
+      productDetails = `Present: ${presentFields.join(', ')}`;
+      if (missingFields.length > 0) {
+        productDetails += ` | Missing: ${missingFields.join(', ')}`;
+      }
+    }
+
+    const productStatus = !hasProduct ? 'fail' : productScore >= weights.productSchema * 0.8 ? 'pass' : productScore >= weights.productSchema * 0.5 ? 'warning' : 'fail';
     factors.push({
       name: 'Product Schema',
-      status: hasProduct ? 'pass' : 'fail',
+      status: productStatus,
       points: productScore,
       maxPoints: weights.productSchema,
       critical: true,
-      details: hasProduct ? `Found: ${data.schemas.product.name || 'Product'}` : 'Missing Product schema markup'
+      details: productDetails
     });
     rawScore += productScore;
 
@@ -556,8 +588,10 @@ export class ScoringEngine {
 
   /**
    * Score Content Structure category (15% weight)
+   * @param {Object} data - Content structure data
+   * @param {Object} textMetrics - Text metrics from content quality extraction
    */
-  scoreContentStructure(data) {
+  scoreContentStructure(data, textMetrics = null) {
     const factors = [];
     let rawScore = 0;
     const maxScore = 100;
@@ -687,6 +721,27 @@ export class ScoringEngine {
       details: `${Math.round(altCoverage * 100)}% of images have alt text`
     });
     rawScore += allAltScore;
+
+    // Readability (8 points)
+    const readabilityRaw = textMetrics?.readabilityScore ?? null;
+    let readabilityPts = 0;
+    let readabilityStatus = 'fail';
+    let readabilityDetails = 'Unable to assess readability';
+
+    if (readabilityRaw !== null) {
+      readabilityPts = Math.round((readabilityRaw / 100) * weights.readability);
+      readabilityStatus = readabilityRaw >= 60 ? 'pass' : readabilityRaw >= 40 ? 'warning' : 'fail';
+      readabilityDetails = `Readability score: ${readabilityRaw}/100`;
+    }
+
+    factors.push({
+      name: 'Readability',
+      status: readabilityStatus,
+      points: readabilityPts,
+      maxPoints: weights.readability,
+      details: readabilityDetails
+    });
+    rawScore += readabilityPts;
 
     // JS Dependency (10 points)
     const jsScore = js.score ? Math.round((js.score / 100) * weights.jsDependency) : weights.jsDependency;
@@ -825,12 +880,12 @@ export class ScoringEngine {
     factors.push({
       name: 'Certifications',
       status: certs.count > 0 ? 'pass' : 'fail',
-      points: Math.min(weights.certifications * 1.6, certScore),
+      points: Math.min(weights.certifications, certScore),
       maxPoints: weights.certifications,
       contextual: true,
       details: certs.count > 0 ? `${certDetails}${certSource}` : 'No certifications found'
     });
-    rawScore += Math.min(weights.certifications * 1.6, certScore);
+    rawScore += Math.min(weights.certifications, certScore);
 
     // Awards (5 points)
     const awardScore = awards.count > 0 ? weights.awards : 0;
@@ -858,11 +913,11 @@ export class ScoringEngine {
   }
 
   /**
-   * Score AI Discoverability category (10% weight)
-   * @param {Object} pageData - AI discoverability data from content script
+   * Score AI Discoverability category (20% weight)
+   * @param {Object} extractedData - Full extracted data from content script
    * @param {Object} networkData - Network fetch data (robots.txt, llms.txt, Last-Modified)
    */
-  scoreAIDiscoverability(pageData, networkData) {
+  scoreAIDiscoverability(extractedData, networkData) {
     const factors = [];
     let rawScore = 0;
     const maxScore = 100;
@@ -870,12 +925,27 @@ export class ScoringEngine {
     const robots = networkData?.robots || {};
     const llms = networkData?.llms || {};
 
-    // AI Crawler Access (65 points)
+    // AI Crawler Access (30 points)
     const crawlerResult = this.scoreAICrawlerAccess(robots, weights.aiCrawlerAccess);
     factors.push(crawlerResult.factor);
     rawScore += crawlerResult.score;
 
-    // llms.txt Presence (35 points)
+    // Entity Consistency (25 points)
+    const entityResult = this.scoreEntityConsistency(extractedData, weights.entityConsistency);
+    factors.push(entityResult.factor);
+    rawScore += entityResult.score;
+
+    // Answer-Format Content (20 points)
+    const answerResult = this.scoreAnswerFormatContent(extractedData, weights.answerFormatContent);
+    factors.push(answerResult.factor);
+    rawScore += answerResult.score;
+
+    // Product Identifiers (15 points)
+    const identResult = this.scoreProductIdentifiers(extractedData, weights.productIdentifiers);
+    factors.push(identResult.factor);
+    rawScore += identResult.score;
+
+    // llms.txt Presence (10 points)
     const llmsResult = this.scoreLlmsTxt(llms, weights.llmsTxtPresence);
     factors.push(llmsResult.factor);
     rawScore += llmsResult.score;
@@ -886,6 +956,199 @@ export class ScoringEngine {
       factors,
       weight: CATEGORY_WEIGHTS.aiDiscoverability,
       categoryName: 'AI Discoverability'
+    };
+  }
+
+  /**
+   * Score entity consistency — how well the product name aligns across page elements
+   * @param {Object} extractedData - Full extracted data
+   * @param {number} maxPoints - Maximum points for this factor
+   */
+  scoreEntityConsistency(extractedData, maxPoints) {
+    const productName = extractedData.structuredData?.schemas?.product?.name;
+    if (!productName) {
+      return {
+        score: 0,
+        factor: {
+          name: 'Entity Consistency',
+          status: 'fail',
+          points: 0,
+          maxPoints,
+          details: 'No Product schema name to compare'
+        }
+      };
+    }
+
+    const nameLower = productName.toLowerCase().trim();
+    let matches = 0;
+    const locations = [];
+    const pointsPerLocation = maxPoints / 4;
+
+    // 1. H1 text
+    const h1Text = extractedData.contentStructure?.headings?.h1?.texts?.[0];
+    if (h1Text) {
+      const h1Lower = h1Text.toLowerCase().trim();
+      if (h1Lower === nameLower || h1Lower.includes(nameLower) || nameLower.includes(h1Lower)) {
+        matches++;
+        locations.push('H1');
+      }
+    }
+
+    // 2. og:title
+    const ogTitle = extractedData.metaTags?.openGraph?.title;
+    if (ogTitle) {
+      const ogLower = ogTitle.toLowerCase().trim();
+      if (ogLower === nameLower || ogLower.includes(nameLower) || nameLower.includes(ogLower)) {
+        matches++;
+        locations.push('og:title');
+      }
+    }
+
+    // 3. Meta description (contains check)
+    const metaDesc = extractedData.metaTags?.standard?.description;
+    if (metaDesc) {
+      const metaLower = metaDesc.toLowerCase();
+      // Check if meta description contains the product name or a significant portion of it
+      const nameWords = nameLower.split(/\s+/).filter(w => w.length > 2);
+      const matchedWords = nameWords.filter(w => metaLower.includes(w));
+      if (metaLower.includes(nameLower) || matchedWords.length >= Math.ceil(nameWords.length * 0.6)) {
+        matches++;
+        locations.push('meta desc');
+      }
+    }
+
+    // 4. Page title (document.title via og:title or standard title)
+    const pageTitle = extractedData.pageInfo?.title;
+    if (pageTitle) {
+      const titleLower = pageTitle.toLowerCase().trim();
+      if (titleLower === nameLower || titleLower.includes(nameLower) || nameLower.includes(titleLower)) {
+        matches++;
+        locations.push('title');
+      }
+    }
+
+    const score = Math.round(matches * pointsPerLocation);
+    const status = matches >= 3 ? 'pass' : matches >= 2 ? 'warning' : 'fail';
+    const details = matches > 0
+      ? `Name aligned in ${matches}/4 locations (${locations.join(', ')})`
+      : 'Product name not aligned across page elements';
+
+    return {
+      score,
+      factor: {
+        name: 'Entity Consistency',
+        status,
+        points: score,
+        maxPoints,
+        details
+      }
+    };
+  }
+
+  /**
+   * Score answer-format content — "best for" statements, comparisons, how-to, use cases
+   * @param {Object} extractedData - Full extracted data
+   * @param {number} maxPoints - Maximum points for this factor
+   */
+  scoreAnswerFormatContent(extractedData, maxPoints) {
+    const answerFormat = extractedData.aiDiscoverability?.answerFormat;
+    if (!answerFormat) {
+      return {
+        score: 0,
+        factor: {
+          name: 'Answer-Format Content',
+          status: 'fail',
+          points: 0,
+          maxPoints,
+          details: 'No answer-format content detected'
+        }
+      };
+    }
+
+    let signals = 0;
+    const found = [];
+
+    if (answerFormat.bestForCount > 0) {
+      signals++;
+      found.push(`${answerFormat.bestForCount} "best for" statement${answerFormat.bestForCount !== 1 ? 's' : ''}`);
+    }
+    if (answerFormat.hasComparison) {
+      signals++;
+      found.push('comparison content');
+    }
+    if (answerFormat.hasHowTo) {
+      signals++;
+      found.push('how-to content');
+    }
+    if (answerFormat.useCaseCount > 0) {
+      signals++;
+      found.push(`${answerFormat.useCaseCount} use case${answerFormat.useCaseCount !== 1 ? 's' : ''}`);
+    }
+
+    const score = Math.round((signals / 4) * maxPoints);
+    const status = signals >= 3 ? 'pass' : signals >= 1 ? 'warning' : 'fail';
+    const details = found.length > 0
+      ? `Found: ${found.join(', ')}`
+      : 'No answer-format content (add "best for", comparisons, how-to, or use cases)';
+
+    return {
+      score,
+      factor: {
+        name: 'Answer-Format Content',
+        status,
+        points: score,
+        maxPoints,
+        details
+      }
+    };
+  }
+
+  /**
+   * Score product identifiers — GTIN/UPC/MPN presence in Product schema
+   * @param {Object} extractedData - Full extracted data
+   * @param {number} maxPoints - Maximum points for this factor
+   */
+  scoreProductIdentifiers(extractedData, maxPoints) {
+    const product = extractedData.structuredData?.schemas?.product;
+    if (!product) {
+      return {
+        score: 0,
+        factor: {
+          name: 'Product Identifiers',
+          status: 'fail',
+          points: 0,
+          maxPoints,
+          details: 'No Product schema found'
+        }
+      };
+    }
+
+    const identifiers = [];
+    if (product.gtin) identifiers.push('GTIN');
+    if (product.mpn) identifiers.push('MPN');
+    if (product.sku) identifiers.push('SKU');
+
+    let score = 0;
+    if (identifiers.length >= 2) {
+      score = maxPoints;
+    } else if (identifiers.length === 1) {
+      score = Math.round(maxPoints * 0.5);
+    }
+
+    const status = identifiers.length >= 2 ? 'pass' : identifiers.length === 1 ? 'warning' : 'fail';
+    const details = identifiers.length > 0
+      ? `Found: ${identifiers.join(', ')}`
+      : 'No GTIN, MPN, or SKU in Product schema';
+
+    return {
+      score,
+      factor: {
+        name: 'Product Identifiers',
+        status,
+        points: score,
+        maxPoints,
+        details
+      }
     };
   }
 

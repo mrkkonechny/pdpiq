@@ -289,6 +289,18 @@ function categorizeSchemas(data, schemas) {
           };
         }
       }
+      // Extract ImageObject items nested in Product.image
+      if (item.image) {
+        const images = Array.isArray(item.image) ? item.image : [item.image];
+        images.forEach(img => {
+          if (img && typeof img === 'object' && (img['@type'] === 'ImageObject' || img.url || img.contentUrl)) {
+            const imgUrl = img.url || img.contentUrl;
+            if (imgUrl) {
+              schemas.images.push({ url: imgUrl, caption: img.caption || null, width: img.width || null, height: img.height || null, source: 'product-nested' });
+            }
+          }
+        });
+      }
       // Extract nested brand/organization schemas
       if (!schemas.brand && item.brand) {
         const brandObj = Array.isArray(item.brand) ? item.brand[0] : item.brand;
@@ -327,7 +339,7 @@ function categorizeSchemas(data, schemas) {
     if (type === 'breadcrumblist') {
       schemas.breadcrumb = {
         itemCount: (item.itemListElement || []).length,
-        items: (item.itemListElement || []).map(el => ({ position: el.position, name: el.name }))
+        items: (item.itemListElement || []).map(el => ({ position: el.position, name: el.name || (el.item && el.item.name) || null }))
       };
     }
     if (type === 'organization') {
@@ -362,6 +374,8 @@ function extractBrandName(brandData) {
 }
 
 function categorizeMicrodataSchemas(microdataItems, schemas) {
+  const standaloneListItems = [];
+
   microdataItems.forEach(item => {
     if (!item.type) return;
     const type = item.type.replace(/^https?:\/\/schema\.org\//, '').toLowerCase();
@@ -502,7 +516,27 @@ function categorizeMicrodataSchemas(microdataItems, schemas) {
         source: 'microdata'
       });
     }
+
+    // Collect standalone ListItem for breadcrumb fallback assembly
+    if (type === 'listitem') {
+      standaloneListItems.push({
+        position: parseInt(item.properties.position, 10) || null,
+        name: item.properties.name || item.properties.item?.properties?.name || null,
+        url: item.properties.item || null,
+        source: 'microdata'
+      });
+    }
   });
+
+  // Assemble standalone ListItem elements into breadcrumb if no BreadcrumbList was found
+  if (!schemas.breadcrumb && standaloneListItems.length > 0) {
+    standaloneListItems.sort((a, b) => (a.position || 0) - (b.position || 0));
+    schemas.breadcrumb = {
+      itemCount: standaloneListItems.length,
+      items: standaloneListItems,
+      source: 'microdata'
+    };
+  }
 }
 
 // ==========================================
@@ -947,6 +981,8 @@ function extractFeatures() {
 }
 
 function extractFeaturesFromContainer(container, features) {
+  // Skip containers that are part of navigation/header/footer
+  if (container.closest('nav, header, footer, [role="navigation"]')) return;
   container.querySelectorAll('li').forEach(li => {
     const text = li.textContent.trim().replace(/\s+/g, ' ');
     if (text.length > 15 && text.length < 500) {
@@ -1081,8 +1117,7 @@ function extractProductDetails(text) {
   // Extract dimensions with actual matched text
   const dimensionPatterns = [
     /(\d+(?:\.\d+)?\s*(?:"|in|inch|inches|cm|mm|m|ft|feet)\s*(?:x|×)\s*\d+(?:\.\d+)?\s*(?:"|in|inch|inches|cm|mm|m|ft|feet)(?:\s*(?:x|×)\s*\d+(?:\.\d+)?\s*(?:"|in|inch|inches|cm|mm|m|ft|feet))?)/i,
-    /dimensions?[:\s]+([^.\n]{5,50})/i,
-    /size[:\s]+([^.\n]{5,50})/i,
+    /dimensions?[:\s]+([^.\r\n]{5,50})/i,
     /((?:length|width|height|depth)[:\s]+\d+(?:\.\d+)?\s*(?:"|in|inch|cm|mm|m|ft))/i
   ];
   for (const pattern of dimensionPatterns) {
@@ -1096,7 +1131,7 @@ function extractProductDetails(text) {
 
   // Extract materials with actual matched text
   const materialPatterns = [
-    /(?:made (?:of|from|with)|material[:\s]+|constructed (?:of|from))([^.,\n]{3,50})/i,
+    /(?:made (?:of|from|with)|material[:\s]+|constructed (?:of|from))([^.,\r\n]{10,50})/i,
     /\b((?:100%\s+)?(?:cotton|polyester|leather|genuine leather|faux leather|metal|aluminum|aluminium|steel|stainless steel|plastic|wood|wooden|bamboo|ceramic|glass|silicone|nylon|rubber|canvas|suede|velvet|linen|silk|wool|cashmere|denim|mesh|foam|titanium|copper|brass|iron|oak|maple|walnut|pine|mahogany|teak|acrylic|polycarbonate|abs|pvc|eva|neoprene|lycra|spandex|microfiber|fleece|polyurethane|pu leather))\b/i
   ];
   for (const pattern of materialPatterns) {
@@ -1110,13 +1145,13 @@ function extractProductDetails(text) {
 
   // Extract care instructions with actual matched text
   const carePatterns = [
-    /(machine wash[^.]{0,30})/i,
-    /(hand wash[^.]{0,30})/i,
-    /(dry clean[^.]{0,30})/i,
-    /care instructions?[:\s]+([^.\n]{5,60})/i,
-    /(wash(?:able)? (?:in|on|with)[^.]{0,30})/i,
-    /(do not (?:wash|bleach|iron|tumble dry)[^.]{0,30})/i,
-    /(wipe clean[^.]{0,30})/i
+    /(machine wash[^.\r\n]{0,30})/i,
+    /(hand wash[^.\r\n]{0,30})/i,
+    /(dry clean[^.\r\n]{0,30})/i,
+    /care instructions?[:\s]+([^.\r\n]{5,60})/i,
+    /(wash(?:able)? (?:in|on|with)[^.\r\n]{0,30})/i,
+    /(do not (?:wash|bleach|iron|tumble dry)[^.\r\n]{0,30})/i,
+    /(wipe clean[^.\r\n]{0,30})/i
   ];
   for (const pattern of carePatterns) {
     const match = text.match(pattern);
@@ -1131,9 +1166,9 @@ function extractProductDetails(text) {
   const warrantyPatterns = [
     /(\d+[\s-]*(?:year|month|day|yr|mo)[\s-]*(?:limited\s+)?(?:warranty|guarantee))/i,
     /((?:limited\s+)?(?:lifetime|full)\s+(?:warranty|guarantee))/i,
-    /(?:warranty|guarantee)[:\s]+([^.\n]{5,50})/i,
-    /(warranted? (?:for|against)[^.]{0,40})/i,
-    /((?:manufacturer'?s?|factory)\s+(?:warranty|guarantee)[^.]{0,30})/i
+    /(?:warranty|guarantee)[:\s]+([^.\r\n]{5,50})/i,
+    /(warranted? (?:for|against)[^.\r\n]{0,40})/i,
+    /((?:manufacturer'?s?|factory)\s+(?:warranty|guarantee)[^.\r\n]{0,30})/i
   ];
   // Negative patterns to avoid false positives
   const warrantyNegative = /no warranty|without warranty|warranty (?:not|does not)|void(?:s|ed)? (?:the\s+)?warranty/i;
@@ -1151,11 +1186,11 @@ function extractProductDetails(text) {
 
   // Extract compatibility with actual matched text
   const compatPatterns = [
-    /compatible (?:with|for)[:\s]*([^.\n]{5,80})/i,
-    /works with[:\s]*([^.\n]{5,80})/i,
-    /fits[:\s]*([^.\n]{5,80})/i,
-    /designed for[:\s]*([^.\n]{5,80})/i,
-    /(?:supports?|for use with)[:\s]*([^.\n]{5,80})/i
+    /compatible (?:with|for)[:\s]*([^.\r\n]{5,80})/i,
+    /works with[:\s]*([^.\r\n]{5,80})/i,
+    /fits[:\s]*([^.\r\n]{5,80})/i,
+    /designed for[:\s]*([^.\r\n]{5,80})/i,
+    /(?:supports?|for use with)[:\s]*([^.\r\n]{5,80})/i
   ];
   for (const pattern of compatPatterns) {
     const match = text.match(pattern);
@@ -1959,8 +1994,8 @@ function detectExpertAttribution() {
 
 function extractSocialProof() {
   const text = document.body.innerText.toLowerCase();
-  const soldMatch = text.match(/(\d[\d,]+)\s*(?:sold|purchased)/i);
-  const customerMatch = text.match(/(\d[\d,]+)\s*(?:happy\s+)?customers?/i);
+  const soldMatch = text.match(/\b(\d[\d,]+)[ \t]*(?:sold|purchased)\b/i);
+  const customerMatch = text.match(/\b(\d{3,}[\d,]*)[ \t]*(?:happy[ \t]+)?customers?\b/i);
 
   return {
     soldCount: soldMatch ? parseInt(soldMatch[1].replace(/,/g, ''), 10) : null,
@@ -2007,8 +2042,8 @@ function extractAnswerFormatContent() {
   // Check for comparison content: "vs." or "versus" or "compared to"
   const hasComparison = /\b(?:vs\.?|versus|compared\s+to)\b/i.test(bodyText);
 
-  // Check for "how to" patterns near product context
-  const hasHowTo = /\bhow\s+to\b/i.test(bodyText);
+  // Check for "how to" patterns near product context (exclude size/ordering pages)
+  const hasHowTo = /\bhow\s+to\s+(?!(?:measure|size|fit|order|buy|care|return|shop|checkout|wash|clean)\b)/i.test(bodyText);
 
   // Count use case descriptions ("great for outdoor", "perfect for small spaces", etc.)
   const useCaseMatches = bodyText.match(/\b(?:best|ideal|perfect|great|designed|suitable|recommended)\s+for\s+[a-z][a-z\s]{3,30}/gi) || [];
