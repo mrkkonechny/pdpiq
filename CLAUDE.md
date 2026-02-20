@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 ## Project Overview
 
-pdpIQ (Product Description Page IQ) is a Chrome extension by **Tribbute** that analyzes eCommerce Product Detail Pages (PDPs) for AI citation readiness. It scores pages across ~70 factors in 6 categories and provides actionable recommendations.
+pdpIQ (Product Description Page IQ) is a Chrome extension by **Tribbute** that analyzes eCommerce Product Detail Pages (PDPs) for AI citation readiness. It scores pages across ~75 factors in 6 categories and provides actionable recommendations.
 
 ## Tech Stack
 
@@ -111,23 +111,42 @@ The `categorizeSchemas()` function handles three JSON-LD formats:
 #### Schema Types Extracted
 
 Schema extraction supports both **JSON-LD** and **Microdata** formats for:
-- Product (including nested offers, ratings, reviews)
+- Product **and ProductGroup** (including nested offers, ratings, reviews)
 - Offer (standalone and nested)
-- AggregateRating (standalone and nested)
+- AggregateRating (standalone, nested, and `@id`-referenced)
 - Review (standalone and nested)
 - FAQPage
-- BreadcrumbList
+- BreadcrumbList (and standalone ListItem fallback assembly)
 - Organization (standalone and nested in Product.manufacturer)
 - Brand (standalone and nested in Product.brand)
-- ImageObject
+- ImageObject (standalone, microdata, and nested in Product.image)
+
+#### Shopify / ProductGroup Patterns
+
+Shopify stores use `ProductGroup` (not `Product`) as the top-level JSON-LD type. This affects several extraction paths:
+
+- **`categorizeSchemas()`** and **`extractBrandSignals()`** both treat `type === 'productgroup'` identically to `type === 'product'`.
+- **GTIN/MPN** may not be present on the `ProductGroup` itself — they live on individual `hasVariant[]` items. The extractor loops `hasVariant` and picks the first non-null value.
+- **`aggregateRating`** is often an `@id` reference (`"aggregateRating": {"@id": "#reviews"}`) pointing to a standalone `AggregateRating` node elsewhere in the same `@graph`. Both `categorizeSchemas()` and `extractReviewSignals()` build an `idIndex` keyed by `@id` and resolve these references before reading `ratingValue`.
+- **`sku`** falls back to `productGroupID` for `ProductGroup` items.
+
+#### `@id` Reference Resolution
+
+`categorizeSchemas()` and `extractReviewSignals()` build a per-block `idIndex`:
+```javascript
+const idIndex = {};
+items.forEach(item => { if (item && item['@id']) idIndex[item['@id']] = item; });
+```
+Any property whose value is `{"@id": "#something"}` is resolved via `idIndex` before reading. This handles Shopify's common pattern of separating `AggregateRating` from the `ProductGroup`.
 
 #### Key Functions in `content-script.js`
 
 - `extractStructuredData()` - Main entry point
-- `categorizeSchemas()` - Processes JSON-LD into schema objects
-- `categorizeMicrodataSchemas()` - Processes microdata into schema objects
+- `categorizeSchemas()` - Processes JSON-LD into schema objects (handles `@id` index, ProductGroup, hasVariant GTIN, nested ImageObject)
+- `categorizeMicrodataSchemas()` - Processes microdata into schema objects (assembles standalone ListItem breadcrumbs)
 - `extractBrandName()` - Extracts brand/org name from various formats (string, object, array)
 - `extractImageUrl()` - Extracts image URL from various formats
+- `isCanonicalForCurrentUrl()` - Detects valid parent canonical URLs (e.g. Shopify collection→product)
 
 #### Brand/Manufacturer Handling
 
@@ -172,14 +191,44 @@ Certification and warranty extraction uses negative pattern matching to avoid fa
 - "FDA Approved" won't match "Not FDA approved" or "pending FDA approval"
 - "warranty" won't match "no warranty" or "void the warranty"
 
-All regex extractors now capture the actual matched text for display in factor details (e.g., "12-month warranty" instead of just "Warranty found").
+All regex extractors capture the actual matched text for display in factor details (e.g., "12-month warranty" instead of just "Warranty found").
+
+#### Product Detail Regex Patterns — Known Pitfalls
+
+`extractProductDetails()` runs against `document.body.innerText`, which on Windows or mixed-platform servers may contain `\r\n` line endings. All character classes that anchor to line endings use `[^.\r\n]` (not `[^.\n]`) to prevent cross-line captures.
+
+Other guard rails:
+- `size[:\s]+` dimension pattern was removed — "size" is too generic (matches size charts, dropdowns).
+- Material patterns require at least 10 characters after the keyword to filter single-word false positives.
+- `customerCount` regex requires ≥3 digits and uses `[ \t]*` (not `\s*`) to prevent cross-line matches between part numbers and "customers" text.
+- `hasHowTo` excludes "how to measure/size/fit/order/buy/care/return/shop/checkout/wash/clean" to avoid false positives from size guides.
+
+#### Certifications Supported
+
+DOM regex patterns (with negative-context guards) cover:
+FDA, CE, UL, Energy Star, ISO, USDA Organic, Non-GMO, Fair Trade, Cruelty Free, Vegan, Gluten Free, Kosher, Halal, FSC, GOTS, OEKO-TEX, B Corp, ETL, RoHS, FCC, **NFPA, ASTM, OSHA, ANSI, CSA, FMVSS, EN ISO**
+
+Schema fallback also checks `Product.certification` and `additionalProperty` arrays.
+
+#### Canonical URL Handling
+
+`extractMetaTags()` computes two flags on the `canonical` object:
+- `matchesCurrentUrl` — exact normalised match
+- `isProductCanonical` — `isCanonicalForCurrentUrl()` returns `true` when the current path ends with the canonical path (covers Shopify `/collections/X/products/Y` → `/products/Y`)
+
+`scoreProtocolMeta()` treats both flags as passing (`canonicalIsValid = matchesCurrentUrl || isProductCanonical`) so legitimate Shopify canonical redirects don't generate false warnings.
+
+#### Features Extractor — Navigation Guard
+
+`extractFeaturesFromContainer()` skips any container (and its `<li>` children) that is inside `nav`, `header`, `footer`, or `[role="navigation"]`. Without this guard, Shopify header menus were being captured as feature bullet points.
 
 ### Extraction Source Tracking
 
 Most extractors return a `source` field indicating where data came from:
 - `'dom'` - Found via CSS selectors or DOM traversal
 - `'schema'` - Found in JSON-LD or microdata
-- `'product-nested'` - Found nested within Product schema (e.g., brand, manufacturer)
+- `'product-nested'` - Found nested within Product/ProductGroup schema (e.g., brand, manufacturer, image)
+- `'microdata'` - Found via microdata item parsing
 
 This helps with debugging and provides transparency in the scoring UI.
 
@@ -192,7 +241,7 @@ These issues have outsized impact and are flagged prominently:
 
 ### AI Discoverability Category
 
-The AI Discoverability category (10% weight) evaluates whether AI systems (ChatGPT, Perplexity, Claude, Gemini) can discover and cite product content.
+The AI Discoverability category (20% weight) evaluates whether AI systems (ChatGPT, Perplexity, Claude, Gemini) can discover and cite product content.
 
 **Factor Weights:**
 | Factor | Points | Description |
@@ -214,6 +263,22 @@ The AI Discoverability category (10% weight) evaluates whether AI systems (ChatG
 **Network Fetches (via service-worker.js):**
 - `FETCH_ROBOTS_TXT` - Parses robots.txt for AI crawler rules
 - `FETCH_LLMS_TXT` - Checks for /llms.txt and /llms-full.txt
+
+### Content Quality Scoring — Notes
+
+`scoreContentQuality(data, aiSignals = null)` accepts a second argument — the `aiDiscoverability` extraction object. This is needed to score:
+- **Comparison Content** (5 pts, contextual) — reads `aiSignals.answerFormat.hasComparison`; context multiplier applies (0.6× want, 1.4× need)
+- **Specification Detail** (5 pts, contextual) — reads `specs.items` to compute the fraction with `hasUnit`; ≥30% = pass, >0% = warning
+
+`calculateScore()` passes `extractedData.aiDiscoverability` automatically — no change needed at the call site.
+
+### JS-Rendered Page Warning
+
+When `contentStructure.jsDependency.dependencyLevel === 'high'` (React/Vue SPA), `calculateScore()` sets `jsDependent: true` on the result object. `sidepanel.js` toggles the `#jsDependencyWarning` banner visible so merchants know scores may be understated for dynamically-rendered pages.
+
+### Duplicate Recommendation Guard
+
+`checkContentQualityIssues()` only emits `faq-content-missing` when `faq.count > 0 && faq.count < 3`. When `faq.count === 0`, `checkStructuredDataIssues()` already emits `faq-schema-and-content-missing`, which covers the same issue — emitting both would show duplicate recommendations.
 
 ### Inline Factor Recommendations
 Factors in the side panel have expandable recommendation tips:
