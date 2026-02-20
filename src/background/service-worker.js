@@ -20,9 +20,19 @@ const AI_CRAWLERS = {
   // Perplexity
   'perplexitybot': { company: 'Perplexity', product: 'Perplexity AI search' },
   // Google
-  'google-extended': { company: 'Google', product: 'Gemini/Bard training' },
+  'google-extended': { company: 'Google', product: 'Gemini AI training' },
   // Apple
-  'applebot-extended': { company: 'Apple', product: 'Apple AI features' },
+  'applebot-extended': { company: 'Apple', product: 'Apple Intelligence' },
+  // Meta
+  'meta-externalagent': { company: 'Meta', product: 'Meta AI assistant' },
+  // ByteDance
+  'bytespider': { company: 'ByteDance', product: 'TikTok search / Doubao AI' },
+  // Cohere
+  'cohere-ai': { company: 'Cohere', product: 'Cohere RAG / enterprise AI' },
+  // You.com
+  'youbot': { company: 'You.com', product: 'You.com AI search' },
+  // Amazon
+  'amazonbot': { company: 'Amazon', product: 'Amazon AI / Alexa' },
   // Training data
   'ccbot': { company: 'Common Crawl', product: 'Training data collection' }
 };
@@ -33,11 +43,18 @@ const AI_CRAWLERS = {
 const MAJOR_AI_CRAWLERS = [
   'gptbot',
   'chatgpt-user',
+  'oai-searchbot',
   'claudebot',
   'claude-web',
   'anthropic-ai',
   'perplexitybot',
-  'google-extended'
+  'google-extended',
+  'applebot-extended',
+  'meta-externalagent',
+  'bytespider',
+  'cohere-ai',
+  'youbot',
+  'amazonbot'
 ];
 
 // Message routing between content script and side panel
@@ -410,7 +427,7 @@ function parseRobotsTxt(content) {
     const rules = crawlerRules[crawlerLower];
 
     // Check if explicitly blocked
-    if (rules && rules.disallow.some(path => path === '/' || path === '/*' || path === '')) {
+    if (rules && rules.disallow.some(path => path === '/' || path === '/*')) {
       // Check if there's an allow rule that might override
       if (!rules.allow.some(path => path === '/' || path === '/*')) {
         blockedCrawlers.push(crawler);

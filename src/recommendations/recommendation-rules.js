@@ -307,6 +307,33 @@ export const RECOMMENDATION_TEMPLATES = {
     effort: 'low',
     category: 'aiDiscoverability',
     implementation: 'Create /llms.txt at your domain root with site description, key content areas, and AI-friendly guidelines. Optionally create /llms-full.txt with more detailed instructions. See llmstxt.org for the specification.'
+  },
+
+  'entity-consistency-low': {
+    title: 'Align product name across page elements',
+    description: 'The product name in your schema markup doesn\'t consistently match the H1, og:title, and meta description. LLMs cross-reference these elements to verify entity identity.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'aiDiscoverability',
+    implementation: 'Ensure the Product schema name, H1 heading, og:title, page title, and meta description all reference the same product name consistently. Minor variations (e.g., abbreviations) are acceptable but the core product name should be identical.'
+  },
+
+  'answer-format-missing': {
+    title: 'Add AI-citable answer-format content',
+    description: 'Your page lacks "best for" statements, comparison content, how-to guidance, or use case descriptions that LLMs extract when answering user questions.',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'aiDiscoverability',
+    implementation: 'Add content that directly answers common questions: "Best for [use case]" statements, "vs." comparison sections, "How to [use/install/set up]" guides, and specific use case descriptions (e.g., "Perfect for small apartments"). These patterns are what LLMs cite in responses.'
+  },
+
+  'product-identifiers-missing': {
+    title: 'Add product identifiers (GTIN/UPC/MPN) to schema',
+    description: 'Your Product schema lacks standard identifiers (GTIN, MPN, SKU). These help LLMs disambiguate products and match them to purchase queries.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'aiDiscoverability',
+    implementation: 'Add at least two of: gtin (UPC/EAN/ISBN barcode number), mpn (manufacturer part number), or sku to your Product schema markup. These identifiers help AI systems confidently identify and recommend specific products.'
   }
 };
 
