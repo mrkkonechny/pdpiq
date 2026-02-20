@@ -85,12 +85,12 @@ pdpiq/
 ### Scoring System
 
 **Category Weights** (total = 100%):
-- Structured Data: 23% (JSON-LD Product/Offer schemas critical)
-- Protocol & Meta: 18% (og:image format critical - WebP fails in LLM chats)
-- Content Quality: 23% (descriptions, specs, features, FAQ)
-- Content Structure: 13% (semantic HTML, headings, accessibility)
+- Structured Data: 20% (JSON-LD Product/Offer schemas critical)
+- Protocol & Meta: 15% (og:image format critical - WebP fails in LLM chats)
+- Content Quality: 20% (descriptions, specs, features, FAQ)
+- Content Structure: 12% (semantic HTML, headings, accessibility)
 - Authority & Trust: 13% (reviews, ratings, certifications)
-- AI Discoverability: 10% (AI crawler access, llms.txt)
+- AI Discoverability: 20% (AI crawler access, entity consistency, answer-format content, product identifiers, llms.txt)
 
 **Context Multipliers** adjust factor weights based on purchase type:
 - **Want** (emotional): boosts social proof, benefits, reviews; reduces specs
@@ -197,8 +197,11 @@ The AI Discoverability category (10% weight) evaluates whether AI systems (ChatG
 **Factor Weights:**
 | Factor | Points | Description |
 |--------|--------|-------------|
-| AI Crawler Access | 65 | robots.txt rules for major AI bots |
-| llms.txt Presence | 35 | /llms.txt and /llms-full.txt files |
+| AI Crawler Access | 30 | robots.txt rules for major AI bots |
+| Entity Consistency | 25 | Product name alignment across schema, H1, og:title, meta description |
+| Answer-Format Content | 20 | "Best for" statements, comparison, how-to, use case content |
+| Product Identifiers | 15 | GTIN/UPC/MPN presence in Product schema |
+| llms.txt Presence | 10 | /llms.txt and /llms-full.txt files |
 
 **AI Crawlers Monitored:**
 - OpenAI: `GPTBot`, `ChatGPT-User`, `OAI-SearchBot`
@@ -266,6 +269,22 @@ Edit `src/scoring/weights.js`:
 - Markup: `src/sidepanel/sidepanel.html`
 - Styles: `src/sidepanel/sidepanel.css`
 - Logic: `src/sidepanel/sidepanel.js`
+
+### Icons
+All icons are inline SVGs — no emoji. Do not revert to emoji.
+
+**Context selector icons** (`.context-icon`, 40×40 px) — two fixed colours each: a background disc and a foreground shape.
+| Button | Shape | Fill | Background |
+|--------|-------|------|------------|
+| Want | Heart | `#db2777` | `#fce7f3` |
+| Need | Lightning bolt | `#1d4ed8` | `#dbeafe` |
+| Hybrid | Yin-yang | `#7c3aed` | `#ede9fe` |
+
+**Bottom nav icons** (`.nav-icon`, 20×20 px) — use `currentColor` so they inherit active/inactive colour from `.nav-btn` CSS automatically. Secondary elements use `opacity="0.35"` on the same `currentColor`.
+| Button | Shape | Primary element | Secondary element |
+|--------|-------|-----------------|-------------------|
+| Results | Bar chart | Tall centre bar | Flanking bars (35%) |
+| History | Clock | Hands | Face ring (35%) |
 
 ## Performance & Security Patterns
 

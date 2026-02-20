@@ -144,8 +144,11 @@ body {
 }
 
 .context-icon {
-  font-size: 24px;
+  width: 40px;
+  height: 40px;
   margin-bottom: var(--space-xs);
+  display: block;
+  flex-shrink: 0;
 }
 
 .context-btn strong {
@@ -675,8 +678,11 @@ body {
 }
 
 .nav-icon {
-  font-size: 20px;
+  width: 20px;
+  height: 20px;
   margin-bottom: 2px;
+  display: block;
+  flex-shrink: 0;
 }
 
 .nav-label {

@@ -23,17 +23,32 @@
       <p class="context-description">How would a consumer typically approach this product?</p>
       <div class="context-options">
         <button class="context-btn" data-context="want">
-          <span class="context-icon">💝</span>
+          <!-- Heart: emotional / lifestyle-driven -->
+          <svg class="context-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="18" cy="18" r="18" fill="#fce7f3"/>
+            <path d="M18 26C17 25 9 20 9 14.5C9 11.5 11.3 9 14 9C15.9 9 17.2 10 18 11.5C18.8 10 20.1 9 22 9C24.7 9 27 11.5 27 14.5C27 20 19 25 18 26Z" fill="#db2777"/>
+          </svg>
           <strong>Want</strong>
           <span class="context-hint">Emotional, lifestyle-driven</span>
         </button>
         <button class="context-btn" data-context="need">
-          <span class="context-icon">🔧</span>
+          <!-- Lightning bolt: functional / spec-driven -->
+          <svg class="context-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="18" cy="18" r="18" fill="#dbeafe"/>
+            <path d="M21 8L13 20H19L15 28L25 16H19L21 8Z" fill="#1d4ed8"/>
+          </svg>
           <strong>Need</strong>
           <span class="context-hint">Functional, spec-driven</span>
         </button>
         <button class="context-btn" data-context="hybrid">
-          <span class="context-icon">⚖️</span>
+          <!-- Yin-yang: balanced consideration -->
+          <svg class="context-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="18" cy="18" r="18" fill="#f3f4f6"/>
+            <circle cx="18" cy="18" r="10" fill="#ede9fe"/>
+            <path d="M18 8 A10 10 0 0 1 18 28 A5 5 0 0 0 18 18 A5 5 0 0 1 18 8 Z" fill="#7c3aed"/>
+            <circle cx="18" cy="13" r="2.5" fill="#ede9fe"/>
+            <circle cx="18" cy="23" r="2.5" fill="#7c3aed"/>
+          </svg>
           <strong>Hybrid</strong>
           <span class="context-hint">Balanced consideration</span>
         </button>
@@ -111,11 +126,20 @@
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
       <button class="nav-btn active" data-tab="results">
-        <span class="nav-icon">📊</span>
+        <!-- Bar chart -->
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="2" y="11" width="4" height="7" rx="1" fill="currentColor" opacity="0.35"/>
+          <rect x="8" y="6" width="4" height="12" rx="1" fill="currentColor"/>
+          <rect x="14" y="3" width="4" height="15" rx="1" fill="currentColor" opacity="0.35"/>
+        </svg>
         <span class="nav-label">Results</span>
       </button>
       <button class="nav-btn" data-tab="history">
-        <span class="nav-icon">📋</span>
+        <!-- Clock -->
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5" opacity="0.35"/>
+          <path d="M10 6V10.5L13 12.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
         <span class="nav-label">History</span>
       </button>
     </nav>
