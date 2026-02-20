@@ -36,7 +36,7 @@ export class ScoringEngine {
     const categoryScores = {
       structuredData: this.scoreStructuredData(extractedData.structuredData),
       protocolMeta: this.scoreProtocolMeta(extractedData.metaTags, imageVerification),
-      contentQuality: this.scoreContentQuality(extractedData.contentQuality),
+      contentQuality: this.scoreContentQuality(extractedData.contentQuality, extractedData.aiDiscoverability),
       contentStructure: this.scoreContentStructure(extractedData.contentStructure, extractedData.contentQuality?.textMetrics),
       authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals),
       aiDiscoverability: this.scoreAIDiscoverability(extractedData, aiDiscoverabilityData)
@@ -53,6 +53,8 @@ export class ScoringEngine {
     );
 
     const grade = getGrade(totalScore);
+    // Flag JS-rendered pages so the UI can warn that scores may be understated
+    const jsDependent = extractedData.contentStructure?.jsDependency?.dependencyLevel === 'high';
 
     return {
       totalScore,
@@ -60,6 +62,7 @@ export class ScoringEngine {
       gradeDescription: getGradeDescription(grade),
       context: this.context,
       categoryScores,
+      jsDependent,
       timestamp: new Date().toISOString()
     };
   }
@@ -359,14 +362,19 @@ export class ScoringEngine {
     // Canonical URL (10 points)
     const hasCanonical = data?.canonical?.present;
     const canonicalMatches = data?.canonical?.matchesCurrentUrl;
-    const canonicalScore = hasCanonical ? (canonicalMatches ? weights.canonical : weights.canonical * 0.7) : 0;
+    const isProductCanonical = data?.canonical?.isProductCanonical;
+    // Pass if canonical matches current URL or is a valid parent canonical (e.g. Shopify collection → product)
+    const canonicalIsValid = canonicalMatches || isProductCanonical;
+    const canonicalScore = hasCanonical ? (canonicalIsValid ? weights.canonical : weights.canonical * 0.7) : 0;
     factors.push({
       name: 'Canonical URL',
-      status: hasCanonical ? (canonicalMatches ? 'pass' : 'warning') : 'fail',
+      status: hasCanonical ? (canonicalIsValid ? 'pass' : 'warning') : 'fail',
       points: canonicalScore,
       maxPoints: weights.canonical,
       details: hasCanonical ?
-        (canonicalMatches ? 'Matches current URL' : 'Does not match current URL') :
+        (canonicalMatches ? 'Matches current URL' :
+         isProductCanonical ? 'Points to canonical product URL' :
+         'Points to a different URL') :
         'Missing canonical'
     });
     rawScore += canonicalScore;
@@ -408,9 +416,11 @@ export class ScoringEngine {
   }
 
   /**
-   * Score Content Quality category (25% weight)
+   * Score Content Quality category (20% weight)
+   * @param {Object} data - Content quality extraction data
+   * @param {Object} aiSignals - AI discoverability signals (for comparison content factor)
    */
-  scoreContentQuality(data) {
+  scoreContentQuality(data, aiSignals = null) {
     const factors = [];
     let rawScore = 0;
     const maxScore = 100;
@@ -576,6 +586,39 @@ export class ScoringEngine {
         : 'No compatibility information found'
     });
     rawScore += Math.min(weights.compatibilityInfo, compatScore);
+
+    // Specification Detail (5 points) - Contextual
+    // Score based on fraction of specs that include measurement units
+    const specItems = specs.items || [];
+    const specsWithUnits = specItems.filter(s => s.hasUnit).length;
+    const specDetailRatio = specItems.length > 0 ? specsWithUnits / specItems.length : 0;
+    const specDetailScore = specDetailRatio >= 0.3 ? weights.specificationDetail :
+                            specDetailRatio > 0 ? Math.round(weights.specificationDetail * 0.5) : 0;
+    factors.push({
+      name: 'Specification Detail',
+      status: specDetailRatio >= 0.3 ? 'pass' : specDetailRatio > 0 ? 'warning' : 'fail',
+      points: specDetailScore,
+      maxPoints: weights.specificationDetail,
+      contextual: true,
+      details: specItems.length > 0
+        ? `${specsWithUnits}/${specItems.length} specs have measurement units`
+        : 'No specifications to evaluate'
+    });
+    rawScore += specDetailScore;
+
+    // Comparison Content (5 points) - Contextual
+    const hasComparison = aiSignals?.answerFormat?.hasComparison || false;
+    let comparisonScore = hasComparison ? weights.comparisonContent : 0;
+    comparisonScore = Math.min(weights.comparisonContent, Math.round(comparisonScore * (this.multipliers.comparisonContent || 1.0)));
+    factors.push({
+      name: 'Comparison Content',
+      status: hasComparison ? 'pass' : 'fail',
+      points: comparisonScore,
+      maxPoints: weights.comparisonContent,
+      contextual: true,
+      details: hasComparison ? 'Comparison language found (vs./versus/compared to)' : 'No comparison content found'
+    });
+    rawScore += comparisonScore;
 
     return {
       score: Math.min(100, rawScore),

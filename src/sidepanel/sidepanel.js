@@ -359,6 +359,10 @@ class SidePanelApp {
     document.getElementById('gradeDescription').textContent =
       getGradeDescription(this.scoreResult.grade);
 
+    // Show JS-dependency warning when content scores may be understated
+    const jsWarn = document.getElementById('jsDependencyWarning');
+    jsWarn.classList.toggle('hidden', !this.scoreResult.jsDependent);
+
     // Render category cards
     this.renderCategories();
 

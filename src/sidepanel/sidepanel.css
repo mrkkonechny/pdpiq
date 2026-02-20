@@ -258,6 +258,17 @@ body {
   margin-top: var(--space-xs);
 }
 
+/* JS-dependency warning */
+.js-warning {
+  font-size: 11px;
+  color: var(--grade-d);
+  background: var(--grade-d-bg);
+  border-radius: var(--border-radius);
+  padding: var(--space-xs) var(--space-sm);
+  margin-bottom: var(--space-md);
+  text-align: center;
+}
+
 /* Section Header */
 .section-header {
   display: flex;

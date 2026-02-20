@@ -12,19 +12,19 @@ export const CATEGORY_DESCRIPTIONS = {
   contentQuality: 'Product descriptions, specifications, features, and FAQ content',
   contentStructure: 'Semantic HTML, headings, accessibility, and image alt text',
   authorityTrust: 'Reviews, ratings, brand clarity, and trust signals',
-  aiDiscoverability: 'AI crawler access and llms.txt presence for AI system discovery'
+  aiDiscoverability: 'AI crawler access, entity consistency, answer-format content, product identifiers, and llms.txt for AI system discovery'
 };
 
 /**
  * Category weights (must sum to 1.0)
  */
 export const CATEGORY_WEIGHTS = {
-  structuredData: 0.23,    // 23% (was 25%)
-  protocolMeta: 0.18,      // 18% (was 20%)
-  contentQuality: 0.23,    // 23% (was 25%)
-  contentStructure: 0.13,  // 13% (was 15%)
-  authorityTrust: 0.13,    // 13% (was 15%)
-  aiDiscoverability: 0.10  // 10% (NEW)
+  structuredData: 0.20,    // 20% (was 23%)
+  protocolMeta: 0.15,      // 15% (was 18%)
+  contentQuality: 0.20,    // 20% (was 23%)
+  contentStructure: 0.12,  // 12% (was 13%)
+  authorityTrust: 0.13,    // 13% (unchanged)
+  aiDiscoverability: 0.20  // 20% (was 10%)
 };
 
 /**
@@ -80,7 +80,7 @@ export const CONTEXT_MULTIPLIERS = {
  * Factor weights within each category
  */
 export const FACTOR_WEIGHTS = {
-  // Structured Data (25% of total)
+  // Structured Data (20% of total)
   structuredData: {
     productSchema: 30,      // Critical
     offerSchema: 20,        // Critical
@@ -92,7 +92,7 @@ export const FACTOR_WEIGHTS = {
     imageSchema: 5
   },
 
-  // Protocol & Meta Compliance (20% of total)
+  // Protocol & Meta Compliance (15% of total)
   protocolMeta: {
     ogImage: 20,            // Critical - must not be WebP
     ogImageFormat: 15,      // Critical - JPEG/PNG only
@@ -106,7 +106,7 @@ export const FACTOR_WEIGHTS = {
     robotsAllowsIndex: 5    // Critical if blocked
   },
 
-  // Content Quality (25% of total)
+  // Content Quality (20% of total)
   contentQuality: {
     descriptionLength: 15,
     descriptionQuality: 10,  // Contextual
@@ -122,7 +122,7 @@ export const FACTOR_WEIGHTS = {
     comparisonContent: 5     // Contextual
   },
 
-  // Content Structure (15% of total)
+  // Content Structure (12% of total)
   contentStructure: {
     h1Presence: 15,
     headingHierarchy: 12,
@@ -148,10 +148,13 @@ export const FACTOR_WEIGHTS = {
     awards: 5
   },
 
-  // AI Discoverability (10% of total)
+  // AI Discoverability (20% of total)
   aiDiscoverability: {
-    aiCrawlerAccess: 65,     // robots.txt rules for major AI bots
-    llmsTxtPresence: 35      // /llms.txt and /llms-full.txt presence
+    aiCrawlerAccess: 30,       // robots.txt rules for major AI bots
+    entityConsistency: 25,     // Product name alignment across schema, H1, og:title, meta description
+    answerFormatContent: 20,   // "Best for", comparison, how-to, use case content
+    productIdentifiers: 15,    // GTIN/UPC/MPN in Product schema
+    llmsTxtPresence: 10        // /llms.txt and /llms-full.txt presence
   }
 };
 
@@ -245,5 +248,8 @@ export const FACTOR_RECOMMENDATIONS = {
 
   // AI Discoverability
   'AI Crawler Access': 'ai-crawler-blocked',
+  'Entity Consistency': 'entity-consistency-low',
+  'Answer-Format Content': 'answer-format-missing',
+  'Product Identifiers': 'product-identifiers-missing',
   'llms.txt Presence': 'llms-txt-missing'
 };

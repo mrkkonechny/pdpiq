@@ -608,7 +608,8 @@ function extractMetaTags() {
     canonical: {
       url: canonical,
       present: !!canonical,
-      matchesCurrentUrl: canonical ? normalizeUrl(canonical) === normalizeUrl(window.location.href) : null
+      matchesCurrentUrl: canonical ? normalizeUrl(canonical) === normalizeUrl(window.location.href) : null,
+      isProductCanonical: canonical ? isCanonicalForCurrentUrl(canonical, window.location.href) : false
     },
     robots: {
       content: robotsMeta?.content,
@@ -627,6 +628,27 @@ function normalizeUrl(url) {
     const parsed = new URL(url);
     return (parsed.origin + parsed.pathname).toLowerCase().replace(/\/$/, '').replace('://www.', '://');
   } catch { return url.toLowerCase().replace(/\/$/, ''); }
+}
+
+/**
+ * Detect if a canonical URL is a legitimate parent canonical for the current URL.
+ * Handles patterns like Shopify's /collections/X/products/Y → canonical: /products/Y
+ * @param {string} canonicalUrl - The canonical URL from the <link rel="canonical"> tag
+ * @param {string} currentUrl - The current page URL
+ * @returns {boolean} True if canonical is a valid parent/product URL for the current path
+ */
+function isCanonicalForCurrentUrl(canonicalUrl, currentUrl) {
+  try {
+    const canon = new URL(canonicalUrl);
+    const current = new URL(currentUrl);
+    // Must be same hostname (ignoring www prefix)
+    if (canon.hostname.replace(/^www\./, '') !== current.hostname.replace(/^www\./, '')) return false;
+    const canonPath = canon.pathname.toLowerCase().replace(/\/$/, '');
+    const currentPath = current.pathname.toLowerCase().replace(/\/$/, '');
+    if (canonPath === currentPath) return false; // Already handled by matchesCurrentUrl
+    // Current path ends with the canonical path (e.g., /collections/cat/products/slug → /products/slug)
+    return currentPath.endsWith(canonPath);
+  } catch { return false; }
 }
 
 // ==========================================
@@ -1784,6 +1806,41 @@ function extractCertifications() {
       name: 'FCC Certified',
       pattern: /fcc\s*(?:certified|compliant|approved)/gi,
       negative: /not\s+fcc|no\s+fcc/i
+    },
+    {
+      name: 'NFPA Compliant',
+      pattern: /nfpa\s*(?:70e?|2112|701|1|13|25|72|\d{2,})?(?:\s+(?:compliant|certified|rated))?/gi,
+      negative: /not\s+nfpa|no\s+nfpa/i
+    },
+    {
+      name: 'ASTM Certified',
+      pattern: /astm\s*(?:f\d{3,}|[a-z]\d{3,}|\d{3,})?(?:\s+(?:certified|compliant|tested|approved))?/gi,
+      negative: /not\s+astm|no\s+astm/i
+    },
+    {
+      name: 'OSHA Compliant',
+      pattern: /osha(?:\s+29\s+cfr\s*[\d.]+)?(?:\s+compliant)?/gi,
+      negative: /not\s+osha|no\s+osha/i
+    },
+    {
+      name: 'ANSI Certified',
+      pattern: /ansi(?:\s+z\d{2,}|\s+[a-z]\d{2,})?(?:\s+(?:certified|compliant|approved))?/gi,
+      negative: /not\s+ansi|no\s+ansi/i
+    },
+    {
+      name: 'CSA Certified',
+      pattern: /csa\s*(?:certified|approved|listed|group|c22\.2)?/gi,
+      negative: /not\s+csa|no\s+csa/i
+    },
+    {
+      name: 'FMVSS Certified',
+      pattern: /fmvss(?:\s+\d{3})?(?:\s+(?:certified|compliant))?/gi,
+      negative: /not\s+fmvss|no\s+fmvss/i
+    },
+    {
+      name: 'EN ISO Certified',
+      pattern: /en\s+iso\s+\d{4,}(?:[-:]\d+)?(?:\s+certified)?/gi,
+      negative: /not\s+en\s+iso|no\s+en\s+iso/i
     }
   ];
 
