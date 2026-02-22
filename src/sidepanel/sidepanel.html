@@ -103,8 +103,11 @@
         <button id="reanalyzeBtn" class="btn btn-secondary">
           Re-analyze with Different Context
         </button>
+        <button id="exportReportBtn" class="btn btn-primary">
+          Export Report (PDF-ready)
+        </button>
         <button id="exportBtn" class="btn btn-secondary">
-          Export Analysis Data
+          Export Raw Data (JSON)
         </button>
       </div>
     </section>
@@ -119,15 +122,33 @@
 
     <!-- History View -->
     <section id="historySection" class="history-section hidden">
-      <div class="section-header">
-        <h3>Recent Analyses</h3>
-        <button id="clearHistoryBtn" class="btn-icon" title="Clear History">🗑️</button>
+      <!-- History List -->
+      <div id="historyListView">
+        <div class="section-header">
+          <h3>Recent Analyses</h3>
+          <div class="header-actions">
+            <button id="compareBtn" class="btn btn-primary btn-sm hidden">Compare (2)</button>
+            <button id="clearHistoryBtn" class="btn-icon" title="Clear History">🗑️</button>
+          </div>
+        </div>
+        <p id="compareHint" class="compare-hint hidden">Select 2 analyses to compare</p>
+        <div id="historyList" class="history-list">
+          <!-- Dynamically populated -->
+        </div>
+        <div id="emptyHistory" class="empty-state hidden">
+          <p>No analyses yet. Click the extension icon on a product page to get started.</p>
+        </div>
       </div>
-      <div id="historyList" class="history-list">
-        <!-- Dynamically populated -->
-      </div>
-      <div id="emptyHistory" class="empty-state hidden">
-        <p>No analyses yet. Click the extension icon on a product page to get started.</p>
+
+      <!-- Comparison View (hidden until 2 items selected and Compare clicked) -->
+      <div id="historyCompareView" class="hidden">
+        <div class="section-header">
+          <button id="compareBackBtn" class="btn-icon" title="Back to History">←</button>
+          <h3>Side-by-Side Comparison</h3>
+        </div>
+        <div id="compareContent" class="compare-content">
+          <!-- Dynamically populated -->
+        </div>
       </div>
     </section>
 

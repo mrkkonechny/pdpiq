@@ -142,6 +142,17 @@ export async function getHistoryByDomain() {
 }
 
 /**
+ * Get history for a specific URL (for trend view)
+ * @param {string} url - URL to filter by
+ * @param {number} limit - Max entries to return
+ * @returns {Promise<Array>} Analyses for this URL, newest first
+ */
+export async function getHistoryByUrl(url, limit = 10) {
+  const history = await getHistory();
+  return history.filter(entry => entry.url === url).slice(0, limit);
+}
+
+/**
  * Get recent analyses (last N)
  * @param {number} n - Number of recent analyses
  * @returns {Promise<Array>} Recent analyses

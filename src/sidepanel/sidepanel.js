@@ -7,10 +7,12 @@ import { ScoringEngine } from '../scoring/scoring-engine.js';
 import { RecommendationEngine } from '../recommendations/recommendation-engine.js';
 import { getGradeDescription, CATEGORY_DESCRIPTIONS, FACTOR_RECOMMENDATIONS } from '../scoring/weights.js';
 import { RECOMMENDATION_TEMPLATES } from '../recommendations/recommendation-rules.js';
+import { generateHtmlReport } from './report-template.js';
 import {
   saveAnalysis,
   getHistory,
-  clearHistory
+  clearHistory,
+  getHistoryByUrl
 } from '../storage/storage-manager.js';
 
 /**
@@ -36,6 +38,7 @@ class SidePanelApp {
     this.recommendations = [];
     this.currentRequestId = null;
     this.analysisTimeoutId = null;
+    this.selectedHistoryIds = [];
 
     this.init();
   }
@@ -61,9 +64,14 @@ class SidePanelApp {
       this.showContextSelector();
     });
 
-    // Export button
+    // Export JSON button
     document.getElementById('exportBtn').addEventListener('click', () => {
       this.exportData();
+    });
+
+    // Export HTML report button
+    document.getElementById('exportReportBtn').addEventListener('click', () => {
+      this.exportHtmlReport();
     });
 
     // Retry button (error state)
@@ -82,8 +90,19 @@ class SidePanelApp {
     document.getElementById('clearHistoryBtn').addEventListener('click', async () => {
       if (confirm('Clear all analysis history?')) {
         await clearHistory();
+        this.selectedHistoryIds = [];
         await this.loadHistory();
       }
+    });
+
+    // Compare button
+    document.getElementById('compareBtn').addEventListener('click', () => {
+      this.showCompareView();
+    });
+
+    // Back from compare
+    document.getElementById('compareBackBtn').addEventListener('click', () => {
+      this.showHistoryListView();
     });
 
     // Event delegation for category list (prevents memory leaks from re-rendering)
@@ -483,6 +502,7 @@ class SidePanelApp {
 
     if (history.length === 0) {
       emptyState.classList.remove('hidden');
+      this.updateCompareButton();
       return;
     }
 
@@ -491,6 +511,10 @@ class SidePanelApp {
     history.slice(0, 20).forEach(entry => {
       const item = document.createElement('div');
       item.className = 'history-item';
+      if (this.selectedHistoryIds.includes(entry.id)) {
+        item.classList.add('selected');
+      }
+      item.dataset.historyId = entry.id;
 
       const gradeColor = this.getGradeColor(entry.grade);
       const timeAgo = this.formatTimeAgo(entry.timestamp);
@@ -504,8 +528,116 @@ class SidePanelApp {
         <div class="history-score">${escapeHtml(entry.score)}</div>
       `;
 
+      item.addEventListener('click', () => this.toggleHistorySelection(entry.id));
       container.appendChild(item);
     });
+
+    this.updateCompareButton();
+  }
+
+  toggleHistorySelection(id) {
+    const idx = this.selectedHistoryIds.indexOf(id);
+    if (idx !== -1) {
+      // Deselect
+      this.selectedHistoryIds.splice(idx, 1);
+    } else if (this.selectedHistoryIds.length < 2) {
+      // Select (max 2)
+      this.selectedHistoryIds.push(id);
+    } else {
+      // Already 2 selected — replace the oldest selection
+      this.selectedHistoryIds.shift();
+      this.selectedHistoryIds.push(id);
+    }
+
+    // Update visual state without full re-render
+    document.querySelectorAll('#historyList .history-item').forEach(el => {
+      const isSelected = this.selectedHistoryIds.includes(el.dataset.historyId);
+      el.classList.toggle('selected', isSelected);
+    });
+
+    this.updateCompareButton();
+  }
+
+  updateCompareButton() {
+    const compareBtn = document.getElementById('compareBtn');
+    const compareHint = document.getElementById('compareHint');
+    const count = this.selectedHistoryIds.length;
+
+    if (count === 0) {
+      compareBtn.classList.add('hidden');
+      compareHint.classList.add('hidden');
+    } else if (count === 1) {
+      compareBtn.classList.add('hidden');
+      compareHint.classList.remove('hidden');
+    } else {
+      compareBtn.classList.remove('hidden');
+      compareHint.classList.add('hidden');
+    }
+  }
+
+  async showCompareView() {
+    if (this.selectedHistoryIds.length !== 2) return;
+
+    const history = await getHistory();
+    const entries = this.selectedHistoryIds.map(id => history.find(e => e.id === id)).filter(Boolean);
+    if (entries.length !== 2) return;
+
+    document.getElementById('historyListView').classList.add('hidden');
+    document.getElementById('historyCompareView').classList.remove('hidden');
+
+    this.renderCompare(entries[0], entries[1]);
+  }
+
+  showHistoryListView() {
+    document.getElementById('historyCompareView').classList.add('hidden');
+    document.getElementById('historyListView').classList.remove('hidden');
+  }
+
+  renderCompare(a, b) {
+    const categoryOrder = [
+      'structuredData',
+      'protocolMeta',
+      'contentQuality',
+      'contentStructure',
+      'authorityTrust',
+      'aiDiscoverability'
+    ];
+
+    const colHtml = (entry) => {
+      const gradeColor = this.getGradeColor(entry.grade);
+      const catRows = categoryOrder
+        .filter(k => entry.categoryScores?.[k])
+        .map(k => {
+          const cat = entry.categoryScores[k];
+          const score = Math.round(cat.score);
+          const cls = score >= 80 ? 'high' : score >= 60 ? 'medium' : 'low';
+          const shortName = (cat.name || k).replace(/&|and/gi, '&').split(' ').slice(0, 2).join(' ');
+          return `
+            <div class="compare-cat-row">
+              <span class="compare-cat-name" title="${escapeHtml(cat.name)}">${escapeHtml(shortName)}</span>
+              <span class="compare-cat-score ${cls}">${score}</span>
+            </div>`;
+        }).join('');
+
+      return `
+        <div class="compare-col">
+          <div class="compare-col-header">
+            <div class="compare-col-domain" title="${escapeHtml(entry.url || '')}">${escapeHtml(entry.domain)}</div>
+            <div class="compare-col-title" title="${escapeHtml(entry.title)}">${escapeHtml(entry.title)}</div>
+          </div>
+          <div class="compare-score-hero">
+            <div class="compare-grade" style="color:${gradeColor}">${escapeHtml(entry.grade)}</div>
+            <div class="compare-total">${escapeHtml(entry.score)}/100</div>
+          </div>
+          <div class="compare-categories">${catRows}</div>
+        </div>`;
+    };
+
+    document.getElementById('compareContent').innerHTML = `
+      <div class="compare-columns">
+        ${colHtml(a)}
+        ${colHtml(b)}
+      </div>`;
   }
 
   getGradeColor(grade) {
@@ -552,6 +684,30 @@ class SidePanelApp {
     const a = document.createElement('a');
     a.href = url;
     a.download = `pdpiq-${domain}-${date}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  exportHtmlReport() {
+    if (!this.currentData || !this.scoreResult) return;
+
+    const domain = this.currentData.pageInfo?.domain || 'unknown';
+    const date = new Date().toISOString().split('T')[0];
+
+    const html = generateHtmlReport(
+      this.scoreResult,
+      this.currentData.pageInfo,
+      this.recommendations,
+      this.selectedContext
+    );
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pdpiq-report-${domain}-${date}.html`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

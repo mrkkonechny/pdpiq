@@ -655,6 +655,134 @@ body {
   color: var(--text-tertiary);
 }
 
+/* History item selected state */
+.history-item.selected {
+  border-color: #4f46e5;
+  background: #f5f3ff;
+  box-shadow: 0 0 0 2px #4f46e520;
+}
+
+.history-item.selected .history-grade {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+/* Compare hint */
+.compare-hint {
+  font-size: 11px;
+  color: #4f46e5;
+  margin: 0 0 var(--space-sm);
+  font-weight: 500;
+}
+
+/* Inline btn-sm */
+.btn-sm {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+/* Header actions row */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* Comparison view */
+.compare-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.compare-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.compare-col {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+}
+
+.compare-col-header {
+  padding: var(--space-sm);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.compare-col-domain {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compare-col-title {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compare-score-hero {
+  padding: var(--space-sm);
+  text-align: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.compare-grade {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.compare-total {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.compare-categories {
+  padding: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.compare-cat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.compare-cat-name {
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.compare-cat-score {
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.compare-cat-score.high { color: #22c55e; }
+.compare-cat-score.medium { color: #eab308; }
+.compare-cat-score.low { color: #ef4444; }
+
 /* Bottom Navigation */
 .bottom-nav {
   position: fixed;

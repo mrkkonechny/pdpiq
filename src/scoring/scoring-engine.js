@@ -38,7 +38,7 @@ export class ScoringEngine {
       protocolMeta: this.scoreProtocolMeta(extractedData.metaTags, imageVerification),
       contentQuality: this.scoreContentQuality(extractedData.contentQuality, extractedData.aiDiscoverability),
       contentStructure: this.scoreContentStructure(extractedData.contentStructure, extractedData.contentQuality?.textMetrics),
-      authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals),
+      authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals, extractedData.aiDiscoverability),
       aiDiscoverability: this.scoreAIDiscoverability(extractedData, aiDiscoverabilityData)
     };
 
@@ -807,9 +807,11 @@ export class ScoringEngine {
   }
 
   /**
-   * Score Authority & Trust category (15% weight)
+   * Score Authority & Trust category (13% weight)
+   * @param {Object} data - Trust signals extraction data
+   * @param {Object} aiSignals - AI discoverability signals (for Content Freshness dates)
    */
-  scoreAuthorityTrust(data) {
+  scoreAuthorityTrust(data, aiSignals = null) {
     const factors = [];
     let rawScore = 0;
     const maxScore = 100;
@@ -930,7 +932,7 @@ export class ScoringEngine {
     });
     rawScore += Math.min(weights.certifications, certScore);
 
-    // Awards (5 points)
+    // Awards (2 points)
     const awardScore = awards.count > 0 ? weights.awards : 0;
     const awardSource = awards.source ? ` (${awards.source})` : '';
     // Use detailed matches if available
@@ -945,6 +947,76 @@ export class ScoringEngine {
       details: awards.count > 0 ? `${awardDetails}${awardSource}` : 'No awards found'
     });
     rawScore += awardScore;
+
+    // Content Freshness (5 points)
+    // Uses schema date signals from aiDiscoverability extraction
+    const schemaDate = aiSignals?.schemaDate || {};
+    const visibleDate = aiSignals?.visibleDate || {};
+    const bestDate = schemaDate.dateModified || schemaDate.datePublished || null;
+    let freshnessScore = 0;
+    let freshnessStatus = 'fail';
+    let freshnessDetails = 'No date information found';
+
+    if (bestDate) {
+      const daysAgo = (Date.now() - new Date(bestDate).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysAgo <= 90) {
+        freshnessScore = weights.contentFreshness;
+        freshnessStatus = 'pass';
+        freshnessDetails = `Updated ${Math.round(daysAgo)} days ago`;
+      } else {
+        freshnessScore = Math.round(weights.contentFreshness * 0.5);
+        freshnessStatus = 'warning';
+        freshnessDetails = `Last updated ${Math.round(daysAgo)} days ago (aim for <90 days)`;
+      }
+    } else if (visibleDate?.found) {
+      freshnessScore = Math.round(weights.contentFreshness * 0.5);
+      freshnessStatus = 'warning';
+      freshnessDetails = 'Date visible on page but not in schema markup';
+    }
+
+    factors.push({
+      name: 'Content Freshness',
+      status: freshnessStatus,
+      points: freshnessScore,
+      maxPoints: weights.contentFreshness,
+      details: freshnessDetails
+    });
+    rawScore += freshnessScore;
+
+    // Social Proof Depth (4 points)
+    const socialProof = data?.socialProof || {};
+    const hasSocialCount = !!(socialProof.soldCount || socialProof.customerCount);
+    const socialScore = hasSocialCount ? weights.socialProofDepth : 0;
+    let socialDetails = 'No sold count or customer count found';
+    if (socialProof.soldCount) {
+      socialDetails = `${socialProof.soldCount.toLocaleString()} sold`;
+    } else if (socialProof.customerCount) {
+      socialDetails = `${socialProof.customerCount.toLocaleString()} customers`;
+    }
+
+    factors.push({
+      name: 'Social Proof Depth',
+      status: hasSocialCount ? 'pass' : 'fail',
+      points: socialScore,
+      maxPoints: weights.socialProofDepth,
+      details: socialDetails
+    });
+    rawScore += socialScore;
+
+    // Expert Attribution (3 points)
+    const expertAttr = data?.expertAttribution || {};
+    const hasExpert = !!expertAttr.found;
+    const expertScore = hasExpert ? weights.expertAttribution : 0;
+    factors.push({
+      name: 'Expert Attribution',
+      status: hasExpert ? 'pass' : 'fail',
+      points: expertScore,
+      maxPoints: weights.expertAttribution,
+      details: hasExpert
+        ? 'Expert attribution found (clinical, professional, or editorial)'
+        : 'No expert attribution found (e.g. "clinically tested", "dermatologist approved")'
+    });
+    rawScore += expertScore;
 
     return {
       score: Math.min(100, rawScore),

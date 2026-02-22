@@ -139,13 +139,16 @@ export const FACTOR_WEIGHTS = {
 
   // Authority & Trust (13% of total)
   authorityTrust: {
-    reviewCount: 25,         // Contextual
+    reviewCount: 22,         // Contextual
     averageRating: 20,       // Contextual
-    reviewRecency: 15,
+    reviewRecency: 12,
     reviewDepth: 10,
-    brandClarity: 15,
+    brandClarity: 12,
     certifications: 10,      // Contextual
-    awards: 5
+    awards: 2,
+    contentFreshness: 5,
+    socialProofDepth: 4,
+    expertAttribution: 3
   },
 
   // AI Discoverability (20% of total)
@@ -230,9 +233,12 @@ export const FACTOR_RECOMMENDATIONS = {
 
   // Content Quality
   'Description Length': 'description-short',
+  'Description Quality': 'description-quality-low',
   'Specifications': 'specs-missing',
   'Features List': 'features-missing',
   'FAQ Section': 'faq-content-missing',
+  'Materials': 'materials-missing',
+  'Care Instructions': 'care-instructions-missing',
   'Compatibility Information': 'compatibility-missing',
 
   // Content Structure
@@ -240,11 +246,22 @@ export const FACTOR_RECOMMENDATIONS = {
   'Semantic HTML': 'semantic-html-missing',
   'Primary Image Alt Text': 'primary-image-alt-missing',
   'Image Alt Coverage': 'images-alt-low',
+  'Readability': 'readability-low',
+  'Content-to-Chrome Ratio': 'content-ratio-low',
+  'Table Structure': 'table-structure-missing',
+  'JavaScript Dependency': 'js-dependency-high',
+  'ARIA Labels': 'aria-labels-missing',
 
   // Authority & Trust
   'Review Count': 'reviews-missing',
+  'Review Recency': 'review-recency-low',
+  'Review Depth': 'review-depth-low',
+  'Awards': 'awards-missing',
   'Brand Clarity': 'brand-unclear',
   'Certifications': 'certifications-missing',
+  'Content Freshness': 'content-stale',
+  'Social Proof Depth': 'social-proof-missing',
+  'Expert Attribution': 'expert-attribution-missing',
 
   // AI Discoverability
   'AI Crawler Access': 'ai-crawler-blocked',

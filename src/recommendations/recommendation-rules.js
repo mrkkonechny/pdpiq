@@ -207,6 +207,33 @@ export const RECOMMENDATION_TEMPLATES = {
     implementation: 'Add a section listing compatible devices, systems, or products. Be specific about versions and models.'
   },
 
+  'description-quality-low': {
+    title: 'Improve product description quality',
+    description: 'Your description lacks benefit statements, emotional language, or technical terms. High-quality copy gives LLMs richer material to cite when answering "is this product right for me?" queries.',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'contentQuality',
+    implementation: 'Rewrite the description to include: (1) benefit-led statements ("so you can..."), (2) emotional or experiential language for lifestyle products, or (3) precise technical terms for spec-driven products. Combine both for hybrid products. Aim for at least one benefit statement and one technical differentiator per paragraph.'
+  },
+
+  'materials-missing': {
+    title: 'Add materials information',
+    description: 'Material composition is a frequently searched product attribute. LLMs cite this when answering material-specific queries (e.g. "BPA-free water bottles", "100% cotton shirts").',
+    impact: 'low',
+    effort: 'low',
+    category: 'contentQuality',
+    implementation: 'Add a materials section or include material information in the specifications table. Be specific: "100% organic cotton" beats "natural fabric". Include this in Product schema using the material property if possible.'
+  },
+
+  'care-instructions-missing': {
+    title: 'Add care and maintenance instructions',
+    description: 'Care instructions are a common post-purchase query. LLMs that can find this information on your page reduce customer service load and improve the buyer experience signal.',
+    impact: 'low',
+    effort: 'low',
+    category: 'contentQuality',
+    implementation: 'Add a "Care & Maintenance" section with clear, specific instructions (e.g. "Machine wash cold, tumble dry low — do not bleach"). For non-textile products, include cleaning, storage, or maintenance guidance. Use &lt;ul&gt; lists for scannability.'
+  },
+
   // Content Structure
   'h1-missing': {
     title: 'Add H1 heading',
@@ -253,6 +280,51 @@ export const RECOMMENDATION_TEMPLATES = {
     implementation: 'Add meaningful alt text to all product images. Describe what\'s shown, not just "product image".'
   },
 
+  'readability-low': {
+    title: 'Improve content readability',
+    description: 'Low readability scores mean LLMs may struggle to extract clean, citable facts from your product copy. Short sentences and plain language improve AI parsing.',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'contentStructure',
+    implementation: 'Aim for a reading level of Grade 8–10. Use short sentences (15–20 words), avoid jargon, and break long paragraphs into shorter ones. Tools like Hemingway Editor can help measure and improve readability before publishing.'
+  },
+
+  'content-ratio-low': {
+    title: 'Increase content-to-chrome ratio',
+    description: 'Too much navigation, sidebars, or boilerplate HTML relative to product content reduces LLM confidence in what the page is about.',
+    impact: 'low',
+    effort: 'medium',
+    category: 'contentStructure',
+    implementation: 'Wrap the main product content in a &lt;main&gt; or &lt;article&gt; element. Reduce repetitive nav, footer, and promotional blocks that dilute the signal-to-noise ratio for AI crawlers.'
+  },
+
+  'table-structure-missing': {
+    title: 'Use structured &lt;table&gt; for specifications',
+    description: 'Specification data in properly marked-up tables is significantly easier for LLMs to parse and cite than plain-text lists.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'contentStructure',
+    implementation: 'Replace plain-text spec lists with an HTML &lt;table&gt; using &lt;th&gt; headers and &lt;td&gt; data cells. Use &lt;thead&gt; and &lt;tbody&gt;. A two-column table of "Spec | Value" pairs is the ideal AI-parseable format.'
+  },
+
+  'js-dependency-high': {
+    title: 'Reduce JavaScript dependency for product content',
+    description: 'Critical product content rendered entirely by JavaScript may be missed by AI crawlers that do not execute JS. Server-side rendering ensures content is always available.',
+    impact: 'high',
+    effort: 'high',
+    category: 'contentStructure',
+    implementation: 'Implement server-side rendering (SSR) or static generation for product descriptions, specs, and pricing. For Shopify stores, ensure Liquid templates render key content server-side. At minimum, add Product JSON-LD schema as a static script tag so AI crawlers can identify the page even without JS execution.'
+  },
+
+  'aria-labels-missing': {
+    title: 'Add ARIA labels for interactive elements',
+    description: 'ARIA labels improve accessibility and help AI systems understand the purpose of interactive product page elements like image galleries and option selectors.',
+    impact: 'low',
+    effort: 'low',
+    category: 'contentStructure',
+    implementation: 'Add aria-label attributes to buttons, image carousels, and form elements. For product variant selectors, use aria-label="Color" or aria-label="Size". For the main product image gallery, add aria-label="Product images".'
+  },
+
   // Authority & Trust
   'reviews-missing': {
     title: 'Add customer reviews',
@@ -272,6 +344,33 @@ export const RECOMMENDATION_TEMPLATES = {
     implementation: 'Encourage customers to leave reviews via follow-up emails, review incentives, or simplified review processes.'
   },
 
+  'review-recency-low': {
+    title: 'Encourage recent customer reviews',
+    description: 'LLMs weigh recency when citing reviews. No reviews within the last 6 months signal an inactive or declining product.',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'authorityTrust',
+    implementation: 'Send post-purchase review requests within 2–4 weeks of delivery. Include structured Review schema with datePublished on each review so AI crawlers can verify recency. Consider a "Verified Purchase" badge system to add credibility alongside dates.'
+  },
+
+  'review-depth-low': {
+    title: 'Encourage detailed, substantive reviews',
+    description: 'Short or minimal reviews provide little context for LLMs to extract useful product insights. Longer reviews (100+ chars) are more likely to be cited.',
+    impact: 'low',
+    effort: 'medium',
+    category: 'authorityTrust',
+    implementation: 'Ask specific questions in review prompts: "What did you use this product for?", "What surprised you?", "Who would you recommend this to?". Structured prompts consistently produce longer, more useful reviews. Display character counts as encouragement.'
+  },
+
+  'awards-missing': {
+    title: 'Highlight product awards and accolades',
+    description: 'Awards and editorial recognition are strong trust signals that LLMs use when recommending premium or best-in-category products.',
+    impact: 'low',
+    effort: 'low',
+    category: 'authorityTrust',
+    implementation: 'Display any awards or recognition prominently on the page (e.g. "Editor\'s Choice 2024", "Best Product Award – [Publication]"). Add award information to Product schema using the award property. Even press mentions from credible sources count.'
+  },
+
   'brand-unclear': {
     title: 'Clarify brand identity',
     description: 'Clear brand identification helps LLMs attribute products correctly.',
@@ -288,6 +387,33 @@ export const RECOMMENDATION_TEMPLATES = {
     effort: 'low',
     category: 'authorityTrust',
     implementation: 'List relevant certifications (safety, organic, eco-friendly) prominently on the page.'
+  },
+
+  'content-stale': {
+    title: 'Update and date-stamp product content',
+    description: 'LLMs favour recently updated content when making recommendations. No schema date found or content is more than 90 days old.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'authorityTrust',
+    implementation: 'Add a dateModified property to your Product JSON-LD schema whenever you update the page. Update the content itself regularly — refresh pricing, specs, and descriptions. A visible "Updated: [date]" note also signals freshness to AI crawlers.'
+  },
+
+  'social-proof-missing': {
+    title: 'Add sold count or customer count',
+    description: 'Quantified social proof (e.g. "5,000+ sold", "10,000 happy customers") is a strong trust signal that LLMs cite when recommending products.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'authorityTrust',
+    implementation: 'Add a visible sold count or customer milestone to your product page (e.g. "Over 12,000 customers served"). Ensure the text uses digits (not words) so automated extraction can find it. Numbers must be ≥3 digits.'
+  },
+
+  'expert-attribution-missing': {
+    title: 'Add expert or editorial attribution',
+    description: 'Expert endorsements ("clinically tested", "dermatologist approved", "expert review") increase credibility and are picked up by AI systems assessing trustworthiness.',
+    impact: 'low',
+    effort: 'low',
+    category: 'authorityTrust',
+    implementation: 'Add credible attribution such as "Clinically tested", "Dermatologist recommended", "As featured in [publication]", or "Expert reviewed by [credentials]". Place this near the product headline or trust badges section.'
   },
 
   // AI Discoverability
