@@ -828,6 +828,25 @@ body {
   font-size: 11px;
 }
 
+/* Focus States */
+.context-btn:focus-visible,
+.btn:focus-visible,
+.btn-icon:focus-visible,
+.nav-btn:focus-visible,
+.factor-expand-btn:focus-visible,
+.history-item:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+/* Version Badge */
+.version-badge {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  padding: var(--space-xs) 0;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

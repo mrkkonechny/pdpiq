@@ -3,6 +3,8 @@
  * Orchestrates data extraction from the page and sends results to service worker
  */
 
+const DEBUG = false;
+
 // Import extractors - Note: Content scripts can't use ES modules directly in Manifest V3
 // These functions are inlined during build or we load them differently
 
@@ -121,7 +123,7 @@ function performFullExtraction() {
 // Listen for extraction requests from service worker
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'EXTRACT_DATA') {
-    console.log('pdpIQ: Starting extraction');
+    if (DEBUG) console.log('pdpIQ: Starting extraction');
     const startTime = performance.now();
 
     const extractedData = performFullExtraction();
@@ -129,7 +131,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const endTime = performance.now();
     extractedData.extractionTime = Math.round(endTime - startTime);
 
-    console.log(`pdpIQ: Extraction complete in ${extractedData.extractionTime}ms`);
+    if (DEBUG) console.log(`pdpIQ: Extraction complete in ${extractedData.extractionTime}ms`);
 
     // Send results back (include requestId to prevent race conditions)
     chrome.runtime.sendMessage({
@@ -2286,4 +2288,4 @@ function extractVisibleDateSignals() {
 }
 
 // Log that content script is loaded
-console.log('pdpIQ: Content script loaded');
+if (DEBUG) console.log('pdpIQ: Content script loaded');

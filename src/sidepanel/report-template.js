@@ -173,7 +173,7 @@ export function generateHtmlReport(result, pageInfo, recommendations, context) {
         <div style="display:flex;gap:4px;flex-shrink:0">${impactBadge(rec.impact)}</div>
       </div>
       <p style="font-size:12px;color:#4b5563;margin:0 0 8px">${esc(rec.description)}</p>
-      ${rec.implementation ? `<div style="font-size:11px;color:#6b7280;background:#f9fafb;padding:8px 10px;border-radius:6px;border-left:3px solid #d1d5db">${rec.implementation}</div>` : ''}
+      ${rec.implementation ? `<div style="font-size:11px;color:#6b7280;background:#f9fafb;padding:8px 10px;border-radius:6px;border-left:3px solid #d1d5db">${esc(rec.implementation)}</div>` : ''}
     </div>`).join('');
 
   return `<!DOCTYPE html>

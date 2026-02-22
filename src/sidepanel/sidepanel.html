@@ -22,7 +22,7 @@
       <h2>Select Consumer Context</h2>
       <p class="context-description">How would a consumer typically approach this product?</p>
       <div class="context-options">
-        <button class="context-btn" data-context="want">
+        <button class="context-btn" data-context="want" aria-label="Want context: emotional, lifestyle-driven purchase">
           <!-- Heart: emotional / lifestyle-driven -->
           <svg class="context-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <circle cx="18" cy="18" r="18" fill="#fce7f3"/>
@@ -31,7 +31,7 @@
           <strong>Want</strong>
           <span class="context-hint">Emotional, lifestyle-driven</span>
         </button>
-        <button class="context-btn" data-context="need">
+        <button class="context-btn" data-context="need" aria-label="Need context: functional, spec-driven purchase">
           <!-- Lightning bolt: functional / spec-driven -->
           <svg class="context-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <circle cx="18" cy="18" r="18" fill="#dbeafe"/>
@@ -40,7 +40,7 @@
           <strong>Need</strong>
           <span class="context-hint">Functional, spec-driven</span>
         </button>
-        <button class="context-btn" data-context="hybrid">
+        <button class="context-btn" data-context="hybrid" aria-label="Hybrid context: balanced consideration">
           <!-- Yin-yang: balanced consideration -->
           <svg class="context-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <circle cx="18" cy="18" r="18" fill="#f3f4f6"/>
@@ -67,10 +67,10 @@
       <!-- Overall Score -->
       <div class="score-card">
         <div class="grade-container">
-          <div class="grade" id="gradeDisplay">-</div>
+          <div class="grade" id="gradeDisplay" role="status" aria-label="Overall grade">-</div>
         </div>
         <div class="score-details">
-          <div class="score-value"><span id="scoreValue">0</span><span class="score-max">/100</span></div>
+          <div class="score-value" role="status" aria-label="Overall score"><span id="scoreValue">0</span><span class="score-max">/100</span></div>
           <div class="context-label" id="contextLabel">-</div>
           <div class="grade-description" id="gradeDescription">-</div>
         </div>
@@ -104,17 +104,17 @@
           Re-analyze with Different Context
         </button>
         <button id="exportReportBtn" class="btn btn-primary">
-          Export Report (PDF-ready)
+          Download Report
         </button>
         <button id="exportBtn" class="btn btn-secondary">
-          Export Raw Data (JSON)
+          Download Analysis Data
         </button>
       </div>
     </section>
 
     <!-- Error State -->
     <section id="errorState" class="error-state hidden">
-      <div class="error-icon">⚠️</div>
+      <div class="error-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2L1 21h22L12 2z" fill="currentColor" opacity="0.15"/><path d="M12 2L1 21h22L12 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/><path d="M12 10v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg></div>
       <h3>Analysis Error</h3>
       <p id="errorMessage">Unable to analyze this page.</p>
       <button id="retryBtn" class="btn btn-primary">Try Again</button>
@@ -127,8 +127,8 @@
         <div class="section-header">
           <h3>Recent Analyses</h3>
           <div class="header-actions">
-            <button id="compareBtn" class="btn btn-primary btn-sm hidden">Compare (2)</button>
-            <button id="clearHistoryBtn" class="btn-icon" title="Clear History">🗑️</button>
+            <button id="compareBtn" class="btn btn-primary btn-sm hidden" aria-label="Compare selected analyses">Compare (2)</button>
+            <button id="clearHistoryBtn" class="btn-icon" title="Clear History" aria-label="Clear all history"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6v10a1 1 0 001 1h6a1 1 0 001-1V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           </div>
         </div>
         <p id="compareHint" class="compare-hint hidden">Select 2 analyses to compare</p>
@@ -143,7 +143,7 @@
       <!-- Comparison View (hidden until 2 items selected and Compare clicked) -->
       <div id="historyCompareView" class="hidden">
         <div class="section-header">
-          <button id="compareBackBtn" class="btn-icon" title="Back to History">←</button>
+          <button id="compareBackBtn" class="btn-icon" title="Back to History" aria-label="Back to history list"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M13 4L7 10l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <h3>Side-by-Side Comparison</h3>
         </div>
         <div id="compareContent" class="compare-content">
@@ -151,6 +151,9 @@
         </div>
       </div>
     </section>
+
+    <!-- Version -->
+    <div class="version-badge" id="versionBadge"></div>
 
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">

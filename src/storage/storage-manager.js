@@ -3,6 +3,8 @@
  * Handles local storage for analysis history
  */
 
+const DEBUG = false;
+
 const HISTORY_KEY = 'analysisHistory';
 const MAX_HISTORY = 100;
 const STORAGE_QUOTA_BYTES = 10 * 1024 * 1024; // 10MB chrome.storage.local limit
@@ -24,7 +26,7 @@ export async function saveAnalysis(analysis) {
     id: Date.now().toString(),
     url: analysis.url || analysis.pageInfo?.url,
     title: analysis.pageInfo?.title || 'Unknown Page',
-    domain: analysis.pageInfo?.domain || new URL(analysis.url || analysis.pageInfo?.url).hostname,
+    domain: analysis.pageInfo?.domain || (() => { try { return new URL(analysis.url || analysis.pageInfo?.url).hostname; } catch { return 'unknown'; } })(),
     score: analysis.scoreResult?.totalScore,
     grade: analysis.scoreResult?.grade,
     context: analysis.scoreResult?.context,
@@ -65,14 +67,14 @@ async function pruneIfNearQuota(history) {
     const usageRatio = bytesUsed / STORAGE_QUOTA_BYTES;
 
     if (usageRatio >= QUOTA_WARNING_THRESHOLD) {
-      console.log(`pdpIQ: Storage at ${Math.round(usageRatio * 100)}%, pruning old entries`);
+      if (DEBUG) console.log(`pdpIQ: Storage at ${Math.round(usageRatio * 100)}%, pruning old entries`);
 
       // Remove oldest 20% of entries
       const pruneCount = Math.max(1, Math.floor(history.length * 0.2));
       history.length = Math.max(0, history.length - pruneCount);
 
       await chrome.storage.local.set({ [HISTORY_KEY]: history });
-      console.log(`pdpIQ: Pruned ${pruneCount} old entries`);
+      if (DEBUG) console.log(`pdpIQ: Pruned ${pruneCount} old entries`);
     }
   } catch (e) {
     console.warn('pdpIQ: Error checking storage quota', e);

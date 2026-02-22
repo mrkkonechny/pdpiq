@@ -2,6 +2,8 @@
  * Service Worker - Message routing hub and og:image format verification
  */
 
+const DEBUG = false;
+
 // Open side panel on extension icon click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
@@ -59,6 +61,9 @@ const MAJOR_AI_CRAWLERS = [
 
 // Message routing between content script and side panel
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Validate that messages come from this extension
+  if (sender.id !== chrome.runtime.id) return;
+
   switch (message.type) {
     case 'EXTRACT_DATA':
       // Forward extraction request to content script
@@ -70,6 +75,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
 
     case 'EXTRACTION_COMPLETE':
+      // Verify content script origin
+      if (!sender.tab) return;
       // Forward extracted data to side panel
       chrome.runtime.sendMessage(message);
       break;
@@ -126,6 +133,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 /**
+ * Validate that a URL uses a safe protocol (http/https only)
+ * Blocks file:, localhost, and private IP URLs
+ * @param {string} url - URL to validate
+ * @returns {boolean} True if URL is safe to fetch
+ */
+function isSafeUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    const hostname = parsed.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0') return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Verify the actual format of an image via HTTP HEAD request
  * Critical for og:image - WebP images are invisible in LLM chats
  *
@@ -134,7 +159,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
  */
 async function verifyImageFormat(url) {
   // Validate URL parameter
-  if (!url || typeof url !== 'string') {
+  if (!url || typeof url !== 'string' || !isSafeUrl(url)) {
     return {
       url: url || '',
       accessible: false,
@@ -332,7 +357,7 @@ async function detectFormatFromMagicBytes(url) {
  */
 async function fetchRobotsTxt(baseUrl) {
   // Validate URL parameter
-  if (!baseUrl || typeof baseUrl !== 'string') {
+  if (!baseUrl || typeof baseUrl !== 'string' || !isSafeUrl(baseUrl)) {
     return {
       accessible: false,
       error: 'Invalid or missing baseUrl',
@@ -466,7 +491,7 @@ async function fetchLlmsTxt(baseUrl) {
   };
 
   // Validate URL parameter
-  if (!baseUrl || typeof baseUrl !== 'string') {
+  if (!baseUrl || typeof baseUrl !== 'string' || !isSafeUrl(baseUrl)) {
     results.error = 'Invalid or missing baseUrl';
     return results;
   }
@@ -527,7 +552,7 @@ async function fetchLlmsTxt(baseUrl) {
  */
 async function fetchLastModified(url) {
   // Validate URL parameter
-  if (!url || typeof url !== 'string') {
+  if (!url || typeof url !== 'string' || !isSafeUrl(url)) {
     return {
       accessible: false,
       error: 'Invalid or missing URL',
@@ -568,4 +593,4 @@ async function fetchLastModified(url) {
 }
 
 // Log when service worker starts
-console.log('pdpIQ service worker started');
+if (DEBUG) console.log('pdpIQ service worker started');

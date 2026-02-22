@@ -3,6 +3,8 @@
  * Main UI controller for the extension
  */
 
+const DEBUG = false;
+
 import { ScoringEngine } from '../scoring/scoring-engine.js';
 import { RecommendationEngine } from '../recommendations/recommendation-engine.js';
 import { getGradeDescription, CATEGORY_DESCRIPTIONS, FACTOR_RECOMMENDATIONS } from '../scoring/weights.js';
@@ -11,8 +13,7 @@ import { generateHtmlReport } from './report-template.js';
 import {
   saveAnalysis,
   getHistory,
-  clearHistory,
-  getHistoryByUrl
+  clearHistory
 } from '../storage/storage-manager.js';
 
 /**
@@ -46,6 +47,7 @@ class SidePanelApp {
   async init() {
     this.bindEvents();
     this.setupMessageListener();
+    this.displayVersion();
     await this.updatePageInfo();
     await this.loadHistory();
   }
@@ -136,10 +138,10 @@ class SidePanelApp {
       if (message.type === 'EXTRACTION_COMPLETE') {
         // Verify this response matches the current request
         if (message.requestId && message.requestId !== this.currentRequestId) {
-          console.log('Ignoring stale extraction response:', message.requestId);
+          if (DEBUG) console.log('Ignoring stale extraction response:', message.requestId);
           return;
         }
-        console.log('Received extraction data:', message);
+        if (DEBUG) console.log('Received extraction data:', message);
         // Clear the timeout since we received valid data
         if (this.analysisTimeoutId) {
           clearTimeout(this.analysisTimeoutId);
@@ -161,6 +163,11 @@ class SidePanelApp {
     } catch (e) {
       console.error('Error getting page info:', e);
     }
+  }
+
+  displayVersion() {
+    const version = chrome.runtime.getManifest().version;
+    document.getElementById('versionBadge').textContent = `v${version}`;
   }
 
   async startAnalysis(context) {
@@ -191,8 +198,12 @@ class SidePanelApp {
       chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_DATA', requestId }, (response) => {
         if (chrome.runtime.lastError) {
           console.error('Error sending message:', chrome.runtime.lastError);
-          // Content script might not be loaded, try injecting
-          this.showError('Unable to analyze this page. Make sure you are on a product page.');
+          const errMsg = chrome.runtime.lastError.message || '';
+          if (errMsg.includes('Receiving end does not exist')) {
+            this.showError('Content script not loaded. Refresh the page and try again.');
+          } else {
+            this.showError('Unable to communicate with the page. Make sure you are on a product page.');
+          }
         }
       });
 
@@ -365,7 +376,9 @@ class SidePanelApp {
     // Update grade display
     const gradeEl = document.getElementById('gradeDisplay');
     gradeEl.textContent = this.scoreResult.grade;
-    gradeEl.className = `grade grade-${this.scoreResult.grade}`;
+    const validGrades = ['A', 'B', 'C', 'D', 'F'];
+    const safeGrade = validGrades.includes(this.scoreResult.grade) ? this.scoreResult.grade : 'F';
+    gradeEl.className = `grade grade-${safeGrade}`;
 
     // Update score
     document.getElementById('scoreValue').textContent = this.scoreResult.totalScore;
@@ -475,14 +488,14 @@ class SidePanelApp {
 
       item.innerHTML = `
         <div class="rec-header">
-          <span class="rec-title">${rec.title}</span>
+          <span class="rec-title">${escapeHtml(rec.title)}</span>
           <span class="rec-badges">
-            <span class="badge impact-badge ${rec.impact}">${rec.impact}</span>
-            <span class="badge effort-badge">${rec.effort}</span>
+            <span class="badge impact-badge ${escapeHtml(rec.impact)}">${escapeHtml(rec.impact)}</span>
+            <span class="badge effort-badge">${escapeHtml(rec.effort)}</span>
           </span>
         </div>
-        <p class="rec-description">${rec.description}</p>
-        ${rec.implementation ? `<p class="rec-implementation">${rec.implementation}</p>` : ''}
+        <p class="rec-description">${escapeHtml(rec.description)}</p>
+        ${rec.implementation ? `<p class="rec-implementation">${escapeHtml(rec.implementation)}</p>` : ''}
       `;
 
       container.appendChild(item);
@@ -641,14 +654,10 @@ class SidePanelApp {
   }
 
   getGradeColor(grade) {
-    const colors = {
-      A: '#22c55e',
-      B: '#84cc16',
-      C: '#eab308',
-      D: '#f97316',
-      F: '#ef4444'
-    };
-    return colors[grade] || colors.F;
+    const style = getComputedStyle(document.documentElement);
+    const varMap = { A: '--grade-a', B: '--grade-b', C: '--grade-c', D: '--grade-d', F: '--grade-f' };
+    const varName = varMap[grade] || '--grade-f';
+    return style.getPropertyValue(varName).trim() || '#ef4444';
   }
 
   formatTimeAgo(timestamp) {

@@ -25,3 +25,6 @@ Thumbs.db
 # Chrome extension development
 *.crx
 *.pem
+
+# Claude Code
+.claude/
