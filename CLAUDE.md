@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 ## Project Overview
 
-pdpIQ (Product Description Page IQ) is a Chrome extension by **Tribbute** that analyzes eCommerce Product Detail Pages (PDPs) for AI citation readiness. It scores pages across ~75 factors in 6 categories and provides actionable recommendations.
+pdpIQ (Product Description Page IQ) is a Chrome extension by **Tribbute** that analyzes eCommerce Product Detail Pages (PDPs) for AI citation readiness. It scores pages across 56 factors in 6 categories and provides actionable recommendations.
 
 ## Tech Stack
 
@@ -44,6 +44,8 @@ pdpiq/
 │   │   └── report-template.js   # Self-contained HTML report generator (base64-embedded logo)
 │   └── storage/
 │       └── storage-manager.js   # Analysis history persistence, quota management
+├── docs/
+│   └── pdpiq-product-page-handoff.md  # Marketing handoff document for tribbute.com
 └── styles/                      # Additional stylesheets
 ```
 
@@ -84,9 +86,10 @@ pdpiq/
 ### Features
 
 **Core Analysis:**
-- Scores ~75 factors across 6 categories with letter grades (A-F)
+- Scores 56 factors across 6 categories with letter grades (A-F)
 - Context-sensitive scoring (Want/Need/Hybrid purchase types)
-- Actionable recommendations with inline expandable tips per factor
+- Actionable recommendations with inline expandable tips per factor (all 56 factors mapped)
+- Apparel category detection — warranty/compatibility/dimensions auto-marked N/A for fashion products
 
 **History & Comparison:**
 - Analysis history saved to `chrome.storage.local` (up to 20 shown)
@@ -94,7 +97,7 @@ pdpiq/
 - Bottom nav tabs switch between Results and History views
 
 **Export:**
-- **Download Report** — Self-contained HTML report via `report-template.js` (Tribbute-branded, base64-embedded logo, all CSS inline)
+- **Download Report** — Self-contained HTML report via `report-template.js` (Tribbute-branded, base64-embedded logo, all CSS inline). Includes executive summary, grade legend, context explanation, priority-grouped recommendations with effort badges, pass/fail counts per category, and unique report ID.
 - **Download Analysis Data** — Raw JSON export of scores and extraction data
 
 **UI:**
@@ -145,9 +148,9 @@ Schema extraction supports both **JSON-LD** and **Microdata** formats for:
 
 Shopify stores use `ProductGroup` (not `Product`) as the top-level JSON-LD type. This affects several extraction paths:
 
-- **`categorizeSchemas()`** and **`extractBrandSignals()`** both treat `type === 'productgroup'` identically to `type === 'product'`.
+- **`categorizeSchemas()`** and **`extractBrandSignals()`** both treat `type === 'productgroup'` identically to `type === 'product'` (case-insensitive matching). `extractBrandSignals()` also checks standalone Organization/Brand schemas as a fallback source for brand name.
 - **GTIN/MPN** may not be present on the `ProductGroup` itself — they live on individual `hasVariant[]` items. The extractor loops `hasVariant` and picks the first non-null value.
-- **`aggregateRating`** is often an `@id` reference (`"aggregateRating": {"@id": "#reviews"}`) pointing to a standalone `AggregateRating` node elsewhere in the same `@graph`. Both `categorizeSchemas()` and `extractReviewSignals()` build an `idIndex` keyed by `@id` and resolve these references before reading `ratingValue`.
+- **`aggregateRating`** is often an `@id` reference (`"aggregateRating": {"@id": "#reviews"}`) pointing to a standalone `AggregateRating` node elsewhere in the same `@graph`. Both `categorizeSchemas()` and `extractReviewSignals()` build an `idIndex` keyed by `@id` and resolve these references before reading `ratingValue`. `extractReviewSignals()` uses two-pass extraction: Product/ProductGroup ratings first (highest confidence), then standalone AggregateRating as fallback.
 - **`sku`** falls back to `productGroupID` for `ProductGroup` items.
 
 #### `@id` Reference Resolution
@@ -167,6 +170,8 @@ Any property whose value is `{"@id": "#something"}` is resolved via `idIndex` be
 - `extractBrandName()` - Extracts brand/org name from various formats (string, object, array)
 - `extractImageUrl()` - Extracts image URL from various formats
 - `isCanonicalForCurrentUrl()` - Detects valid parent canonical URLs (e.g. Shopify collection→product)
+- `getProductContentText()` - Scoped text extraction for body-text analysis (excludes nav/header/footer/promo elements)
+- `extractHreflang()` - Extracts `<link rel="alternate" hreflang="...">` tags for bilingual sites
 
 #### Brand/Manufacturer Handling
 
@@ -213,7 +218,7 @@ All regex extractors capture the actual matched text for display in factor detai
 
 #### Product Detail Regex Patterns — Known Pitfalls
 
-`extractProductDetails()` runs against `document.body.innerText`, which on Windows or mixed-platform servers may contain `\r\n` line endings. All character classes that anchor to line endings use `[^.\r\n]` (not `[^.\n]`) to prevent cross-line captures.
+`extractProductDetails()` runs against scoped product content text from `getProductContentText()` (not `document.body.innerText`). This prevents false positives from nav menus, footer links, loyalty programs, and promotional banners. On Windows or mixed-platform servers, content may contain `\r\n` line endings. All character classes that anchor to line endings use `[^.\r\n]` (not `[^.\n]`) to prevent cross-line captures.
 
 Other guard rails:
 - `size[:\s]+` dimension pattern was removed — "size" is too generic (matches size charts, dropdowns).
@@ -236,9 +241,14 @@ Schema fallback also checks `Product.certification` and `additionalProperty` arr
 
 `scoreProtocolMeta()` treats both flags as passing (`canonicalIsValid = matchesCurrentUrl || isProductCanonical`) so legitimate Shopify canonical redirects don't generate false warnings.
 
-#### Features Extractor — Navigation Guard
+#### Features Extractor — Navigation Guard & Retailer Selectors
 
 `extractFeaturesFromContainer()` skips any container (and its `<li>` children) that is inside `nav`, `header`, `footer`, or `[role="navigation"]`. Without this guard, Shopify header menus were being captured as feature bullet points.
+
+Feature extraction includes retailer-specific selectors for major platforms:
+- **Walmart**: `.about-product`, `.about-item`, `.product-about`, `[data-testid="product-about"]`
+- **Canadian Tire**: `.product-highlights`, `.pdp-highlights`
+- **Heading fallback**: matches "about this" in addition to "feature", "benefit", "highlight", "why choose"
 
 ### Extraction Source Tracking
 
@@ -291,11 +301,31 @@ The AI Discoverability category (20% weight) evaluates whether AI systems (ChatG
 
 ### Content Quality Scoring — Notes
 
-`scoreContentQuality(data, aiSignals = null)` accepts a second argument — the `aiDiscoverability` extraction object. This is needed to score:
-- **Comparison Content** (5 pts, contextual) — reads `aiSignals.answerFormat.hasComparison`; context multiplier applies (0.6× want, 1.4× need)
+`scoreContentQuality(data, aiSignals, extractedData)` accepts three arguments: content quality data, `aiDiscoverability` signals, and full extracted data (for apparel category detection). Key behaviours:
+- **Comparison Content** (10 pts, contextual) — reads `aiSignals.answerFormat.hasComparison`; context multiplier applies (0.6× want, 1.4× need)
 - **Specification Detail** (5 pts, contextual) — reads `specs.items` to compute the fraction with `hasUnit`; ≥30% = pass, >0% = warning
+- **Apparel Detection** — `ScoringEngine.isLikelyApparel(extractedData)` checks breadcrumbs, schema category, and URL path for fashion/apparel keywords (English + French). When detected, warranty, compatibility, and dimensions score as "pass" with "N/A for apparel" details, preventing unfair penalties on fashion product pages.
 
-`calculateScore()` passes `extractedData.aiDiscoverability` automatically — no change needed at the call site.
+`calculateScore()` passes `extractedData.aiDiscoverability` and `extractedData` automatically.
+
+### og:type Handling
+
+`scoreProtocolMeta()` accepts `og:type` values of `'product'`, `'og:product'`, or any value starting with `'product.'` (e.g., `'product.item'`, `'product.group'`). This covers Open Graph product subtypes used by platforms like Shopify.
+
+### Readability Scoring
+
+`analyzeTextMetrics()` uses a simplified Flesch Reading Ease algorithm:
+- Filters out spec-like tokens (e.g., "250W", "IP67") before word counting
+- Counts syllables via vowel cluster matching
+- Returns neutral score (50) when text is too short (<20 prose words)
+- Requires >5 chars per sentence fragment to avoid counting specs as sentences
+
+### Review Count Thresholds
+
+Review count status thresholds:
+- **Pass**: ≥25 reviews
+- **Warning**: 5–24 reviews
+- **Fail**: <5 reviews
 
 ### JS-Rendered Page Warning
 
@@ -307,10 +337,27 @@ When `contentStructure.jsDependency.dependencyLevel === 'high'` (React/Vue SPA),
 
 ### Inline Factor Recommendations
 Factors in the side panel have expandable recommendation tips:
-- `FACTOR_RECOMMENDATIONS` in `weights.js` maps factor display names to template IDs
-- `RECOMMENDATION_TEMPLATES` in `recommendation-rules.js` contains the tip content
-- Click the ▶ arrow on any mapped factor to see actionable advice
+- `FACTOR_RECOMMENDATIONS` in `weights.js` maps all 56 factor display names to template IDs
+- `RECOMMENDATION_TEMPLATES` in `recommendation-rules.js` contains 58 templates (some factors share templates)
+- Click the ▶ arrow on any factor to see actionable advice
 - Tips include a description and implementation guidance
+
+### Recommendation Engine Coverage
+
+`recommendation-engine.js` generates recommendations for all failing factors across all 6 categories. Key features:
+- Uses `createRecommendation(templateId)` to pull from `RECOMMENDATION_TEMPLATES`
+- Context-aware: adjusts impact level based on `CONTEXT_MULTIPLIERS` (e.g., compatibility is "high" in Need context)
+- Apparel-aware: skips warranty/compatibility/dimensions recommendations for fashion products
+- Report groups recommendations into **Quick Wins** (high/medium impact + low effort), **Medium Priority**, and **Nice to Have**
+
+### Hreflang Extraction
+
+`extractMetaTags()` includes `hreflang` data from `<link rel="alternate" hreflang="...">` tags. The `extractHreflang()` helper returns:
+- `present` — boolean indicating if any hreflang tags exist
+- `languages` — array of `{ lang, href }` objects (e.g., `{ lang: 'en-CA', href: '...' }`)
+- `count` — number of hreflang tags found
+
+This is informational context for bilingual sites (common with Canadian retailers).
 
 ## Key Files Quick Reference
 
@@ -323,7 +370,7 @@ Factors in the side panel have expandable recommendation tips:
 | `src/scoring/grading.js` | `getGradeColor()`, `getGradeBackgroundColor()`, re-exports `getGrade`/`getGradeDescription` |
 | `src/recommendations/recommendation-rules.js` | Fix suggestions per issue, recommendation templates |
 | `src/sidepanel/sidepanel.js` | UI state management, rendering, history, comparison, export |
-| `src/sidepanel/report-template.js` | HTML report generation with embedded branding |
+| `src/sidepanel/report-template.js` | HTML report generation with executive summary, priority-grouped recs, embedded branding |
 | `src/background/service-worker.js` | Message routing, sender validation, URL safety, network fetches |
 | `src/storage/storage-manager.js` | History CRUD, quota pruning |
 
