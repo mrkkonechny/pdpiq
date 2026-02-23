@@ -36,7 +36,7 @@ export class ScoringEngine {
     const categoryScores = {
       structuredData: this.scoreStructuredData(extractedData.structuredData),
       protocolMeta: this.scoreProtocolMeta(extractedData.metaTags, imageVerification),
-      contentQuality: this.scoreContentQuality(extractedData.contentQuality, extractedData.aiDiscoverability),
+      contentQuality: this.scoreContentQuality(extractedData.contentQuality, extractedData.aiDiscoverability, extractedData),
       contentStructure: this.scoreContentStructure(extractedData.contentStructure, extractedData.contentQuality?.textMetrics),
       authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals, extractedData.aiDiscoverability),
       aiDiscoverability: this.scoreAIDiscoverability(extractedData, aiDiscoverabilityData)
@@ -68,7 +68,7 @@ export class ScoringEngine {
   }
 
   /**
-   * Score Structured Data category (25% weight)
+   * Score Structured Data category (20% weight)
    */
   scoreStructuredData(data) {
     const factors = [];
@@ -225,7 +225,7 @@ export class ScoringEngine {
   }
 
   /**
-   * Score Protocol & Meta Compliance category (20% weight)
+   * Score Protocol & Meta Compliance category (15% weight)
    */
   scoreProtocolMeta(data, imageVerification) {
     const factors = [];
@@ -244,7 +244,7 @@ export class ScoringEngine {
       points: ogImageScore,
       maxPoints: weights.ogImage,
       critical: true,
-      details: hasOgImage ? og.image.substring(0, 50) + '...' : 'No og:image tag found'
+      details: hasOgImage ? (og.image.length > 80 ? og.image.substring(0, 80) + '...' : og.image) : 'No og:image tag found'
     });
     rawScore += ogImageScore;
 
@@ -324,7 +324,7 @@ export class ScoringEngine {
     rawScore += ogDescScore;
 
     // og:type = product (5 points)
-    const isProductType = og.type === 'product' || og.type === 'og:product';
+    const isProductType = og.type && (og.type === 'product' || og.type === 'og:product' || og.type.startsWith('product.'));
     const ogTypeScore = isProductType ? weights.ogType : 0;
     factors.push({
       name: 'og:type = product',
@@ -355,7 +355,8 @@ export class ScoringEngine {
       name: 'Twitter Image',
       status: hasTwitterImage ? 'pass' : 'fail',
       points: twitterImageScore,
-      maxPoints: weights.twitterImage
+      maxPoints: weights.twitterImage,
+      details: hasTwitterImage ? 'twitter:image present' : 'Missing twitter:image'
     });
     rawScore += twitterImageScore;
 
@@ -416,11 +417,40 @@ export class ScoringEngine {
   }
 
   /**
+   * Detect if product is likely apparel/fashion based on breadcrumbs and schema
+   * @param {Object} extractedData - Full extracted data
+   * @returns {boolean}
+   */
+  static isLikelyApparel(extractedData) {
+    const apparelKeywords = /\b(clothing|apparel|fashion|dress|dresses|shirt|shirts|pants|jeans|jacket|jackets|sweater|tops|blouse|skirt|shorts|lingerie|underwear|swimwear|activewear|outerwear|footwear|shoes|boots|sneakers|sandals|socks|hosiery|accessories|jewel|handbag|purse|scarf|hat|gloves|belt|tie|suit|blazer|coat|hoodie|legging|romper|jumpsuit|bodysuit|cardigan|pullover|vest|parka|v[eê]tements|robes?|pantalon|chaussure|manteau)\b/i;
+
+    // Check breadcrumbs
+    const breadcrumb = extractedData?.structuredData?.schemas?.breadcrumb;
+    if (breadcrumb?.items) {
+      const crumbText = breadcrumb.items.map(i => i.name || '').join(' ');
+      if (apparelKeywords.test(crumbText)) return true;
+    }
+
+    // Check product schema category
+    const product = extractedData?.structuredData?.schemas?.product;
+    if (product?.category && apparelKeywords.test(product.category)) return true;
+
+    // Check URL path
+    try {
+      const path = (extractedData?.metaTags?.canonical?.url || '').toLowerCase();
+      if (apparelKeywords.test(path)) return true;
+    } catch (e) { /* skip */ }
+
+    return false;
+  }
+
+  /**
    * Score Content Quality category (20% weight)
    * @param {Object} data - Content quality extraction data
    * @param {Object} aiSignals - AI discoverability signals (for comparison content factor)
+   * @param {Object} extractedData - Full extracted data (for category detection)
    */
-  scoreContentQuality(data, aiSignals = null) {
+  scoreContentQuality(data, aiSignals = null, extractedData = null) {
     const factors = [];
     let rawScore = 0;
     const maxScore = 100;
@@ -430,6 +460,7 @@ export class ScoringEngine {
     const features = data?.features || {};
     const faq = data?.faq || {};
     const details = data?.productDetails || {};
+    const isApparel = extractedData ? ScoringEngine.isLikelyApparel(extractedData) : false;
 
     // Description Length (15 points)
     const wordCount = desc.wordCount || 0;
@@ -461,7 +492,7 @@ export class ScoringEngine {
 
     factors.push({
       name: 'Description Quality',
-      status: descQualityScore >= weights.descriptionQuality * 0.7 ? 'pass' : 'warning',
+      status: descQualityScore >= weights.descriptionQuality * 0.7 ? 'pass' : descQualityScore > 0 ? 'warning' : 'fail',
       points: descQualityScore,
       maxPoints: weights.descriptionQuality,
       contextual: true,
@@ -516,17 +547,19 @@ export class ScoringEngine {
     });
     rawScore += faqScore;
 
-    // Dimensions (5 points) - Contextual for Need
+    // Dimensions (5 points) - Contextual for Need; N/A for apparel (use size chart instead)
     let dimensionsScore = details.hasDimensions ? weights.dimensions : 0;
     if (this.context === 'need') dimensionsScore = Math.round(dimensionsScore * 1.3);
+    const dimensionsNA = isApparel && !details.hasDimensions;
+    if (dimensionsNA) dimensionsScore = weights.dimensions;
     factors.push({
       name: 'Dimensions/Size',
-      status: details.hasDimensions ? 'pass' : 'fail',
+      status: dimensionsNA ? 'pass' : (details.hasDimensions ? 'pass' : 'fail'),
       points: Math.min(weights.dimensions, dimensionsScore),
       maxPoints: weights.dimensions,
       contextual: this.context === 'need',
-      details: details.hasDimensions
-        ? (details.dimensionsText || 'Dimensions found')
+      details: dimensionsNA ? 'N/A for apparel'
+        : details.hasDimensions ? (details.dimensionsText || 'Dimensions found')
         : 'No dimensions found'
     });
     rawScore += Math.min(weights.dimensions, dimensionsScore);
@@ -557,32 +590,34 @@ export class ScoringEngine {
     });
     rawScore += careScore;
 
-    // Warranty Info (7 points) - Contextual
-    let warrantyScore = details.hasWarranty ? weights.warrantyInfo : 0;
-    warrantyScore = Math.round(warrantyScore * this.multipliers.warrantyInfo);
+    // Warranty Info (7 points) - Contextual; N/A for apparel (return policy suffices)
+    const warrantyNA = isApparel && !details.hasWarranty;
+    let warrantyScore = (details.hasWarranty || warrantyNA) ? weights.warrantyInfo : 0;
+    if (!warrantyNA) warrantyScore = Math.round(warrantyScore * this.multipliers.warrantyInfo);
     factors.push({
       name: 'Warranty Information',
-      status: details.hasWarranty ? 'pass' : 'fail',
+      status: warrantyNA ? 'pass' : (details.hasWarranty ? 'pass' : 'fail'),
       points: Math.min(weights.warrantyInfo, warrantyScore),
       maxPoints: weights.warrantyInfo,
       contextual: true,
-      details: details.hasWarranty
-        ? (details.warrantyText || 'Warranty found')
+      details: warrantyNA ? 'N/A for apparel'
+        : details.hasWarranty ? (details.warrantyText || 'Warranty found')
         : 'No warranty information found'
     });
     rawScore += Math.min(weights.warrantyInfo, warrantyScore);
 
-    // Compatibility Info (10 points) - Contextual
-    let compatScore = details.hasCompatibility ? weights.compatibilityInfo : 0;
-    compatScore = Math.round(compatScore * this.multipliers.compatibilityInfo);
+    // Compatibility Info (10 points) - Contextual; N/A for apparel
+    const compatNA = isApparel && !details.hasCompatibility;
+    let compatScore = (details.hasCompatibility || compatNA) ? weights.compatibilityInfo : 0;
+    if (!compatNA) compatScore = Math.round(compatScore * this.multipliers.compatibilityInfo);
     factors.push({
       name: 'Compatibility Information',
-      status: details.hasCompatibility ? 'pass' : 'fail',
+      status: compatNA ? 'pass' : (details.hasCompatibility ? 'pass' : 'fail'),
       points: Math.min(weights.compatibilityInfo, compatScore),
       maxPoints: weights.compatibilityInfo,
       contextual: true,
-      details: details.hasCompatibility
-        ? (details.compatibilityText || 'Compatibility info found')
+      details: compatNA ? 'N/A for apparel'
+        : details.hasCompatibility ? (details.compatibilityText || 'Compatibility info found')
         : 'No compatibility information found'
     });
     rawScore += Math.min(weights.compatibilityInfo, compatScore);
@@ -630,7 +665,7 @@ export class ScoringEngine {
   }
 
   /**
-   * Score Content Structure category (15% weight)
+   * Score Content Structure category (12% weight)
    * @param {Object} data - Content structure data
    * @param {Object} textMetrics - Text metrics from content quality extraction
    */
@@ -826,7 +861,7 @@ export class ScoringEngine {
     reviewCountScore = Math.round(reviewCountScore * this.multipliers.reviewCount);
     factors.push({
       name: 'Review Count',
-      status: reviews.count >= 50 ? 'pass' : reviews.count >= 10 ? 'warning' : 'fail',
+      status: reviews.count >= 25 ? 'pass' : reviews.count >= 5 ? 'warning' : 'fail',
       points: Math.min(weights.reviewCount * 1.5, reviewCountScore),
       maxPoints: weights.reviewCount,
       contextual: true,

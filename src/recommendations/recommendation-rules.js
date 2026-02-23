@@ -460,6 +460,137 @@ export const RECOMMENDATION_TEMPLATES = {
     effort: 'low',
     category: 'aiDiscoverability',
     implementation: 'Add at least two of: gtin (UPC/EAN/ISBN barcode number), mpn (manufacturer part number), or sku to your Product schema markup. These identifiers help AI systems confidently identify and recommend specific products.'
+  },
+
+  // Additional Structured Data
+  'review-schema-missing': {
+    title: 'Add Review schema markup',
+    description: 'Individual Review schema helps LLMs cite specific customer experiences and opinions when recommending products.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'structuredData',
+    implementation: 'Add Review schema within your Product JSON-LD, including author, datePublished, reviewBody, and reviewRating. Most review platforms (Yotpo, Judge.me, Stamped) output this automatically.'
+  },
+
+  'organization-schema-missing': {
+    title: 'Add Organization or Brand schema',
+    description: 'Organization/Brand schema helps LLMs identify the manufacturer and improves brand attribution in AI-generated responses.',
+    impact: 'low',
+    effort: 'low',
+    category: 'structuredData',
+    implementation: 'Add Organization schema with name, url, and logo properties. Alternatively, nest a Brand object inside your Product schema: "brand": {"@type": "Brand", "name": "Your Brand"}.'
+  },
+
+  'image-schema-missing': {
+    title: 'Add ImageObject schema for product images',
+    description: 'ImageObject schema provides structured image metadata (dimensions, alt text, content URL) that helps AI systems select and display appropriate product visuals.',
+    impact: 'low',
+    effort: 'low',
+    category: 'structuredData',
+    implementation: 'Add ImageObject to your Product schema image property: "image": {"@type": "ImageObject", "url": "https://...", "width": 1200, "height": 1200, "name": "Product Name - Front View"}. This is especially useful for multi-image galleries.'
+  },
+
+  // Additional Protocol & Meta
+  'og-type-missing': {
+    title: 'Add og:type meta tag with product value',
+    description: 'Missing or incorrect og:type prevents platforms and LLMs from identifying this as a product page. Set to "product" or "product.item".',
+    impact: 'medium',
+    effort: 'low',
+    category: 'protocolMeta',
+    implementation: 'Add &lt;meta property="og:type" content="product"&gt; to the page head. For specific product variants, use "product.item". This signals to AI systems and social platforms that the page represents a purchasable product.'
+  },
+
+  'twitter-image-missing': {
+    title: 'Add Twitter/X image meta tag',
+    description: 'Missing twitter:image reduces product visibility when shared on Twitter/X. If og:image exists, twitter:image can reference the same URL.',
+    impact: 'low',
+    effort: 'low',
+    category: 'protocolMeta',
+    implementation: 'Add &lt;meta name="twitter:image" content="https://your-site.com/product-image.jpg"&gt;. Use the same image as og:image (JPEG or PNG, not WebP). Minimum 600x314px, ideally 1200x628px.'
+  },
+
+  'canonical-missing': {
+    title: 'Fix canonical URL',
+    description: 'The canonical URL is missing or does not match the current page. This can split link equity and confuse LLMs about which URL is authoritative.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'protocolMeta',
+    implementation: 'Add &lt;link rel="canonical" href="https://your-site.com/products/product-name"&gt; with the exact URL of this product page. Ensure it matches the page URL (protocol, domain, path). For Shopify collection pages, the canonical should point to /products/slug.'
+  },
+
+  'meta-description-missing': {
+    title: 'Add meta description',
+    description: 'Missing meta description limits how LLMs summarize your product page. A good meta description acts as a pre-written product pitch for AI systems.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'protocolMeta',
+    implementation: 'Add &lt;meta name="description" content="..."&gt; with 120-160 characters summarizing the product. Include the product name, key benefit, and brand. This is often the first text LLMs cite when describing a product.'
+  },
+
+  // Additional Content Quality
+  'dimensions-missing': {
+    title: 'Add product dimensions or sizing',
+    description: 'Dimensions and sizing information help LLMs answer "will this fit?" questions, which are among the most common product queries.',
+    impact: 'low',
+    effort: 'low',
+    category: 'contentQuality',
+    implementation: 'Add a dimensions section with length, width, height, and weight. For apparel, include a size chart. Add dimensions to Product schema using width, height, depth, and weight properties with QuantitativeValue types.'
+  },
+
+  'warranty-missing': {
+    title: 'Add warranty information',
+    description: 'Warranty details are a key purchase decision factor. LLMs cite warranty coverage when comparing products or answering pre-purchase questions.',
+    impact: 'low',
+    effort: 'low',
+    category: 'contentQuality',
+    implementation: 'Add warranty duration and coverage details to the product page (e.g., "2-year limited warranty covers manufacturing defects"). Include this in Product schema using the warranty property. For apparel, a return policy or satisfaction guarantee serves the same trust function.'
+  },
+
+  'spec-detail-low': {
+    title: 'Add units and values to specifications',
+    description: 'Specifications lack measurement units or precise values. LLMs extract structured data more reliably when specs include units (e.g., "12 oz" vs "12").',
+    impact: 'low',
+    effort: 'low',
+    category: 'contentQuality',
+    implementation: 'Review your specification entries and add units to each value: weight in lbs/kg/oz, dimensions in inches/cm, capacity in ml/oz, power in watts, etc. At least 30% of specs should have units for a passing score.'
+  },
+
+  'comparison-missing': {
+    title: 'Add product comparison content',
+    description: 'Comparison content ("vs.", "compared to", "alternative to") helps LLMs recommend your product in competitive queries like "X vs Y" or "best alternative to Z".',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'contentQuality',
+    implementation: 'Add a "How It Compares" or "Why Choose This" section that positions your product against alternatives. Use phrases like "compared to", "unlike", "vs.", or "better than". A comparison table with competing features is the most LLM-friendly format.'
+  },
+
+  // Additional Content Structure
+  'heading-hierarchy-broken': {
+    title: 'Fix heading hierarchy',
+    description: 'Heading levels skip (e.g., H1 to H3) or are missing, making it harder for LLMs to parse the content structure and identify sections.',
+    impact: 'low',
+    effort: 'low',
+    category: 'contentStructure',
+    implementation: 'Ensure headings follow a logical hierarchy: H1 (product name) &gt; H2 (sections like "Features", "Specifications", "Reviews") &gt; H3 (subsections). Never skip levels (e.g., H1 to H3 without H2).'
+  },
+
+  'list-structure-missing': {
+    title: 'Add structured lists for product details',
+    description: 'Product details presented as paragraphs are harder for LLMs to parse than HTML lists. Structured &lt;ul&gt;/&lt;ol&gt; elements improve data extraction accuracy.',
+    impact: 'low',
+    effort: 'low',
+    category: 'contentStructure',
+    implementation: 'Convert feature descriptions, benefits, or included items from plain text to &lt;ul&gt; or &lt;ol&gt; lists. Each list item should describe one distinct attribute or feature. Aim for at least one list with 3+ items.'
+  },
+
+  // Additional Authority & Trust
+  'rating-low': {
+    title: 'Improve product rating visibility',
+    description: 'No average rating found in schema markup. LLMs rely on structured rating data to compare products and make recommendations.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'authorityTrust',
+    implementation: 'Add AggregateRating to your Product JSON-LD schema with ratingValue, bestRating (typically 5), and reviewCount. Ensure the displayed star rating on the page matches the schema value for consistency.'
   }
 };
 

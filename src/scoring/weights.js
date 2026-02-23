@@ -106,7 +106,7 @@ export const FACTOR_WEIGHTS = {
     robotsAllowsIndex: 5    // Critical if blocked
   },
 
-  // Content Quality (20% of total)
+  // Content Quality (20% of total) — must sum to 100
   contentQuality: {
     descriptionLength: 15,
     descriptionQuality: 10,  // Contextual
@@ -119,22 +119,22 @@ export const FACTOR_WEIGHTS = {
     careInstructions: 3,
     warrantyInfo: 7,         // Contextual
     compatibilityInfo: 10,   // Contextual
-    comparisonContent: 5     // Contextual
+    comparisonContent: 10    // Contextual (was 5, rebalanced to sum to 100)
   },
 
-  // Content Structure (12% of total)
+  // Content Structure (12% of total) — must sum to 100
   contentStructure: {
     h1Presence: 15,
     headingHierarchy: 12,
     semanticHTML: 12,
-    contentRatio: 12,
-    tableStructure: 10,
+    contentRatio: 8,         // was 12, reduced — LLMs don't penalize chrome ratio
+    tableStructure: 7,       // was 10, reduced
     listStructure: 8,
-    ariaLabels: 6,
+    ariaLabels: 3,           // was 6, reduced — accessibility, not AI citation
     primaryImageAlt: 10,
     allImagesAlt: 8,
     jsDependency: 10,
-    readability: 8
+    readability: 7           // was 8, reduced
   },
 
   // Authority & Trust (13% of total)
@@ -220,45 +220,59 @@ export const FACTOR_RECOMMENDATIONS = {
   'Product Schema': 'product-schema-missing',
   'Offer Schema': 'offer-schema-missing',
   'AggregateRating Schema': 'rating-schema-missing',
+  'Review Schema': 'review-schema-missing',
   'FAQ Schema': 'faq-schema-missing',
   'Breadcrumb Schema': 'breadcrumb-schema-missing',
+  'Organization/Brand Schema': 'organization-schema-missing',
+  'ImageObject Schema': 'image-schema-missing',
 
   // Protocol & Meta
   'og:image Present': 'og-image-missing',
   'og:image Format': 'og-image-webp',
   'og:title': 'og-title-missing',
   'og:description': 'og-description-missing',
+  'og:type = product': 'og-type-missing',
   'Twitter Card': 'twitter-card-missing',
+  'Twitter Image': 'twitter-image-missing',
+  'Canonical URL': 'canonical-missing',
+  'Meta Description': 'meta-description-missing',
   'Robots Allows Indexing': 'robots-blocking',
 
   // Content Quality
   'Description Length': 'description-short',
   'Description Quality': 'description-quality-low',
   'Specifications': 'specs-missing',
+  'Specification Detail': 'spec-detail-low',
   'Features List': 'features-missing',
   'FAQ Section': 'faq-content-missing',
+  'Dimensions/Size': 'dimensions-missing',
   'Materials': 'materials-missing',
   'Care Instructions': 'care-instructions-missing',
+  'Warranty Information': 'warranty-missing',
   'Compatibility Information': 'compatibility-missing',
+  'Comparison Content': 'comparison-missing',
 
   // Content Structure
   'H1 Heading': 'h1-missing',
+  'Heading Hierarchy': 'heading-hierarchy-broken',
   'Semantic HTML': 'semantic-html-missing',
+  'Content-to-Chrome Ratio': 'content-ratio-low',
+  'Table Structure': 'table-structure-missing',
+  'List Structure': 'list-structure-missing',
+  'ARIA Labels': 'aria-labels-missing',
   'Primary Image Alt Text': 'primary-image-alt-missing',
   'Image Alt Coverage': 'images-alt-low',
   'Readability': 'readability-low',
-  'Content-to-Chrome Ratio': 'content-ratio-low',
-  'Table Structure': 'table-structure-missing',
   'JavaScript Dependency': 'js-dependency-high',
-  'ARIA Labels': 'aria-labels-missing',
 
   // Authority & Trust
   'Review Count': 'reviews-missing',
+  'Average Rating': 'rating-low',
   'Review Recency': 'review-recency-low',
   'Review Depth': 'review-depth-low',
-  'Awards': 'awards-missing',
   'Brand Clarity': 'brand-unclear',
   'Certifications': 'certifications-missing',
+  'Awards': 'awards-missing',
   'Content Freshness': 'content-stale',
   'Social Proof Depth': 'social-proof-missing',
   'Expert Attribution': 'expert-attribution-missing',

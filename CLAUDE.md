@@ -18,39 +18,36 @@ pdpIQ (Product Description Page IQ) is a Chrome extension by **Tribbute** that a
 
 ```
 pdpiq/
-├── manifest.json                 # Extension configuration
+├── manifest.json                 # Extension configuration (includes CSP)
+├── PRIVACY.md                    # Privacy policy (all-local processing)
 ├── icons/
-│   ├── icon16.png               # Toolbar icon
+│   ├── icon16.png               # Toolbar icon (IQ lettermark, indigo)
 │   ├── icon48.png               # Extensions page icon
 │   ├── icon128.png              # Chrome Web Store icon
-│   └── tribbute-logo.png        # Header branding
+│   └── tribbute-logo.png        # Header branding (side panel only)
 ├── src/
 │   ├── background/
-│   │   └── service-worker.js    # Message routing, image format verification, AI discoverability network fetches
+│   │   └── service-worker.js    # Message routing, sender validation, URL guards, image verification, AI discoverability fetches
 │   ├── content/
-│   │   ├── content-script.js    # Main extraction orchestrator (includes inline structured data extraction)
-│   │   └── extractors/
-│   │       ├── index.js         # Extractor exports
-│   │       ├── structured-data.js   # JSON-LD, Microdata, RDFa (NOTE: not used at runtime)
-│   │       ├── meta-tags.js         # OG, Twitter Cards, canonical
-│   │       ├── content-quality.js   # Description, specs, features (NOTE: not used at runtime)
-│   │       ├── content-structure.js # Headings, semantic HTML
-│   │       └── trust-signals.js     # Reviews, ratings, certs
+│   │   └── content-script.js    # Main extraction orchestrator (all extraction logic is inline)
 │   ├── scoring/
 │   │   ├── scoring-engine.js    # Core scoring calculations
-│   │   ├── weights.js           # Category/factor/context weights
-│   │   └── grading.js           # Grade utilities (A-F)
+│   │   ├── weights.js           # Category/factor/context weights, factor-to-recommendation mappings
+│   │   └── grading.js           # Grade color/background helpers, re-exports getGrade/getGradeDescription
 │   ├── recommendations/
 │   │   ├── recommendation-engine.js  # Prioritization logic
-│   │   └── recommendation-rules.js   # Issue-to-fix mappings
+│   │   └── recommendation-rules.js   # Issue-to-fix mappings, recommendation templates
 │   ├── sidepanel/
 │   │   ├── sidepanel.html       # UI markup
-│   │   ├── sidepanel.css        # Styling
-│   │   └── sidepanel.js         # UI controller
+│   │   ├── sidepanel.css        # Styling (CSS variables for grade colours)
+│   │   ├── sidepanel.js         # UI controller (results, history, comparison, export)
+│   │   └── report-template.js   # Self-contained HTML report generator (base64-embedded logo)
 │   └── storage/
-│       └── storage-manager.js   # Analysis history persistence
+│       └── storage-manager.js   # Analysis history persistence, quota management
 └── styles/                      # Additional stylesheets
 ```
+
+**Note:** The `src/content/extractors/` directory was deleted. All extraction logic lives inline in `content-script.js`.
 
 ## Development Workflow
 
@@ -69,6 +66,7 @@ pdpiq/
 - Service worker: `chrome://extensions/` → "Inspect views: service worker"
 - Content script: DevTools on target page → Console
 - Side panel: Right-click side panel → Inspect
+- Production builds use `const DEBUG = false;` — set to `true` for verbose logging
 
 ## Architecture
 
@@ -76,11 +74,33 @@ pdpiq/
 1. User clicks extension icon → opens side panel
 2. User selects context (Want/Need/Hybrid)
 3. Side panel sends `ANALYZE_PAGE` message to service worker
-4. Service worker injects/messages content script
+4. Service worker validates sender, injects/messages content script
 5. Content script runs extractors, returns raw data
 6. Service worker verifies image formats (HTTP HEAD requests)
 7. Side panel receives data, runs scoring engine
 8. Results displayed with recommendations
+9. Analysis auto-saved to history
+
+### Features
+
+**Core Analysis:**
+- Scores ~75 factors across 6 categories with letter grades (A-F)
+- Context-sensitive scoring (Want/Need/Hybrid purchase types)
+- Actionable recommendations with inline expandable tips per factor
+
+**History & Comparison:**
+- Analysis history saved to `chrome.storage.local` (up to 20 shown)
+- Side-by-side comparison of any 2 saved analyses
+- Bottom nav tabs switch between Results and History views
+
+**Export:**
+- **Download Report** — Self-contained HTML report via `report-template.js` (Tribbute-branded, base64-embedded logo, all CSS inline)
+- **Download Analysis Data** — Raw JSON export of scores and extraction data
+
+**UI:**
+- Version badge in footer (reads from `chrome.runtime.getManifest().version`)
+- JS-rendered page warning banner when SPA detected
+- UTM-tracked links to tribbute.com in header logo, footer, and report
 
 ### Scoring System
 
@@ -99,7 +119,7 @@ pdpiq/
 
 ### Structured Data Extraction
 
-**Important:** `content-script.js` contains its own inline extraction logic. The files in `extractors/` (like `structured-data.js` and `content-quality.js`) exist for reference but are **not used** at runtime. When modifying extraction logic, edit `content-script.js` directly.
+**Important:** All extraction logic is inline in `content-script.js`. The `extractors/` directory was deleted. When modifying extraction logic, edit `content-script.js` directly.
 
 #### JSON-LD Formats Supported
 
@@ -159,8 +179,6 @@ The `extractBrandName()` helper handles all common schema formats:
 This is necessary because different sites implement brand/manufacturer in different ways.
 
 ### Description Extraction
-
-**Important:** Like structured data, description extraction logic is inlined in `content-script.js`. The `extractors/content-quality.js` file exists but is **not used** at runtime.
 
 The `analyzeDescription()` function uses a two-tier approach:
 
@@ -258,11 +276,18 @@ The AI Discoverability category (20% weight) evaluates whether AI systems (ChatG
 - Perplexity: `PerplexityBot`
 - Google: `Google-Extended`
 - Apple: `Applebot-Extended`
+- Meta: `Meta-ExternalAgent`
+- ByteDance: `Bytespider`
+- Cohere: `cohere-ai`
+- You.com: `YouBot`
+- Amazon: `Amazonbot`
 - Training: `CCBot` (Common Crawl)
 
 **Network Fetches (via service-worker.js):**
 - `FETCH_ROBOTS_TXT` - Parses robots.txt for AI crawler rules
 - `FETCH_LLMS_TXT` - Checks for /llms.txt and /llms-full.txt
+- `VERIFY_IMAGE_FORMAT` - HTTP HEAD to check og:image Content-Type
+- `FETCH_LAST_MODIFIED` - HTTP HEAD for Last-Modified header
 
 ### Content Quality Scoring — Notes
 
@@ -291,12 +316,16 @@ Factors in the side panel have expandable recommendation tips:
 
 | File | Purpose |
 |------|---------|
-| `manifest.json` | Extension permissions, content script config |
-| `src/content/content-script.js` | Orchestrates all data extraction |
+| `manifest.json` | Extension permissions, CSP, content script config |
+| `src/content/content-script.js` | Orchestrates all data extraction (inline) |
 | `src/scoring/weights.js` | All scoring weights, multipliers, and factor-to-recommendation mappings |
 | `src/scoring/scoring-engine.js` | Score calculation logic |
-| `src/recommendations/recommendation-rules.js` | Fix suggestions per issue |
-| `src/sidepanel/sidepanel.js` | UI state management and rendering |
+| `src/scoring/grading.js` | `getGradeColor()`, `getGradeBackgroundColor()`, re-exports `getGrade`/`getGradeDescription` |
+| `src/recommendations/recommendation-rules.js` | Fix suggestions per issue, recommendation templates |
+| `src/sidepanel/sidepanel.js` | UI state management, rendering, history, comparison, export |
+| `src/sidepanel/report-template.js` | HTML report generation with embedded branding |
+| `src/background/service-worker.js` | Message routing, sender validation, URL safety, network fetches |
+| `src/storage/storage-manager.js` | History CRUD, quota pruning |
 
 ## Common Tasks
 
@@ -334,9 +363,12 @@ Edit `src/scoring/weights.js`:
 - Markup: `src/sidepanel/sidepanel.html`
 - Styles: `src/sidepanel/sidepanel.css`
 - Logic: `src/sidepanel/sidepanel.js`
+- Report: `src/sidepanel/report-template.js`
 
 ### Icons
 All icons are inline SVGs — no emoji. Do not revert to emoji.
+
+**Extension icons** (`icons/icon*.png`) — "IQ" lettermark on solid indigo `#4f46e5` rounded rectangle, white text. Generated via Pillow with 4x supersampling and Lanczos downscale.
 
 **Context selector icons** (`.context-icon`, 40×40 px) — two fixed colours each: a background disc and a foreground shape.
 | Button | Shape | Fill | Background |
@@ -351,18 +383,43 @@ All icons are inline SVGs — no emoji. Do not revert to emoji.
 | Results | Bar chart | Tall centre bar | Flanking bars (35%) |
 | History | Clock | Hands | Face ring (35%) |
 
+### Branding & UTM Links
+- Header: pdpIQ wordmark + Tribbute logo linking to `tribbute.com/products/pdpiq/`
+- Footer: version badge + "by Tribbute" link
+- Report: Tribbute logo (base64-embedded PNG with bottom padding for rendering safety)
+- All external links include UTM parameters: `utm_source=pdpiq`, `utm_medium=extension|report`, `utm_content=header_logo|footer_link`
+
 ## Performance & Security Patterns
+
+### Content Security Policy
+`manifest.json` includes `content_security_policy.extension_pages`: `script-src 'self'; object-src 'self';`
+
+### Message Sender Validation
+The service worker's `onMessage` listener validates `sender.id === chrome.runtime.id` before processing any message. This prevents other extensions or web pages from injecting messages.
+
+### URL Safety Guards
+`isSafeUrl(url)` in `service-worker.js` validates URLs before any network fetch:
+- Must start with `http:` or `https:`
+- Blocks `localhost`, `127.0.0.1`, `0.0.0.0`, `file:` protocol
+- Used by `verifyImageFormat()`, `fetchRobotsTxt()`, `fetchLlmsTxt()`, `fetchLastModified()`
+
+### Safe URL Parsing
+`storage-manager.js` wraps `new URL()` in try-catch, falling back to `'unknown'` domain for malformed URLs.
+
+### DEBUG Flag
+All files use `const DEBUG = false;` at top. `console.log()` calls are gated behind `if (DEBUG)`. `console.error()` and `console.warn()` are kept unconditionally for legitimate error reporting.
+
+### XSS Prevention
+User-controlled data (page titles, domains from analyzed pages) is escaped before rendering:
+- `escapeHtml()` helper in sidepanel.js for innerHTML contexts
+- `esc()` helper in report-template.js for report HTML contexts
+- Schema descriptions use textarea trick for safe HTML entity decoding (doesn't execute scripts)
 
 ### JSON-LD Caching
 The content script uses a caching system to avoid parsing JSON-LD multiple times:
 - `getParsedJsonLd()` - Lazily parses all JSON-LD scripts once and caches the result
 - `iterateSchemaItems(typeFilter)` - Generator that yields schema items from cached data
 - `clearJsonLdCache()` - Called at start/end of `performFullExtraction()` to ensure fresh data
-
-### XSS Prevention
-User-controlled data (page titles, domains from analyzed pages) is escaped before rendering:
-- `escapeHtml()` helper in sidepanel.js for innerHTML contexts
-- Schema descriptions use textarea trick for safe HTML entity decoding (doesn't execute scripts)
 
 ### Race Condition Prevention
 The side panel uses request IDs to prevent stale data from being processed:
@@ -382,8 +439,3 @@ Storage manager monitors Chrome's 10MB quota:
 - `pruneIfNearQuota()` - Auto-prunes oldest 20% when storage reaches 80% capacity
 - `getStorageStats()` - Returns quota usage percentage
 - History entries store only essential data (scores, not full factor details)
-
-### URL Validation
-Network fetch functions validate inputs before processing:
-- `fetchRobotsTxt()`, `fetchLlmsTxt()`, `verifyImageFormat()`
-- Return graceful error objects for invalid/missing URLs instead of throwing

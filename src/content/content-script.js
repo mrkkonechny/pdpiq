@@ -620,8 +620,28 @@ function extractMetaTags() {
     },
     technical: {
       isHttps: window.location.protocol === 'https:',
-      hasLang: !!document.documentElement.lang
-    }
+      hasLang: !!document.documentElement.lang,
+      lang: document.documentElement.lang || null
+    },
+    hreflang: extractHreflang()
+  };
+}
+
+function extractHreflang() {
+  const tags = document.querySelectorAll('link[rel="alternate"][hreflang]');
+  if (tags.length === 0) return { present: false, languages: [], count: 0 };
+
+  const languages = [];
+  tags.forEach(tag => {
+    const lang = tag.getAttribute('hreflang');
+    const href = tag.href;
+    if (lang) languages.push({ lang, href });
+  });
+
+  return {
+    present: languages.length > 0,
+    languages,
+    count: languages.length
   };
 }
 
@@ -659,16 +679,62 @@ function isCanonicalForCurrentUrl(canonicalUrl, currentUrl) {
 
 function extractContentQuality() {
   const mainContent = getMainContentArea();
-  const bodyText = document.body.innerText;
+  const productText = getProductContentText(mainContent);
 
   return {
     description: analyzeDescription(mainContent),
     specifications: extractSpecifications(),
     features: extractFeatures(),
     faq: extractFaqContent(),
-    productDetails: extractProductDetails(bodyText),
+    productDetails: extractProductDetails(productText),
     textMetrics: analyzeTextMetrics(mainContent)
   };
+}
+
+/**
+ * Get text content scoped to product areas, excluding site chrome (nav, header, footer, promos).
+ * Falls back to body text if no product content area is found.
+ * @param {Element} mainContent - The main content area element
+ * @returns {string} Text content for product detail extraction
+ */
+function getProductContentText(mainContent) {
+  // If mainContent is already scoped (not document.body), use it directly
+  if (mainContent && mainContent !== document.body) {
+    // Clone and strip nav/header/footer/promo elements from the content
+    const clone = mainContent.cloneNode(true);
+    clone.querySelectorAll('nav, header, footer, [role="navigation"], [role="banner"], [role="contentinfo"]').forEach(el => el.remove());
+    const text = clone.innerText;
+    if (text.length > 200) return text;
+  }
+
+  // Try product-specific selectors that are likely to contain only product content
+  const productSelectors = [
+    '.product-detail', '.product-details', '.pdp-content', '#product-detail',
+    '.product-single', '.product__info', '.product-page', '[data-product]',
+    '.product-single__content-wrapper', '.product__main', '.pdp-main',
+    '#pdp-content', '.product-content', '[itemtype*="Product"]'
+  ];
+  for (const sel of productSelectors) {
+    try {
+      const el = document.querySelector(sel);
+      if (el && el.innerText.length > 200) {
+        const clone = el.cloneNode(true);
+        clone.querySelectorAll('nav, header, footer, [role="navigation"], [role="banner"], [role="contentinfo"]').forEach(n => n.remove());
+        return clone.innerText;
+      }
+    } catch (e) { /* skip invalid selectors */ }
+  }
+
+  // Last resort: use body text but strip common chrome elements
+  const clone = document.body.cloneNode(true);
+  clone.querySelectorAll(
+    'nav, header, footer, [role="navigation"], [role="banner"], [role="contentinfo"], ' +
+    '.site-header, .site-footer, .site-nav, .main-nav, .header-nav, .footer-nav, ' +
+    '#header, #footer, #nav, #site-header, #site-footer, ' +
+    '.announcement-bar, .cookie-banner, .popup, .modal, ' +
+    '.cart-drawer, .mini-cart, .shopping-cart'
+  ).forEach(el => el.remove());
+  return clone.innerText;
 }
 
 function getMainContentArea() {
@@ -932,6 +998,12 @@ function extractFeatures() {
     // Shopify selectors
     '.product__features', '.product-single__features', '.feature-list',
     '[data-product-features]', '[data-features]',
+    // Walmart selectors
+    '.about-product', '.about-item', '.product-about', '[data-testid="product-about"]',
+    '.about-desc', '.about-description', '#about-product',
+    // Canadian Tire, other major retailers
+    '.product-highlights', '.product-info__highlights', '.pdp-highlights',
+    '[class*="aboutProduct"]', '[class*="about-product"]',
     // Attribute-based fallbacks
     '[class*="feature"]', '[class*="benefit"]', '[class*="highlight"]'
   ];
@@ -953,7 +1025,7 @@ function extractFeatures() {
     const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6, strong, b');
     headings.forEach(heading => {
       const text = heading.textContent.toLowerCase();
-      if (text.includes('feature') || text.includes('benefit') || text.includes('highlight') || text.includes('why choose')) {
+      if (text.includes('feature') || text.includes('benefit') || text.includes('highlight') || text.includes('why choose') || text.includes('about this')) {
         // Look for the next ul/ol sibling or within parent
         let list = heading.nextElementSibling;
         while (list && !['UL', 'OL'].includes(list.tagName)) {
@@ -976,7 +1048,9 @@ function extractFeatures() {
   if (features.length === 0) {
     const contentSelectors = [
       '.product-single__description', '.product__description', '.product-description',
-      '.rte', '.description', '#description', 'main', 'article'
+      '.rte', '.description', '#description',
+      '.about-product', '.about-item', '.product-about', '.about-desc',
+      'main', 'article'
     ];
     for (const sel of contentSelectors) {
       try {
@@ -1325,18 +1399,34 @@ function formatSchemaValue(value) {
 
 function analyzeTextMetrics(content) {
   const text = content?.innerText || '';
-  const words = text.split(/\s+/).filter(w => w.length > 0);
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  // Filter out spec-like tokens (e.g., "250W", "IP67", "12V") from word count
+  const allWords = text.split(/\s+/).filter(w => w.length > 0);
+  const proseWords = allWords.filter(w => !/^\d+[A-Za-z]{0,3}$/.test(w) && !/^[A-Z]{2,}\d+/.test(w));
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 5);
 
-  // Simple readability approximation
+  // Improved readability: combine sentence length and syllable complexity
   let readabilityScore = 60;
-  if (words.length > 0 && sentences.length > 0) {
-    const avgWordsPerSentence = words.length / sentences.length;
-    readabilityScore = Math.max(0, Math.min(100, 100 - (avgWordsPerSentence - 15) * 3));
+  if (proseWords.length >= 20 && sentences.length > 0) {
+    const avgWordsPerSentence = proseWords.length / sentences.length;
+    // Approximate syllable count: count vowel clusters per word
+    let totalSyllables = 0;
+    for (const w of proseWords) {
+      const syllables = w.toLowerCase().replace(/e$/, '').match(/[aeiouy]+/g);
+      totalSyllables += syllables ? Math.max(1, syllables.length) : 1;
+    }
+    const avgSyllablesPerWord = totalSyllables / proseWords.length;
+
+    // Simplified Flesch Reading Ease: 206.835 - 1.015 * ASL - 84.6 * ASW
+    // Scaled to 0-100 where higher is more readable
+    const flesch = 206.835 - (1.015 * avgWordsPerSentence) - (84.6 * avgSyllablesPerWord);
+    readabilityScore = Math.max(0, Math.min(100, flesch));
+  } else if (proseWords.length < 20) {
+    // Too little text to measure reliably — give neutral score
+    readabilityScore = 50;
   }
 
   return {
-    totalWords: words.length,
+    totalWords: allWords.length,
     totalSentences: sentences.length,
     readabilityScore: Math.round(readabilityScore)
   };
@@ -1401,11 +1491,56 @@ function analyzeSemanticHTML() {
 }
 
 function calculateContentRatio() {
-  const main = document.querySelector('main, [role="main"], article, .product-detail');
-  if (!main) return { mainContentFound: false, ratio: 0, score: 0 };
+  // Try progressively broader selectors for main content area
+  const contentSelectors = [
+    '.product-detail', '.product-details', '.pdp-content', '#product-detail',
+    '.product-single', '.product__info', '.product-page', '[data-product]',
+    '.product-single__content-wrapper', '.product__main', '.pdp-main',
+    'article', '[role="main"]', 'main'
+  ];
 
-  const ratio = main.innerText.length / document.body.innerText.length;
-  return { mainContentFound: true, ratio: Math.round(ratio * 100) / 100, score: ratio > 0.5 ? 100 : Math.round(ratio * 200) };
+  let contentEl = null;
+  for (const sel of contentSelectors) {
+    try {
+      const el = document.querySelector(sel);
+      if (el && el.innerText.length > 100) {
+        contentEl = el;
+        break;
+      }
+    } catch (e) { /* skip */ }
+  }
+
+  if (!contentEl) return { mainContentFound: false, ratio: 0.3, score: 30 };
+
+  // Measure content text vs body text, excluding common chrome from body
+  const contentText = contentEl.innerText.length;
+  const bodyClone = document.body.cloneNode(true);
+  bodyClone.querySelectorAll(
+    'nav, header, footer, [role="navigation"], [role="banner"], [role="contentinfo"], ' +
+    '.site-header, .site-footer, .site-nav, .announcement-bar, .cookie-banner'
+  ).forEach(el => el.remove());
+  const bodyText = bodyClone.innerText.length;
+
+  if (bodyText === 0) return { mainContentFound: true, ratio: 0.5, score: 50 };
+
+  // If content element is very close to body size (e.g. <main> wraps everything),
+  // re-measure by stripping chrome from within the content element too
+  let ratio = contentText / bodyText;
+  if (ratio > 0.9) {
+    const contentClone = contentEl.cloneNode(true);
+    contentClone.querySelectorAll(
+      'nav, header, footer, [role="navigation"], .site-header, .site-footer'
+    ).forEach(el => el.remove());
+    const cleanContent = contentClone.innerText.length;
+    ratio = bodyText > 0 ? cleanContent / bodyText : 0.5;
+  }
+
+  // Clamp to realistic range
+  ratio = Math.min(0.95, Math.max(0.05, ratio));
+  ratio = Math.round(ratio * 100) / 100;
+  const score = ratio >= 0.5 ? 100 : ratio >= 0.3 ? Math.round(ratio * 200) : Math.round(ratio * 150);
+
+  return { mainContentFound: true, ratio, score };
 }
 
 function analyzeTables() {
@@ -1516,8 +1651,11 @@ function extractReviewSignals() {
     // Build @id index for resolving aggregateRating references within this block
     const idIndex = {};
     items.forEach(item => { if (item && item['@id']) idIndex[item['@id']] = item; });
+    // First pass: extract rating from Product/ProductGroup (highest confidence)
     items.forEach(item => {
-        if (item.aggregateRating) {
+        if (!item) return;
+        const itemType = (Array.isArray(item['@type']) ? item['@type'][0] : item['@type'] || '').toLowerCase();
+        if ((itemType === 'product' || itemType === 'productgroup') && item.aggregateRating) {
           // Resolve @id reference (Shopify ProductGroup pattern: "aggregateRating": {"@id": "#reviews"})
           const ratingData = item.aggregateRating['@id']
             ? (idIndex[item.aggregateRating['@id']] || item.aggregateRating)
@@ -1528,8 +1666,21 @@ function extractReviewSignals() {
             count = parseInt(ratingData.reviewCount, 10) || parseInt(ratingData.ratingCount, 10) || null;
           }
         }
-        // Extract individual reviews for depth/recency analysis
+    });
+    // Second pass: fallback to standalone AggregateRating or any item with aggregateRating
+    items.forEach(item => {
+        if (!item) return;
         const itemType = (Array.isArray(item['@type']) ? item['@type'][0] : item['@type'] || '').toLowerCase();
+        if (rating === null && item.aggregateRating) {
+          const ratingData = item.aggregateRating['@id']
+            ? (idIndex[item.aggregateRating['@id']] || item.aggregateRating)
+            : item.aggregateRating;
+          const rv = parseFloat(ratingData.ratingValue);
+          if (!isNaN(rv)) {
+            rating = rv;
+            count = parseInt(ratingData.reviewCount, 10) || parseInt(ratingData.ratingCount, 10) || null;
+          }
+        }
         // Handle standalone AggregateRating items (not nested via @id reference)
         if (itemType === 'aggregaterating' && rating === null) {
           const rv = parseFloat(item.ratingValue);
@@ -1675,9 +1826,16 @@ function extractBrandSignals() {
       // Handle top-level array, @graph, and single-object formats
       const items = Array.isArray(data) ? data : data['@graph'] ? data['@graph'] : [data];
       items.forEach(item => {
-        if (!brandName && (item['@type'] === 'Product' || item['@type'] === 'ProductGroup')) {
+        if (!item) return;
+        const type = (Array.isArray(item['@type']) ? item['@type'][0] : item['@type'] || '').toLowerCase();
+        // Check Product/ProductGroup brand and manufacturer
+        if (!brandName && (type === 'product' || type === 'productgroup')) {
           if (item.brand) brandName = extractBrandName(item.brand);
           if (!brandName && item.manufacturer) brandName = extractBrandName(item.manufacturer);
+        }
+        // Fallback: check standalone Organization or Brand schemas
+        if (!brandName && (type === 'organization' || type === 'brand')) {
+          brandName = item.name || null;
         }
       });
     } catch (e) {}

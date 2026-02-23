@@ -5,6 +5,7 @@
 
 import { calculatePriority, RECOMMENDATION_TEMPLATES } from './recommendation-rules.js';
 import { getContextMultiplier } from '../scoring/weights.js';
+import { ScoringEngine } from '../scoring/scoring-engine.js';
 
 /**
  * Recommendation Engine class
@@ -20,6 +21,7 @@ export class RecommendationEngine {
     this.extractedData = extractedData;
     this.imageVerification = imageVerification;
     this.context = scoreResult.context || 'hybrid';
+    this.isApparel = ScoringEngine.isLikelyApparel(extractedData);
   }
 
   /**
@@ -85,30 +87,24 @@ export class RecommendationEngine {
       recs.push(this.createRecommendation('twitter-card-missing'));
     }
 
+    // og:type missing or not product
+    if (!og.type || (og.type !== 'product' && !og.type.startsWith('product.'))) {
+      recs.push(this.createRecommendation('og-type-missing'));
+    }
+
+    // Twitter image missing
+    if (twitter.card && !twitter.image) {
+      recs.push(this.createRecommendation('twitter-image-missing'));
+    }
+
     // Canonical URL issues
     if (!canonical.present) {
-      recs.push({
-        id: 'canonical-missing',
-        title: 'Add canonical URL',
-        description: 'Missing canonical URL can cause duplicate content issues.',
-        impact: 'low',
-        effort: 'low',
-        category: 'protocolMeta',
-        priority: calculatePriority('low', 'low')
-      });
+      recs.push(this.createRecommendation('canonical-missing'));
     }
 
     // Meta description missing
     if (!standard.description) {
-      recs.push({
-        id: 'meta-description-missing',
-        title: 'Add meta description',
-        description: 'Meta description provides a summary for search results and LLM context.',
-        impact: 'medium',
-        effort: 'low',
-        category: 'protocolMeta',
-        priority: calculatePriority('medium', 'low')
-      });
+      recs.push(this.createRecommendation('meta-description-missing'));
     }
 
     return recs;
@@ -218,8 +214,8 @@ export class RecommendationEngine {
       recs.push(this.createRecommendation('faq-content-missing'));
     }
 
-    // Compatibility info missing (more important for "need" context)
-    if (!details.hasCompatibility) {
+    // Compatibility info missing (skip for apparel; more important for "need" context)
+    if (!details.hasCompatibility && !this.isApparel) {
       const multiplier = getContextMultiplier(this.context, 'compatibilityInfo');
       if (multiplier > 1) {
         recs.push({
@@ -232,21 +228,39 @@ export class RecommendationEngine {
       }
     }
 
-    // Warranty info missing (more important for "need" context)
-    if (!details.hasWarranty) {
-      const multiplier = getContextMultiplier(this.context, 'warrantyInfo');
-      const impact = multiplier > 1 ? 'medium' : 'low';
+    // Description quality low
+    if (desc.wordCount >= 100 && desc.qualityScore !== undefined && desc.qualityScore < 50) {
+      recs.push(this.createRecommendation('description-quality-low'));
+    }
 
-      recs.push({
-        id: 'warranty-missing',
-        title: 'Add warranty information',
-        description: 'Warranty details build trust and help LLMs answer purchase-related questions.',
-        impact,
-        effort: 'low',
-        category: 'contentQuality',
-        priority: calculatePriority(impact, 'low'),
-        contextual: multiplier > 1
-      });
+    // Materials missing
+    if (!details.hasMaterials) {
+      recs.push(this.createRecommendation('materials-missing'));
+    }
+
+    // Care instructions missing
+    if (!details.hasCareInstructions) {
+      recs.push(this.createRecommendation('care-instructions-missing'));
+    }
+
+    // Dimensions missing (skip for apparel — size charts suffice)
+    if (!details.hasDimensions && !this.isApparel) {
+      recs.push(this.createRecommendation('dimensions-missing'));
+    }
+
+    // Warranty info missing (skip for apparel — return policy suffices)
+    if (!details.hasWarranty && !this.isApparel) {
+      const multiplier = getContextMultiplier(this.context, 'warrantyInfo');
+      if (multiplier > 1) {
+        recs.push({
+          ...this.createRecommendation('warranty-missing'),
+          impact: 'medium',
+          priority: calculatePriority('medium', 'low'),
+          contextual: true
+        });
+      } else {
+        recs.push(this.createRecommendation('warranty-missing'));
+      }
     }
 
     return recs;
@@ -358,6 +372,39 @@ export class RecommendationEngine {
           priority: calculatePriority('medium', 'low'),
           contextual: true
         });
+      }
+    }
+
+    // Review recency
+    if (reviews.hasReviews && reviews.count > 0) {
+      const recency = reviews.recency || {};
+      if (!recency.hasRecentReview) {
+        recs.push(this.createRecommendation('review-recency-low'));
+      }
+
+      // Review depth
+      if (recency.averageLength !== undefined && recency.averageLength < 100) {
+        recs.push(this.createRecommendation('review-depth-low'));
+      }
+    }
+
+    // Awards
+    const awards = this.extractedData.trustSignals?.awards || {};
+    if (!awards.found) {
+      recs.push(this.createRecommendation('awards-missing'));
+    }
+
+    // Content freshness — check via scoring results
+    const trustFactors = this.scoreResult.categoryScores?.authorityTrust?.factors || [];
+    for (const factor of trustFactors) {
+      if (factor.name === 'Content Freshness' && factor.status === 'fail') {
+        recs.push(this.createRecommendation('content-stale'));
+      }
+      if (factor.name === 'Social Proof Depth' && factor.status === 'fail') {
+        recs.push(this.createRecommendation('social-proof-missing'));
+      }
+      if (factor.name === 'Expert Attribution' && factor.status === 'fail') {
+        recs.push(this.createRecommendation('expert-attribution-missing'));
       }
     }
 
