@@ -114,6 +114,14 @@ class SidePanelApp {
       this.showContextSelector();
     });
 
+    // PDP export buttons
+    document.getElementById('pdpExportReportBtn').addEventListener('click', () => {
+      this.exportHtmlReport();
+    });
+    document.getElementById('pdpExportBtn').addEventListener('click', () => {
+      this.exportData();
+    });
+
     // Event delegation for category list (prevents memory leaks from re-rendering)
     document.getElementById('categoryList').addEventListener('click', (e) => {
       // Handle category header clicks (expand/collapse)

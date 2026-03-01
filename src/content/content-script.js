@@ -2628,6 +2628,45 @@ function extractTrustConfidence() {
       }
     } catch (e) { /* skip */ }
   }
+  // Check expandable/accordion elements (details/summary, collapsible sections)
+  if (!hasReturnPolicy) {
+    const returnKeywords = /return|refund|exchange/i;
+    // <details> elements with return-related summary text
+    const detailsEls = document.querySelectorAll('details');
+    for (const det of detailsEls) {
+      const summary = det.querySelector('summary');
+      if (summary && returnKeywords.test(summary.textContent)) {
+        const content = det.textContent.trim();
+        if (content.length > 10) {
+          hasReturnPolicy = true;
+          returnPolicyText = summary.textContent.trim().substring(0, 60);
+          break;
+        }
+      }
+    }
+    // Accordion/collapsible buttons or headers mentioning returns
+    if (!hasReturnPolicy) {
+      const accordionHeaders = document.querySelectorAll(
+        '[class*="accordion"] button, [class*="accordion"] [role="button"], ' +
+        '[class*="collapsible"] button, [class*="collapsible"] [role="button"], ' +
+        '[class*="expandable"] button, [class*="tab"] button[aria-controls], ' +
+        '.product-info button, .product-details button'
+      );
+      for (const hdr of accordionHeaders) {
+        if (returnKeywords.test(hdr.textContent)) {
+          // Found an accordion header mentioning returns — check its associated panel
+          const panelId = hdr.getAttribute('aria-controls');
+          const panel = panelId ? document.getElementById(panelId) : hdr.closest('[class*="accordion"], [class*="collapsible"]');
+          const panelText = panel ? panel.textContent.trim() : hdr.textContent.trim();
+          if (panelText.length > 10) {
+            hasReturnPolicy = true;
+            returnPolicyText = hdr.textContent.trim().substring(0, 60);
+            break;
+          }
+        }
+      }
+    }
+  }
   if (!hasReturnPolicy) {
     const returnMatch = lower.match(/((?:free |easy |hassle[\s-]?free )?(?:\d+[\s-]?day )?(?:return|refund|exchange)(?:s| policy| guarantee)?)/i);
     if (returnMatch) {
@@ -2652,6 +2691,36 @@ function extractTrustConfidence() {
         break;
       }
     } catch (e) { /* skip */ }
+  }
+  // Check expandable/accordion elements for shipping info
+  if (!hasShippingInfo) {
+    const shippingKeywords = /shipping|delivery|dispatch/i;
+    const detailsEls = document.querySelectorAll('details');
+    for (const det of detailsEls) {
+      const summary = det.querySelector('summary');
+      if (summary && shippingKeywords.test(summary.textContent)) {
+        const content = det.textContent.trim();
+        if (content.length > 5) {
+          hasShippingInfo = true;
+          shippingText = summary.textContent.trim().substring(0, 60);
+          break;
+        }
+      }
+    }
+    if (!hasShippingInfo) {
+      const accordionHeaders = document.querySelectorAll(
+        '[class*="accordion"] button, [class*="accordion"] [role="button"], ' +
+        '[class*="collapsible"] button, [class*="collapsible"] [role="button"], ' +
+        '[class*="expandable"] button, .product-info button, .product-details button'
+      );
+      for (const hdr of accordionHeaders) {
+        if (shippingKeywords.test(hdr.textContent)) {
+          hasShippingInfo = true;
+          shippingText = hdr.textContent.trim().substring(0, 60);
+          break;
+        }
+      }
+    }
   }
   if (!hasShippingInfo) {
     const shipMatch = lower.match(/(free shipping|ships? (?:in|within|next)|delivery (?:in|within|by)|estimated delivery|standard shipping|express shipping|\$\d+(?:\.\d{2})?\s*shipping|\d[\s-]?\d?\s*(?:business )?day(?:s)?\s*(?:shipping|delivery))/i);

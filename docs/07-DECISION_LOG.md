@@ -22,6 +22,16 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 
 ## Decisions
 
+### DEC-0022 — Expandable element detection for Trust & Confidence extraction
+- **Date:** 2026-03-01
+- **Status:** Accepted
+- **Context:** Return policy and shipping info were not detected on Shopify themes that place this content inside `<details>/<summary>` elements or accordion/collapsible sections with generic class names. The existing detection relied on class/ID selectors containing "return" or "shipping", which missed expandable containers with names like `.product-info button`.
+- **Decision:** Add two new detection layers between the selector-based check and the text-pattern fallback: (1) iterate all `<details>` elements and check if their `<summary>` text contains return/shipping keywords, (2) iterate accordion/collapsible buttons and check for keywords, resolving associated content panels via `aria-controls`.
+- **Rationale:** `<details>/<summary>` is a native HTML5 pattern increasingly used by Shopify themes. Accordion buttons with `aria-controls` are the standard accessible pattern for custom expandable sections. Checking heading text for keywords is more reliable than class name matching for generic components.
+- **Alternatives Considered:** Add more class-name selectors (fragile — each Shopify theme uses different naming). Search all visible text first (already done as last fallback — but it matches too broadly, e.g., "Start a Return" link in footer).
+- **Consequences:** Slightly more DOM queries per extraction (~5-10 additional `querySelectorAll` calls). May detect non-product-page expandable sections if they mention returns/shipping, though the text-length guard mitigates this.
+- **Related:** BUG-0001, ROAD-0032
+
 ### DEC-0021 — Tab-based UI for dual scores (separate bottom nav tabs)
 - **Date:** 2026-03-01
 - **Status:** Accepted

@@ -7,6 +7,7 @@ All notable changes to this project. Format follows [Keep a Changelog](https://k
 ## [Unreleased]
 
 ### Added
+- Download Report and Download Analysis Data buttons on PDP Quality tab (ROAD-0032)
 - PDP Quality scoring model: 30 factors across 5 categories measuring consumer shopping experience (ROAD-0027)
   - Purchase Experience (25%): price visibility, CTA presence, CTA clarity, discount messaging, payment indicators, urgency signals
   - Trust & Confidence (20%): return policy, shipping info, trust badges, secure checkout, customer service, guarantee display
@@ -28,8 +29,10 @@ All notable changes to this project. Format follows [Keep a Changelog](https://k
 - HTML report includes both AI Readiness and PDP Quality sections with labeled headers
 - Storage entries now include `pdpScore`, `pdpGrade`, and `pdpCategoryScores` fields
 - `performFullExtraction()` returns `pdpQuality` key with all 5 category extraction results (single DOM pass, DEC-0020)
+- Version bumped to 2.0.0 in manifest.json
 
 ### Fixed
+- Return policy and shipping info not detected in expandable/accordion elements on Shopify themes (BUG-0001)
 
 ### Removed
 

@@ -458,6 +458,25 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 
 ## Completed
 
+### ROAD-0032 — PDP Quality tab export buttons + expandable element detection
+- **Status:** Done
+- **Type:** Improvement
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** v2.0.0 — Dual Scoring
+- **Date Added:** 2026-03-01
+- **Date Completed:** 2026-03-01
+- **Requested By:** QA review
+- **Scope:** Small (< 1 day)
+- **Description:** PDP Quality tab was missing Download Report and Download Analysis Data buttons that exist on the AI Visibility tab. Also fixed return policy and shipping info extraction failing on pages using expandable/accordion elements (e.g., `<details>/<summary>`, collapsible sections) with generic class names. Version bumped to 2.0.0.
+- **Acceptance Criteria:**
+  - [x] Download Report and Download Analysis Data buttons present on PDP Quality tab
+  - [x] Export buttons call the same dual-score export methods as AI Visibility tab
+  - [x] Return policy detected in `<details>/<summary>` and accordion elements
+  - [x] Shipping info detected in `<details>/<summary>` and accordion elements
+  - [x] manifest.json version updated to 2.0.0
+- **Dependencies:** ROAD-0027
+- **Related:** BUG-0001
+
 ### ROAD-0031 — Phase 4: History/comparison polish + documentation
 - **Status:** Done
 - **Type:** Improvement
