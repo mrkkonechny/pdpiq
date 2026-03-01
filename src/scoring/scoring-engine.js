@@ -9,7 +9,11 @@ import {
   FACTOR_WEIGHTS,
   getGrade,
   getGradeDescription,
-  getContextMultiplier
+  getContextMultiplier,
+  PDP_CATEGORY_WEIGHTS,
+  PDP_FACTOR_WEIGHTS,
+  getPdpGradeDescription,
+  getPdpContextMultiplier
 } from './weights.js';
 
 /**
@@ -1390,6 +1394,528 @@ export class ScoringEngine {
         maxPoints,
         details
       }
+    };
+  }
+
+  // ==========================================
+  // PDP QUALITY SCORING
+  // ==========================================
+
+  /**
+   * Calculate PDP Quality score from extracted data
+   * @param {Object} extractedData - Data from content script
+   * @returns {Object} Complete PDP Quality scoring result
+   */
+  calculatePdpQualityScore(extractedData) {
+    const pdpData = extractedData.pdpQuality || {};
+
+    const categoryScores = {
+      purchaseExperience: this.scorePurchaseExperience(pdpData.purchaseExperience),
+      trustConfidence: this.scoreTrustConfidence(pdpData.trustConfidence),
+      visualPresentation: this.scoreVisualPresentation(pdpData.visualPresentation),
+      contentCompleteness: this.scoreContentCompleteness(pdpData.contentCompleteness),
+      reviewsSocialProof: this.scoreReviewsSocialProof(pdpData.reviewsSocialProof)
+    };
+
+    const totalScore = Math.round(
+      categoryScores.purchaseExperience.score * PDP_CATEGORY_WEIGHTS.purchaseExperience +
+      categoryScores.trustConfidence.score * PDP_CATEGORY_WEIGHTS.trustConfidence +
+      categoryScores.visualPresentation.score * PDP_CATEGORY_WEIGHTS.visualPresentation +
+      categoryScores.contentCompleteness.score * PDP_CATEGORY_WEIGHTS.contentCompleteness +
+      categoryScores.reviewsSocialProof.score * PDP_CATEGORY_WEIGHTS.reviewsSocialProof
+    );
+
+    const grade = getGrade(totalScore);
+
+    return {
+      totalScore,
+      grade,
+      gradeDescription: getPdpGradeDescription(grade),
+      context: this.context,
+      categoryScores,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Score Purchase Experience category (25% weight)
+   */
+  scorePurchaseExperience(data) {
+    const factors = [];
+    let rawScore = 0;
+    const weights = PDP_FACTOR_WEIGHTS.purchaseExperience;
+
+    // Price Visibility (20 pts)
+    const priceScore = data?.priceVisible ? weights.priceVisibility : 0;
+    factors.push({
+      name: 'Price Visibility',
+      status: data?.priceVisible ? 'pass' : 'fail',
+      points: priceScore,
+      maxPoints: weights.priceVisibility,
+      details: data?.priceVisible ? (data.priceText || 'Price visible') : 'No visible price found'
+    });
+    rawScore += priceScore;
+
+    // CTA Button Presence (20 pts)
+    const ctaScore = data?.ctaFound ? weights.ctaButtonPresence : 0;
+    factors.push({
+      name: 'CTA Button Presence',
+      status: data?.ctaFound ? 'pass' : 'fail',
+      points: ctaScore,
+      maxPoints: weights.ctaButtonPresence,
+      details: data?.ctaFound ? (data.ctaText || 'CTA button found') : 'No add-to-cart or buy button found'
+    });
+    rawScore += ctaScore;
+
+    // CTA Clarity (15 pts)
+    let ctaClarityScore = 0;
+    let ctaClarityStatus = 'fail';
+    if (data?.ctaFound && data?.ctaIsClear) {
+      ctaClarityScore = weights.ctaClarity;
+      ctaClarityStatus = 'pass';
+    } else if (data?.ctaFound) {
+      ctaClarityScore = Math.round(weights.ctaClarity * 0.5);
+      ctaClarityStatus = 'warning';
+    }
+    factors.push({
+      name: 'CTA Clarity',
+      status: ctaClarityStatus,
+      points: ctaClarityScore,
+      maxPoints: weights.ctaClarity,
+      details: data?.ctaIsClear ? 'Clear, action-oriented CTA' : data?.ctaFound ? 'CTA exists but text is generic' : 'No CTA found'
+    });
+    rawScore += ctaClarityScore;
+
+    // Discount/Sale Messaging (15 pts)
+    const discountScore = data?.hasDiscount ? weights.discountSaleMessaging : 0;
+    factors.push({
+      name: 'Discount/Sale Messaging',
+      status: data?.hasDiscount ? 'pass' : 'fail',
+      points: discountScore,
+      maxPoints: weights.discountSaleMessaging,
+      details: data?.hasDiscount ? (data.discountText || 'Sale/discount messaging found') : 'No sale or compare-at pricing found'
+    });
+    rawScore += discountScore;
+
+    // Payment Method Indicators (15 pts)
+    const paymentScore = data?.hasPaymentIndicators ? weights.paymentMethodIndicators : 0;
+    factors.push({
+      name: 'Payment Method Indicators',
+      status: data?.hasPaymentIndicators ? 'pass' : 'fail',
+      points: paymentScore,
+      maxPoints: weights.paymentMethodIndicators,
+      details: data?.hasPaymentIndicators ? 'Payment methods or BNPL messaging visible' : 'No payment method indicators found'
+    });
+    rawScore += paymentScore;
+
+    // Urgency/Scarcity Signals (15 pts)
+    const urgencyMultiplier = getPdpContextMultiplier(this.context, 'urgencyScarcitySignals');
+    let urgencyScore = data?.hasUrgency ? weights.urgencyScarcitySignals : 0;
+    urgencyScore = Math.min(weights.urgencyScarcitySignals, Math.round(urgencyScore * urgencyMultiplier));
+    factors.push({
+      name: 'Urgency/Scarcity Signals',
+      status: data?.hasUrgency ? 'pass' : 'fail',
+      points: urgencyScore,
+      maxPoints: weights.urgencyScarcitySignals,
+      contextual: urgencyMultiplier !== 1.0,
+      details: data?.hasUrgency ? 'Urgency or scarcity messaging found' : 'No urgency or scarcity indicators'
+    });
+    rawScore += urgencyScore;
+
+    return {
+      score: rawScore,
+      maxScore: 100,
+      factors,
+      weight: PDP_CATEGORY_WEIGHTS.purchaseExperience,
+      categoryName: 'Purchase Experience'
+    };
+  }
+
+  /**
+   * Score Trust & Confidence category (20% weight)
+   */
+  scoreTrustConfidence(data) {
+    const factors = [];
+    let rawScore = 0;
+    const weights = PDP_FACTOR_WEIGHTS.trustConfidence;
+
+    // Return Policy Display (20 pts)
+    const returnScore = data?.hasReturnPolicy ? weights.returnPolicyDisplay : 0;
+    factors.push({
+      name: 'Return Policy Display',
+      status: data?.hasReturnPolicy ? 'pass' : 'fail',
+      points: returnScore,
+      maxPoints: weights.returnPolicyDisplay,
+      details: data?.hasReturnPolicy ? (data.returnPolicyText || 'Return policy visible') : 'No return policy information found'
+    });
+    rawScore += returnScore;
+
+    // Shipping Information (20 pts)
+    const shippingScore = data?.hasShippingInfo ? weights.shippingInformation : 0;
+    factors.push({
+      name: 'Shipping Information',
+      status: data?.hasShippingInfo ? 'pass' : 'fail',
+      points: shippingScore,
+      maxPoints: weights.shippingInformation,
+      details: data?.hasShippingInfo ? (data.shippingText || 'Shipping info visible') : 'No shipping information found'
+    });
+    rawScore += shippingScore;
+
+    // Trust Badges (20 pts)
+    const trustScore = data?.hasTrustBadges ? weights.trustBadges : 0;
+    factors.push({
+      name: 'Trust Badges',
+      status: data?.hasTrustBadges ? 'pass' : 'fail',
+      points: trustScore,
+      maxPoints: weights.trustBadges,
+      details: data?.hasTrustBadges ? 'Trust/security badges found' : 'No trust badges or security seals found'
+    });
+    rawScore += trustScore;
+
+    // Secure Checkout Signals (15 pts)
+    let secureScore = 0;
+    let secureStatus = 'fail';
+    if (data?.hasSecureCheckout) {
+      secureScore = weights.secureCheckoutSignals;
+      secureStatus = 'pass';
+    } else if (data?.isHttps) {
+      secureScore = Math.round(weights.secureCheckoutSignals * 0.5);
+      secureStatus = 'warning';
+    }
+    factors.push({
+      name: 'Secure Checkout Signals',
+      status: secureStatus,
+      points: secureScore,
+      maxPoints: weights.secureCheckoutSignals,
+      details: data?.hasSecureCheckout ? 'HTTPS + secure checkout messaging' : data?.isHttps ? 'HTTPS but no secure checkout messaging' : 'Not HTTPS'
+    });
+    rawScore += secureScore;
+
+    // Customer Service Indicators (15 pts)
+    const csScore = data?.hasCustomerService ? weights.customerServiceIndicators : 0;
+    factors.push({
+      name: 'Customer Service Indicators',
+      status: data?.hasCustomerService ? 'pass' : 'fail',
+      points: csScore,
+      maxPoints: weights.customerServiceIndicators,
+      details: data?.hasCustomerService ? 'Customer service contact visible' : 'No customer service contact visible'
+    });
+    rawScore += csScore;
+
+    // Guarantee/Warranty Display (10 pts)
+    const guaranteeScore = data?.hasGuarantee ? weights.guaranteeWarrantyDisplay : 0;
+    factors.push({
+      name: 'Guarantee/Warranty Display',
+      status: data?.hasGuarantee ? 'pass' : 'fail',
+      points: guaranteeScore,
+      maxPoints: weights.guaranteeWarrantyDisplay,
+      details: data?.hasGuarantee ? (data.guaranteeText || 'Guarantee/warranty displayed') : 'No guarantee or warranty information'
+    });
+    rawScore += guaranteeScore;
+
+    return {
+      score: rawScore,
+      maxScore: 100,
+      factors,
+      weight: PDP_CATEGORY_WEIGHTS.trustConfidence,
+      categoryName: 'Trust & Confidence'
+    };
+  }
+
+  /**
+   * Score Visual Presentation category (20% weight)
+   */
+  scoreVisualPresentation(data) {
+    const factors = [];
+    let rawScore = 0;
+    const weights = PDP_FACTOR_WEIGHTS.visualPresentation;
+
+    // Product Image Count (20 pts) — 4+ = pass, 2-3 = warning
+    const imgCount = data?.imageCount || 0;
+    let imgScore = 0;
+    let imgStatus = 'fail';
+    if (imgCount >= 4) {
+      imgScore = weights.productImageCount;
+      imgStatus = 'pass';
+    } else if (imgCount >= 2) {
+      imgScore = Math.round(weights.productImageCount * 0.5);
+      imgStatus = 'warning';
+    } else if (imgCount === 1) {
+      imgScore = Math.round(weights.productImageCount * 0.25);
+      imgStatus = 'fail';
+    }
+    factors.push({
+      name: 'Product Image Count',
+      status: imgStatus,
+      points: imgScore,
+      maxPoints: weights.productImageCount,
+      details: `${imgCount} product image${imgCount !== 1 ? 's' : ''} found${imgCount < 4 ? ' (aim for 4+)' : ''}`
+    });
+    rawScore += imgScore;
+
+    // Video Presence (15 pts)
+    const videoMultiplier = getPdpContextMultiplier(this.context, 'videoPresence');
+    let videoScore = data?.hasVideo ? weights.videoPresence : 0;
+    videoScore = Math.min(weights.videoPresence, Math.round(videoScore * videoMultiplier));
+    factors.push({
+      name: 'Video Presence',
+      status: data?.hasVideo ? 'pass' : 'fail',
+      points: videoScore,
+      maxPoints: weights.videoPresence,
+      contextual: videoMultiplier !== 1.0,
+      details: data?.hasVideo ? 'Product video found' : 'No product video found'
+    });
+    rawScore += videoScore;
+
+    // Image Gallery Features (15 pts)
+    const galleryScore = data?.hasGalleryFeatures ? weights.imageGalleryFeatures : 0;
+    factors.push({
+      name: 'Image Gallery Features',
+      status: data?.hasGalleryFeatures ? 'pass' : 'fail',
+      points: galleryScore,
+      maxPoints: weights.imageGalleryFeatures,
+      details: data?.hasGalleryFeatures ? 'Zoom, lightbox, or navigation found' : 'No gallery features (zoom, lightbox, nav)'
+    });
+    rawScore += galleryScore;
+
+    // Lifestyle/Context Images (15 pts)
+    const lifestyleMultiplier = getPdpContextMultiplier(this.context, 'lifestyleContextImages');
+    let lifestyleScore = data?.hasLifestyleImages ? weights.lifestyleContextImages : 0;
+    lifestyleScore = Math.min(weights.lifestyleContextImages, Math.round(lifestyleScore * lifestyleMultiplier));
+    factors.push({
+      name: 'Lifestyle/Context Images',
+      status: data?.hasLifestyleImages ? 'pass' : 'fail',
+      points: lifestyleScore,
+      maxPoints: weights.lifestyleContextImages,
+      contextual: lifestyleMultiplier !== 1.0,
+      details: data?.hasLifestyleImages ? 'Lifestyle or in-use images found' : 'No lifestyle or context images detected'
+    });
+    rawScore += lifestyleScore;
+
+    // Color/Variant Swatches (20 pts)
+    const swatchMultiplier = getPdpContextMultiplier(this.context, 'colorVariantSwatches');
+    let swatchScore = data?.hasSwatches ? weights.colorVariantSwatches : 0;
+    swatchScore = Math.min(weights.colorVariantSwatches, Math.round(swatchScore * swatchMultiplier));
+    factors.push({
+      name: 'Color/Variant Swatches',
+      status: data?.hasSwatches ? 'pass' : 'fail',
+      points: swatchScore,
+      maxPoints: weights.colorVariantSwatches,
+      contextual: swatchMultiplier !== 1.0,
+      details: data?.hasSwatches ? 'Visual color/variant selectors found' : 'No visual variant swatches'
+    });
+    rawScore += swatchScore;
+
+    // Image Quality Signals (15 pts)
+    const qualityScore = data?.hasHighResImages ? weights.imageQualitySignals : 0;
+    factors.push({
+      name: 'Image Quality Signals',
+      status: data?.hasHighResImages ? 'pass' : 'fail',
+      points: qualityScore,
+      maxPoints: weights.imageQualitySignals,
+      details: data?.hasHighResImages ? 'High-resolution images with srcset' : 'No high-res image indicators found'
+    });
+    rawScore += qualityScore;
+
+    return {
+      score: rawScore,
+      maxScore: 100,
+      factors,
+      weight: PDP_CATEGORY_WEIGHTS.visualPresentation,
+      categoryName: 'Visual Presentation'
+    };
+  }
+
+  /**
+   * Score Content Completeness category (15% weight)
+   */
+  scoreContentCompleteness(data) {
+    const factors = [];
+    let rawScore = 0;
+    const weights = PDP_FACTOR_WEIGHTS.contentCompleteness;
+
+    // Product Variant Display (20 pts)
+    const variantMultiplier = getPdpContextMultiplier(this.context, 'productVariantDisplay');
+    let variantScore = data?.hasVariants ? weights.productVariantDisplay : 0;
+    variantScore = Math.min(weights.productVariantDisplay, Math.round(variantScore * variantMultiplier));
+    factors.push({
+      name: 'Product Variant Display',
+      status: data?.hasVariants ? 'pass' : 'fail',
+      points: variantScore,
+      maxPoints: weights.productVariantDisplay,
+      contextual: variantMultiplier !== 1.0,
+      details: data?.hasVariants ? 'Size/color/option selectors found' : 'No product variant selectors'
+    });
+    rawScore += variantScore;
+
+    // Size Guide/Fit Info (15 pts)
+    const sizeMultiplier = getPdpContextMultiplier(this.context, 'sizeGuideFitInfo');
+    let sizeScore = data?.hasSizeGuide ? weights.sizeGuideFitInfo : 0;
+    sizeScore = Math.min(weights.sizeGuideFitInfo, Math.round(sizeScore * sizeMultiplier));
+    factors.push({
+      name: 'Size Guide/Fit Info',
+      status: data?.hasSizeGuide ? 'pass' : 'fail',
+      points: sizeScore,
+      maxPoints: weights.sizeGuideFitInfo,
+      contextual: sizeMultiplier !== 1.0,
+      details: data?.hasSizeGuide ? 'Size guide or fit info available' : 'No size guide or fit information'
+    });
+    rawScore += sizeScore;
+
+    // Related/Recommended Products (15 pts)
+    const relatedScore = data?.hasRelatedProducts ? weights.relatedRecommendedProducts : 0;
+    factors.push({
+      name: 'Related/Recommended Products',
+      status: data?.hasRelatedProducts ? 'pass' : 'fail',
+      points: relatedScore,
+      maxPoints: weights.relatedRecommendedProducts,
+      details: data?.hasRelatedProducts ? 'Related or recommended products section found' : 'No related products section'
+    });
+    rawScore += relatedScore;
+
+    // Q&A Section (15 pts)
+    const qaScore = data?.hasQASection ? weights.qaSection : 0;
+    factors.push({
+      name: 'Q&A Section',
+      status: data?.hasQASection ? 'pass' : 'fail',
+      points: qaScore,
+      maxPoints: weights.qaSection,
+      details: data?.hasQASection ? 'Customer Q&A section found' : 'No Q&A section'
+    });
+    rawScore += qaScore;
+
+    // Product Details Organization (15 pts)
+    const orgScore = data?.hasOrganizedDetails ? weights.productDetailsOrganization : 0;
+    factors.push({
+      name: 'Product Details Organization',
+      status: data?.hasOrganizedDetails ? 'pass' : 'fail',
+      points: orgScore,
+      maxPoints: weights.productDetailsOrganization,
+      details: data?.hasOrganizedDetails ? 'Tabs, accordions, or organized sections found' : 'No structured content organization'
+    });
+    rawScore += orgScore;
+
+    // "What's in the Box" (20 pts)
+    const boxMultiplier = getPdpContextMultiplier(this.context, 'whatsInTheBox');
+    let boxScore = data?.hasWhatsInBox ? weights.whatsInTheBox : 0;
+    boxScore = Math.min(weights.whatsInTheBox, Math.round(boxScore * boxMultiplier));
+    factors.push({
+      name: '"What\'s in the Box"',
+      status: data?.hasWhatsInBox ? 'pass' : 'fail',
+      points: boxScore,
+      maxPoints: weights.whatsInTheBox,
+      contextual: boxMultiplier !== 1.0,
+      details: data?.hasWhatsInBox ? 'Package contents or included items listed' : 'No package contents information'
+    });
+    rawScore += boxScore;
+
+    return {
+      score: rawScore,
+      maxScore: 100,
+      factors,
+      weight: PDP_CATEGORY_WEIGHTS.contentCompleteness,
+      categoryName: 'Content Completeness'
+    };
+  }
+
+  /**
+   * Score Reviews & Social Proof category (20% weight)
+   */
+  scoreReviewsSocialProof(data) {
+    const factors = [];
+    let rawScore = 0;
+    const weights = PDP_FACTOR_WEIGHTS.reviewsSocialProof;
+
+    // Review Display Prominence (20 pts)
+    const prominenceScore = data?.hasProminentReviews ? weights.reviewDisplayProminence : 0;
+    factors.push({
+      name: 'Review Display Prominence',
+      status: data?.hasProminentReviews ? 'pass' : 'fail',
+      points: prominenceScore,
+      maxPoints: weights.reviewDisplayProminence,
+      details: data?.hasProminentReviews ? 'Star rating visible in product hero area' : 'No rating display in hero area'
+    });
+    rawScore += prominenceScore;
+
+    // Star Rating Visual (15 pts)
+    const starScore = data?.hasStarVisual ? weights.starRatingVisual : 0;
+    factors.push({
+      name: 'Star Rating Visual',
+      status: data?.hasStarVisual ? 'pass' : 'fail',
+      points: starScore,
+      maxPoints: weights.starRatingVisual,
+      details: data?.hasStarVisual ? 'Visual star rating display found' : 'No visual star rating (icons/SVG)'
+    });
+    rawScore += starScore;
+
+    // Review Sorting/Filtering (15 pts)
+    const sortScore = data?.hasReviewSorting ? weights.reviewSortingFiltering : 0;
+    factors.push({
+      name: 'Review Sorting/Filtering',
+      status: data?.hasReviewSorting ? 'pass' : 'fail',
+      points: sortScore,
+      maxPoints: weights.reviewSortingFiltering,
+      details: data?.hasReviewSorting ? 'Review sort/filter options found' : 'No review sorting or filtering'
+    });
+    rawScore += sortScore;
+
+    // Photo/Video Reviews (20 pts)
+    const mediaMultiplier = getPdpContextMultiplier(this.context, 'photoVideoReviews');
+    let mediaScore = data?.hasMediaReviews ? weights.photoVideoReviews : 0;
+    mediaScore = Math.min(weights.photoVideoReviews, Math.round(mediaScore * mediaMultiplier));
+    factors.push({
+      name: 'Photo/Video Reviews',
+      status: data?.hasMediaReviews ? 'pass' : 'fail',
+      points: mediaScore,
+      maxPoints: weights.photoVideoReviews,
+      contextual: mediaMultiplier !== 1.0,
+      details: data?.hasMediaReviews ? 'Customer photo/video reviews found' : 'No customer-submitted review media'
+    });
+    rawScore += mediaScore;
+
+    // Social Proof Indicators (15 pts)
+    const spMultiplier = getPdpContextMultiplier(this.context, 'socialProofIndicators');
+    let spScore = data?.hasSocialProof ? weights.socialProofIndicators : 0;
+    spScore = Math.min(weights.socialProofIndicators, Math.round(spScore * spMultiplier));
+    factors.push({
+      name: 'Social Proof Indicators',
+      status: data?.hasSocialProof ? 'pass' : 'fail',
+      points: spScore,
+      maxPoints: weights.socialProofIndicators,
+      contextual: spMultiplier !== 1.0,
+      details: data?.hasSocialProof ? 'Social proof indicators found' : 'No "X people bought" or bestseller badges'
+    });
+    rawScore += spScore;
+
+    // Review Count Threshold (15 pts) — 50+ = pass, 25-49 = warning
+    const reviewCount = data?.reviewCount || 0;
+    let countScore = 0;
+    let countStatus = 'fail';
+    if (reviewCount >= 50) {
+      countScore = weights.reviewCountThreshold;
+      countStatus = 'pass';
+    } else if (reviewCount >= 25) {
+      countScore = Math.round(weights.reviewCountThreshold * 0.5);
+      countStatus = 'warning';
+    } else if (reviewCount > 0) {
+      countScore = Math.round(weights.reviewCountThreshold * 0.25);
+      countStatus = 'fail';
+    }
+    factors.push({
+      name: 'Review Count Threshold',
+      status: countStatus,
+      points: countScore,
+      maxPoints: weights.reviewCountThreshold,
+      details: `${reviewCount} reviews${reviewCount < 50 ? ' (aim for 50+)' : ''}`
+    });
+    rawScore += countScore;
+
+    return {
+      score: rawScore,
+      maxScore: 100,
+      factors,
+      weight: PDP_CATEGORY_WEIGHTS.reviewsSocialProof,
+      categoryName: 'Reviews & Social Proof'
     };
   }
 }

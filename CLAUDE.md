@@ -1,10 +1,27 @@
-# CLAUDE.md
+# Project Configuration
 
-This file provides guidance to Claude Code (claude.ai/claude-code) when working with code in this repository.
+## Product Development Standard (PDS)
+This project follows the TRIBBUTE PDS. Read `docs/00-PDS_README.md` for the full structure and `.claude/rules/pds-protocol.md` for operational rules.
+
+### Documentation Structure
+- `docs/01-06` — Product definition and operations (update with explicit instruction only)
+- `docs/07-10` — Tracking files (update proactively during work)
+- `docs/.context/` — Ephemeral agent handoff files (overwrite each task)
+
+### ID Systems
+- **DEC-NNNN** → Decision Log (07)
+- **ROAD-NNNN** → Roadmap (08)
+- **BUG-NNNN** → Bug Log (09)
+
+When you encounter a bug, complete a feature, make an architectural decision, or identify tech debt during any task, update the relevant tracking files and cross-reference IDs.
 
 ## Project Overview
 
-pdpIQ (Product Description Page IQ) is a Chrome extension by **Tribbute** that analyzes eCommerce Product Detail Pages (PDPs) for AI citation readiness. It scores pages across 56 factors in 6 categories and provides actionable recommendations.
+pdpIQ (Product Description Page IQ) is a Chrome extension by **Tribbute** that analyzes eCommerce Product Detail Pages (PDPs) with a dual scoring model:
+1. **AI Readiness** — 56 factors across 6 categories measuring how well product pages are optimized for AI citation
+2. **PDP Quality** — 30 factors across 5 categories measuring the consumer shopping experience (conversion, trust, visual presentation)
+
+Both scores are calculated from a single DOM extraction pass, displayed in separate tabs, and saved together in history.
 
 ## Tech Stack
 
@@ -86,26 +103,31 @@ pdpiq/
 ### Features
 
 **Core Analysis:**
-- Scores 56 factors across 6 categories with letter grades (A-F)
-- Context-sensitive scoring (Want/Need/Hybrid purchase types)
-- Actionable recommendations with inline expandable tips per factor (all 56 factors mapped)
-- Apparel category detection — warranty/compatibility/dimensions auto-marked N/A for fashion products
+- **AI Readiness:** 56 factors across 6 categories with letter grades (A-F)
+- **PDP Quality:** 30 factors across 5 categories with letter grades (A-F)
+- Context-sensitive scoring (Want/Need/Hybrid purchase types) — applies to both scores
+- Actionable recommendations with inline expandable tips per factor (all factors mapped)
+- Apparel category detection — warranty/compatibility/dimensions auto-marked N/A for fashion products (AI Readiness)
 
 **History & Comparison:**
 - Analysis history saved to `chrome.storage.local` (up to 20 shown)
-- Side-by-side comparison of any 2 saved analyses
-- Bottom nav tabs switch between Results and History views
+- Dual grade badges per history entry (AI Readiness + PDP Quality)
+- Side-by-side comparison with both score types
+- Bottom nav tabs: AI Visibility, PDP Quality, History
 
 **Export:**
-- **Download Report** — Self-contained HTML report via `report-template.js` (Tribbute-branded, base64-embedded logo, all CSS inline). Includes executive summary, grade legend, context explanation, priority-grouped recommendations with effort badges, pass/fail counts per category, and unique report ID.
-- **Download Analysis Data** — Raw JSON export of scores and extraction data
+- **Download Report** — Self-contained HTML report via `report-template.js` (Tribbute-branded, base64-embedded logo, all CSS inline). Includes both AI Readiness and PDP Quality sections with executive summaries, grade legends, context explanation, priority-grouped recommendations with effort badges, pass/fail counts per category, and unique report ID.
+- **Download Analysis Data** — Raw JSON export of both scores and extraction data
 
 **UI:**
+- 3-tab bottom navigation: AI Visibility (renamed from Results), PDP Quality, History
 - Version badge in footer (reads from `chrome.runtime.getManifest().version`)
 - JS-rendered page warning banner when SPA detected
 - UTM-tracked links to tribbute.com in header logo, footer, and report
 
 ### Scoring System
+
+#### AI Readiness Score
 
 **Category Weights** (total = 100%):
 - Structured Data: 20% (JSON-LD Product/Offer schemas critical)
@@ -119,6 +141,44 @@ pdpiq/
 - **Want** (emotional): boosts social proof, benefits, reviews; reduces specs
 - **Need** (functional): boosts specs, compatibility, certifications; reduces emotional content
 - **Hybrid**: neutral (1.0x all factors)
+
+#### PDP Quality Score
+
+**Category Weights** (total = 100%):
+- Purchase Experience: 25% (price visibility, CTA, discounts, payment methods, urgency)
+- Trust & Confidence: 20% (return policy, shipping, trust badges, secure checkout, customer service)
+- Visual Presentation: 20% (image count, video, gallery features, lifestyle images, swatches, image quality)
+- Content Completeness: 15% (variants, size guide, related products, Q&A, organized details, what's in the box)
+- Reviews & Social Proof: 20% (review prominence, star visuals, sorting/filtering, photo reviews, social proof, review count)
+
+**PDP Context Multipliers** (Want/Need/Hybrid):
+- **Want**: boosts lifestyle images, swatches, photo reviews, social proof, urgency; reduces size guides
+- **Need**: boosts size guides, what's in the box, variants, video; reduces lifestyle images, urgency
+- **Hybrid**: neutral (1.0x all factors)
+
+**Key Architecture Decisions** (DEC-0019, DEC-0020, DEC-0021):
+- PDP Quality is a separate score, not combined with AI Readiness
+- Single DOM extraction pass produces data for both scores (shared extraction via `pdpQuality` key in `performFullExtraction()`)
+- Tab-based UI: 3 bottom nav tabs (AI Visibility, PDP Quality, History)
+- Same grading scale (A/B/C/D/F, thresholds 90/80/70/60) with different grade descriptions
+- PDP extraction is fully DOM-based — no network requests required
+- Backward-compatible history: old entries without `pdpScore` show "N/A"
+
+**PDP Quality Extraction Functions** (in `content-script.js`):
+- `extractPdpQualitySignals()` — orchestrator returning all 5 categories
+- `extractPurchaseExperience()` — price, CTA, discounts, payments, urgency
+- `extractTrustConfidence()` — returns, shipping, badges, checkout, service, guarantee
+- `extractVisualPresentation()` — images, video, gallery, lifestyle, swatches, quality
+- `extractContentCompleteness()` — variants, size guide, related products, Q&A, organization, package contents
+- `extractReviewsSocialProof()` — review prominence, stars, sorting, media, social proof, count
+
+**PDP Quality Scoring** (in `scoring-engine.js`):
+- `calculatePdpQualityScore(extractedData)` — returns `{totalScore, grade, gradeDescription, context, categoryScores, timestamp}`
+- `scorePurchaseExperience()`, `scoreTrustConfidence()`, `scoreVisualPresentation()`, `scoreContentCompleteness()`, `scoreReviewsSocialProof()`
+
+**PDP Quality Recommendations** (in `recommendation-engine.js` and `recommendation-rules.js`):
+- `PdpQualityRecommendationEngine` class with per-category check methods
+- `PDP_RECOMMENDATION_TEMPLATES` — 30 templates mapped via `PDP_FACTOR_RECOMMENDATIONS` in `weights.js`
 
 ### Structured Data Extraction
 
@@ -337,18 +397,24 @@ When `contentStructure.jsDependency.dependencyLevel === 'high'` (React/Vue SPA),
 
 ### Inline Factor Recommendations
 Factors in the side panel have expandable recommendation tips:
-- `FACTOR_RECOMMENDATIONS` in `weights.js` maps all 56 factor display names to template IDs
-- `RECOMMENDATION_TEMPLATES` in `recommendation-rules.js` contains 58 templates (some factors share templates)
+- **AI Readiness:** `FACTOR_RECOMMENDATIONS` maps 56 factor names → `RECOMMENDATION_TEMPLATES` (58 templates)
+- **PDP Quality:** `PDP_FACTOR_RECOMMENDATIONS` maps 30 factor names → `PDP_RECOMMENDATION_TEMPLATES` (30 templates)
 - Click the ▶ arrow on any factor to see actionable advice
 - Tips include a description and implementation guidance
 
 ### Recommendation Engine Coverage
 
-`recommendation-engine.js` generates recommendations for all failing factors across all 6 categories. Key features:
+**AI Readiness** — `RecommendationEngine` in `recommendation-engine.js`:
+- Generates recommendations for all failing factors across all 6 AI categories
 - Uses `createRecommendation(templateId)` to pull from `RECOMMENDATION_TEMPLATES`
 - Context-aware: adjusts impact level based on `CONTEXT_MULTIPLIERS` (e.g., compatibility is "high" in Need context)
 - Apparel-aware: skips warranty/compatibility/dimensions recommendations for fashion products
-- Report groups recommendations into **Quick Wins** (high/medium impact + low effort), **Medium Priority**, and **Nice to Have**
+
+**PDP Quality** — `PdpQualityRecommendationEngine` in `recommendation-engine.js`:
+- Generates recommendations for all failing factors across all 5 PDP categories
+- Uses `createRecommendation(templateId)` to pull from `PDP_RECOMMENDATION_TEMPLATES`
+- Context-aware: adjusts based on `PDP_CONTEXT_MULTIPLIERS` (e.g., urgency boosted in Want context)
+- Both engines share the same priority grouping: **Quick Wins**, **Medium Priority**, **Nice to Have**
 
 ### Hreflang Extraction
 
@@ -364,19 +430,20 @@ This is informational context for bilingual sites (common with Canadian retailer
 | File | Purpose |
 |------|---------|
 | `manifest.json` | Extension permissions, CSP, content script config |
-| `src/content/content-script.js` | Orchestrates all data extraction (inline) |
-| `src/scoring/weights.js` | All scoring weights, multipliers, and factor-to-recommendation mappings |
-| `src/scoring/scoring-engine.js` | Score calculation logic |
+| `src/content/content-script.js` | Orchestrates all data extraction (inline) — includes both AI and PDP Quality extractors |
+| `src/scoring/weights.js` | All scoring weights, multipliers, and factor-to-recommendation mappings (AI + PDP) |
+| `src/scoring/scoring-engine.js` | Score calculation logic — `calculateScore()` (AI) + `calculatePdpQualityScore()` (PDP) |
 | `src/scoring/grading.js` | `getGradeColor()`, `getGradeBackgroundColor()`, re-exports `getGrade`/`getGradeDescription` |
-| `src/recommendations/recommendation-rules.js` | Fix suggestions per issue, recommendation templates |
-| `src/sidepanel/sidepanel.js` | UI state management, rendering, history, comparison, export |
-| `src/sidepanel/report-template.js` | HTML report generation with executive summary, priority-grouped recs, embedded branding |
+| `src/recommendations/recommendation-rules.js` | `RECOMMENDATION_TEMPLATES` (AI) + `PDP_RECOMMENDATION_TEMPLATES` (PDP) |
+| `src/recommendations/recommendation-engine.js` | `RecommendationEngine` (AI) + `PdpQualityRecommendationEngine` (PDP) |
+| `src/sidepanel/sidepanel.js` | UI state management, dual-tab rendering, history, comparison, export |
+| `src/sidepanel/report-template.js` | HTML report generation with both AI and PDP sections |
 | `src/background/service-worker.js` | Message routing, sender validation, URL safety, network fetches |
 | `src/storage/storage-manager.js` | History CRUD, quota pruning |
 
 ## Common Tasks
 
-### Adding a New Factor
+### Adding a New AI Readiness Factor
 1. Add extraction logic in `src/content/content-script.js`:
    - For structured data: edit `categorizeSchemas()` (JSON-LD) and `categorizeMicrodataSchemas()` (microdata)
    - For content quality: edit relevant `extract*()` functions
@@ -384,8 +451,17 @@ This is informational context for bilingual sites (common with Canadian retailer
 2. Add factor weight in `src/scoring/weights.js` → `FACTOR_WEIGHTS`
 3. Add scoring logic in `src/scoring/scoring-engine.js` → appropriate `score*()` method
 4. If context-sensitive, add multipliers in `CONTEXT_MULTIPLIERS`
-5. Add recommendation rule in `src/recommendations/recommendation-rules.js`
+5. Add recommendation rule in `src/recommendations/recommendation-rules.js` → `RECOMMENDATION_TEMPLATES`
 6. Add factor-to-recommendation mapping in `src/scoring/weights.js` → `FACTOR_RECOMMENDATIONS`
+
+### Adding a New PDP Quality Factor
+1. Add extraction logic in `src/content/content-script.js` → appropriate `extract*()` function within `extractPdpQualitySignals()`
+2. Add factor weight in `src/scoring/weights.js` → `PDP_FACTOR_WEIGHTS`
+3. Add scoring logic in `src/scoring/scoring-engine.js` → appropriate `score*()` method called by `calculatePdpQualityScore()`
+4. If context-sensitive, add multipliers in `PDP_CONTEXT_MULTIPLIERS`
+5. Add recommendation template in `src/recommendations/recommendation-rules.js` → `PDP_RECOMMENDATION_TEMPLATES`
+6. Add factor-to-recommendation mapping in `src/scoring/weights.js` → `PDP_FACTOR_RECOMMENDATIONS`
+7. Add recommendation check in `src/recommendations/recommendation-engine.js` → `PdpQualityRecommendationEngine`
 
 ### Adding a New Category
 1. Add category description in `src/scoring/weights.js` → `CATEGORY_DESCRIPTIONS`
@@ -401,10 +477,9 @@ This is informational context for bilingual sites (common with Canadian retailer
 
 ### Modifying Scoring Weights
 Edit `src/scoring/weights.js`:
-- `CATEGORY_WEIGHTS` - must sum to 1.0
-- `FACTOR_WEIGHTS` - relative weights within each category
-- `CONTEXT_MULTIPLIERS` - per-context adjustments
-- `FACTOR_RECOMMENDATIONS` - maps factor names to recommendation template IDs
+- AI Readiness: `CATEGORY_WEIGHTS`, `FACTOR_WEIGHTS`, `CONTEXT_MULTIPLIERS`, `FACTOR_RECOMMENDATIONS`
+- PDP Quality: `PDP_CATEGORY_WEIGHTS`, `PDP_FACTOR_WEIGHTS`, `PDP_CONTEXT_MULTIPLIERS`, `PDP_FACTOR_RECOMMENDATIONS`
+- Category weights must sum to 1.0 within each scoring model
 
 ### Updating UI
 - Markup: `src/sidepanel/sidepanel.html`
@@ -427,7 +502,8 @@ All icons are inline SVGs — no emoji. Do not revert to emoji.
 **Bottom nav icons** (`.nav-icon`, 20×20 px) — use `currentColor` so they inherit active/inactive colour from `.nav-btn` CSS automatically. Secondary elements use `opacity="0.35"` on the same `currentColor`.
 | Button | Shape | Primary element | Secondary element |
 |--------|-------|-----------------|-------------------|
-| Results | Bar chart | Tall centre bar | Flanking bars (35%) |
+| AI Visibility | Bar chart | Tall centre bar | Flanking bars (35%) |
+| PDP Quality | Shopping bag | Bag handles | Bag body (35%) |
 | History | Clock | Hands | Face ring (35%) |
 
 ### Branding & UTM Links

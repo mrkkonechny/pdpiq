@@ -69,7 +69,7 @@
       <p class="loading-hint">Extracting structured data, meta tags, and content...</p>
     </section>
 
-    <!-- Results -->
+    <!-- AI Visibility Results -->
     <section id="results" class="results hidden">
       <!-- Overall Score -->
       <div class="score-card">
@@ -115,6 +115,45 @@
         </button>
         <button id="exportBtn" class="btn btn-secondary">
           Download Analysis Data
+        </button>
+      </div>
+    </section>
+
+    <!-- PDP Quality Results -->
+    <section id="pdpView" class="results hidden">
+      <!-- Overall PDP Score -->
+      <div class="score-card">
+        <div class="grade-container">
+          <div class="grade" id="pdpGradeDisplay" role="status" aria-label="PDP Quality grade">-</div>
+        </div>
+        <div class="score-details">
+          <div class="score-value" role="status" aria-label="PDP Quality score"><span id="pdpScoreValue">0</span><span class="score-max">/100</span></div>
+          <div class="context-label" id="pdpContextLabel">-</div>
+          <div class="grade-description" id="pdpGradeDescription">-</div>
+        </div>
+      </div>
+
+      <!-- Category Breakdown -->
+      <div class="section-header">
+        <h3>Category Scores</h3>
+      </div>
+      <div class="categories" id="pdpCategoryList">
+        <!-- Dynamically populated -->
+      </div>
+
+      <!-- Recommendations -->
+      <div class="section-header">
+        <h3>Recommendations</h3>
+        <span class="rec-count" id="pdpRecCount">0</span>
+      </div>
+      <div class="recommendations" id="pdpRecommendationList">
+        <!-- Dynamically populated -->
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button id="pdpReanalyzeBtn" class="btn btn-secondary">
+          Re-analyze with Different Context
         </button>
       </div>
     </section>
@@ -175,7 +214,15 @@
           <rect x="8" y="6" width="4" height="12" rx="1" fill="currentColor"/>
           <rect x="14" y="3" width="4" height="15" rx="1" fill="currentColor" opacity="0.35"/>
         </svg>
-        <span class="nav-label">Results</span>
+        <span class="nav-label">AI Visibility</span>
+      </button>
+      <button class="nav-btn" data-tab="pdp">
+        <!-- Shopping bag -->
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="3" y="7" width="14" height="11" rx="1" stroke="currentColor" stroke-width="1.5" opacity="0.35"/>
+          <path d="M7 7V5a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+        </svg>
+        <span class="nav-label">PDP Quality</span>
       </button>
       <button class="nav-btn" data-tab="history">
         <!-- Clock -->

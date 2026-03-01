@@ -6,9 +6,9 @@
 const DEBUG = false;
 
 import { ScoringEngine } from '../scoring/scoring-engine.js';
-import { RecommendationEngine } from '../recommendations/recommendation-engine.js';
-import { getGradeDescription, CATEGORY_DESCRIPTIONS, FACTOR_RECOMMENDATIONS } from '../scoring/weights.js';
-import { RECOMMENDATION_TEMPLATES } from '../recommendations/recommendation-rules.js';
+import { RecommendationEngine, PdpQualityRecommendationEngine } from '../recommendations/recommendation-engine.js';
+import { getGradeDescription, CATEGORY_DESCRIPTIONS, FACTOR_RECOMMENDATIONS, PDP_CATEGORY_DESCRIPTIONS, PDP_FACTOR_RECOMMENDATIONS, getPdpGradeDescription } from '../scoring/weights.js';
+import { RECOMMENDATION_TEMPLATES, PDP_RECOMMENDATION_TEMPLATES } from '../recommendations/recommendation-rules.js';
 import { generateHtmlReport } from './report-template.js';
 import {
   saveAnalysis,
@@ -37,6 +37,8 @@ class SidePanelApp {
     this.selectedContext = null;
     this.scoreResult = null;
     this.recommendations = [];
+    this.pdpScoreResult = null;
+    this.pdpRecommendations = [];
     this.currentRequestId = null;
     this.analysisTimeoutId = null;
     this.selectedHistoryIds = [];
@@ -107,6 +109,11 @@ class SidePanelApp {
       this.showHistoryListView();
     });
 
+    // PDP re-analyze button
+    document.getElementById('pdpReanalyzeBtn').addEventListener('click', () => {
+      this.showContextSelector();
+    });
+
     // Event delegation for category list (prevents memory leaks from re-rendering)
     document.getElementById('categoryList').addEventListener('click', (e) => {
       // Handle category header clicks (expand/collapse)
@@ -121,6 +128,29 @@ class SidePanelApp {
       }
 
       // Handle factor expand button clicks
+      const expandBtn = e.target.closest('.factor-expand-btn');
+      if (expandBtn) {
+        e.stopPropagation();
+        const factor = expandBtn.closest('.factor');
+        const rec = factor.querySelector('.factor-recommendation');
+        const isExpanded = !rec.classList.contains('hidden');
+        rec.classList.toggle('hidden');
+        expandBtn.textContent = isExpanded ? '▶' : '▼';
+      }
+    });
+
+    // Event delegation for PDP category list
+    document.getElementById('pdpCategoryList').addEventListener('click', (e) => {
+      const header = e.target.closest('.category-header');
+      if (header && !e.target.closest('.factor-expand-btn')) {
+        const card = header.closest('.category-card');
+        const isExpanded = header.dataset.expanded === 'true';
+        header.dataset.expanded = !isExpanded;
+        header.querySelector('.expand-icon').textContent = isExpanded ? '+' : '−';
+        card.querySelector('.category-details').classList.toggle('hidden');
+        return;
+      }
+
       const expandBtn = e.target.closest('.factor-expand-btn');
       if (expandBtn) {
         e.stopPropagation();
@@ -245,7 +275,7 @@ class SidePanelApp {
       const scoringEngine = new ScoringEngine(this.selectedContext);
       this.scoreResult = scoringEngine.calculateScore(this.currentData, imageVerification, aiDiscoverabilityData);
 
-      // Generate recommendations
+      // Generate AI Readiness recommendations
       const recEngine = new RecommendationEngine(
         this.scoreResult,
         this.currentData,
@@ -253,15 +283,28 @@ class SidePanelApp {
       );
       this.recommendations = recEngine.generateRecommendations();
 
+      // Calculate PDP Quality score
+      this.pdpScoreResult = scoringEngine.calculatePdpQualityScore(this.currentData);
+
+      // Generate PDP Quality recommendations
+      const pdpRecEngine = new PdpQualityRecommendationEngine(
+        this.pdpScoreResult,
+        this.currentData
+      );
+      this.pdpRecommendations = pdpRecEngine.generateRecommendations();
+
       // Display results
       this.displayResults();
+      this.displayPdpResults();
 
       // Save to history
       await saveAnalysis({
         url: this.currentData.pageInfo?.url,
         pageInfo: this.currentData.pageInfo,
         scoreResult: this.scoreResult,
-        recommendations: this.recommendations
+        recommendations: this.recommendations,
+        pdpScoreResult: this.pdpScoreResult,
+        pdpRecommendations: this.pdpRecommendations
       });
 
       // Refresh history
@@ -506,6 +549,132 @@ class SidePanelApp {
     }
   }
 
+  displayPdpResults() {
+    if (!this.pdpScoreResult) return;
+
+    // Update PDP grade display
+    const gradeEl = document.getElementById('pdpGradeDisplay');
+    gradeEl.textContent = this.pdpScoreResult.grade;
+    const validGrades = ['A', 'B', 'C', 'D', 'F'];
+    const safeGrade = validGrades.includes(this.pdpScoreResult.grade) ? this.pdpScoreResult.grade : 'F';
+    gradeEl.className = `grade grade-${safeGrade}`;
+
+    // Update PDP score
+    document.getElementById('pdpScoreValue').textContent = this.pdpScoreResult.totalScore;
+
+    // Update PDP context label
+    document.getElementById('pdpContextLabel').textContent =
+      `${this.selectedContext.charAt(0).toUpperCase() + this.selectedContext.slice(1)} Context`;
+
+    // Update PDP grade description
+    document.getElementById('pdpGradeDescription').textContent =
+      getPdpGradeDescription(this.pdpScoreResult.grade);
+
+    // Render PDP category cards
+    this.renderPdpCategories();
+
+    // Render PDP recommendations
+    this.renderPdpRecommendations();
+  }
+
+  renderPdpCategories() {
+    const container = document.getElementById('pdpCategoryList');
+    container.innerHTML = '';
+
+    const categoryOrder = [
+      'purchaseExperience',
+      'trustConfidence',
+      'visualPresentation',
+      'contentCompleteness',
+      'reviewsSocialProof'
+    ];
+
+    categoryOrder.forEach(key => {
+      const data = this.pdpScoreResult.categoryScores[key];
+      if (!data) return;
+
+      const card = document.createElement('div');
+      card.className = 'category-card';
+
+      const scoreClass = data.score >= 80 ? 'score-high' :
+                         data.score >= 60 ? 'score-medium' : 'score-low';
+
+      card.innerHTML = `
+        <div class="category-header" data-expanded="false">
+          <span class="category-name" title="${PDP_CATEGORY_DESCRIPTIONS[key] || ''}">${data.categoryName}</span>
+          <span class="category-score ${scoreClass}">${Math.round(data.score)}</span>
+          <span class="expand-icon">+</span>
+        </div>
+        <div class="category-details hidden">
+          ${this.renderPdpFactors(data.factors)}
+        </div>
+      `;
+
+      container.appendChild(card);
+    });
+  }
+
+  renderPdpFactors(factors) {
+    return factors.map(f => {
+      const statusIcon = f.status === 'pass' ? '✓' :
+                         f.status === 'fail' ? '✗' : '⚠';
+      const contextualLabel = f.contextual ? '<span class="multiplier">CTX</span>' : '';
+
+      const recId = PDP_FACTOR_RECOMMENDATIONS[f.name];
+      const rec = recId ? PDP_RECOMMENDATION_TEMPLATES[recId] : null;
+
+      const expandBtn = rec ? '<button class="factor-expand-btn">▶</button>' : '';
+      const recSection = rec ? `
+        <div class="factor-recommendation hidden">
+          <p class="factor-rec-text">${rec.description}</p>
+          <p class="factor-rec-impl">${rec.implementation}</p>
+        </div>
+      ` : '';
+
+      return `
+        <div class="factor ${f.status}${rec ? ' has-recommendation' : ''}">
+          <div class="factor-row">
+            ${expandBtn}
+            <span class="factor-name">${f.name}${contextualLabel}</span>
+            <span class="factor-status">${statusIcon}</span>
+            <span class="factor-points">${f.points}/${f.maxPoints}</span>
+          </div>
+          ${recSection}
+        </div>
+      `;
+    }).join('');
+  }
+
+  renderPdpRecommendations() {
+    const container = document.getElementById('pdpRecommendationList');
+    container.innerHTML = '';
+
+    document.getElementById('pdpRecCount').textContent = this.pdpRecommendations.length;
+
+    this.pdpRecommendations.slice(0, 10).forEach(rec => {
+      const item = document.createElement('div');
+      item.className = `recommendation impact-${rec.impact}`;
+
+      item.innerHTML = `
+        <div class="rec-header">
+          <span class="rec-title">${escapeHtml(rec.title)}</span>
+          <span class="rec-badges">
+            <span class="badge impact-badge ${escapeHtml(rec.impact)}">${escapeHtml(rec.impact)}</span>
+            <span class="badge effort-badge">${escapeHtml(rec.effort)}</span>
+          </span>
+        </div>
+        <p class="rec-description">${escapeHtml(rec.description)}</p>
+        ${rec.implementation ? `<p class="rec-implementation">${escapeHtml(rec.implementation)}</p>` : ''}
+      `;
+
+      container.appendChild(item);
+    });
+
+    if (this.pdpRecommendations.length === 0) {
+      container.innerHTML = '<p class="empty-state">No recommendations - great job!</p>';
+    }
+  }
+
   async loadHistory() {
     const history = await getHistory();
     const container = document.getElementById('historyList');
@@ -532,8 +701,16 @@ class SidePanelApp {
       const gradeColor = this.getGradeColor(entry.grade);
       const timeAgo = this.formatTimeAgo(entry.timestamp);
 
+      // Dual grade badges: AI grade (primary) + PDP grade (secondary, if available)
+      const pdpGradeBadge = entry.pdpGrade
+        ? `<div class="history-grade history-grade-sm" style="background: ${this.getGradeColor(entry.pdpGrade)}" title="PDP Quality">${escapeHtml(entry.pdpGrade)}</div>`
+        : '';
+
       item.innerHTML = `
-        <div class="history-grade" style="background: ${gradeColor}">${escapeHtml(entry.grade)}</div>
+        <div class="history-grades">
+          <div class="history-grade" style="background: ${gradeColor}" title="AI Readiness">${escapeHtml(entry.grade)}</div>
+          ${pdpGradeBadge}
+        </div>
         <div class="history-info">
           <div class="history-title" title="${escapeHtml(entry.title)}">${escapeHtml(entry.title)}</div>
           <div class="history-meta">${escapeHtml(entry.domain)} · ${escapeHtml(timeAgo)}</div>
@@ -616,6 +793,14 @@ class SidePanelApp {
       'aiDiscoverability'
     ];
 
+    const pdpCategoryOrder = [
+      'purchaseExperience',
+      'trustConfidence',
+      'visualPresentation',
+      'contentCompleteness',
+      'reviewsSocialProof'
+    ];
+
     const colHtml = (entry) => {
       const gradeColor = this.getGradeColor(entry.grade);
       const catRows = categoryOrder
@@ -632,6 +817,39 @@ class SidePanelApp {
             </div>`;
         }).join('');
 
+      // PDP Quality section (if entry has PDP scores)
+      let pdpSection = '';
+      if (entry.pdpGrade && entry.pdpCategoryScores) {
+        const pdpGradeColor = this.getGradeColor(entry.pdpGrade);
+        const pdpCatRows = pdpCategoryOrder
+          .filter(k => entry.pdpCategoryScores?.[k])
+          .map(k => {
+            const cat = entry.pdpCategoryScores[k];
+            const score = Math.round(cat.score);
+            const cls = score >= 80 ? 'high' : score >= 60 ? 'medium' : 'low';
+            const shortName = (cat.name || k).replace(/&|and/gi, '&').split(' ').slice(0, 2).join(' ');
+            return `
+              <div class="compare-cat-row">
+                <span class="compare-cat-name" title="${escapeHtml(cat.name)}">${escapeHtml(shortName)}</span>
+                <span class="compare-cat-score ${cls}">${score}</span>
+              </div>`;
+          }).join('');
+
+        pdpSection = `
+          <div class="compare-score-hero" style="border-top:1px solid var(--border-color)">
+            <div class="compare-section-label">PDP Quality</div>
+            <div class="compare-grade" style="color:${pdpGradeColor}">${escapeHtml(entry.pdpGrade)}</div>
+            <div class="compare-total">${escapeHtml(entry.pdpScore)}/100</div>
+          </div>
+          <div class="compare-categories">${pdpCatRows}</div>`;
+      } else {
+        pdpSection = `
+          <div class="compare-score-hero" style="border-top:1px solid var(--border-color)">
+            <div class="compare-section-label">PDP Quality</div>
+            <div class="compare-total" style="color:var(--text-tertiary)">N/A</div>
+          </div>`;
+      }
+
       return `
         <div class="compare-col">
           <div class="compare-col-header">
@@ -639,10 +857,12 @@ class SidePanelApp {
             <div class="compare-col-title" title="${escapeHtml(entry.title)}">${escapeHtml(entry.title)}</div>
           </div>
           <div class="compare-score-hero">
+            <div class="compare-section-label">AI Readiness</div>
             <div class="compare-grade" style="color:${gradeColor}">${escapeHtml(entry.grade)}</div>
             <div class="compare-total">${escapeHtml(entry.score)}/100</div>
           </div>
           <div class="compare-categories">${catRows}</div>
+          ${pdpSection}
         </div>`;
     };
 
@@ -685,7 +905,9 @@ class SidePanelApp {
       context: this.selectedContext,
       extraction: this.currentData,
       scoring: this.scoreResult,
-      recommendations: this.recommendations
+      recommendations: this.recommendations,
+      pdpScoring: this.pdpScoreResult,
+      pdpRecommendations: this.pdpRecommendations
     };
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -709,7 +931,9 @@ class SidePanelApp {
       this.scoreResult,
       this.currentData.pageInfo,
       this.recommendations,
-      this.selectedContext
+      this.selectedContext,
+      this.pdpScoreResult,
+      this.pdpRecommendations
     );
 
     const blob = new Blob([html], { type: 'text/html' });
@@ -732,16 +956,26 @@ class SidePanelApp {
     // Show/hide sections
     if (tab === 'results') {
       document.getElementById('historySection').classList.add('hidden');
+      document.getElementById('pdpView').classList.add('hidden');
 
-      // Show appropriate results view
       if (this.scoreResult) {
         this.showResults();
+      } else {
+        this.showContextSelector();
+      }
+    } else if (tab === 'pdp') {
+      document.getElementById('historySection').classList.add('hidden');
+      document.getElementById('results').classList.add('hidden');
+
+      if (this.pdpScoreResult) {
+        this.showPdpView();
       } else {
         this.showContextSelector();
       }
     } else if (tab === 'history') {
       document.getElementById('contextSelector').classList.add('hidden');
       document.getElementById('results').classList.add('hidden');
+      document.getElementById('pdpView').classList.add('hidden');
       document.getElementById('loadingState').classList.add('hidden');
       document.getElementById('errorState').classList.add('hidden');
       document.getElementById('historySection').classList.remove('hidden');
@@ -751,6 +985,7 @@ class SidePanelApp {
   showContextSelector() {
     document.getElementById('contextSelector').classList.remove('hidden');
     document.getElementById('results').classList.add('hidden');
+    document.getElementById('pdpView').classList.add('hidden');
     document.getElementById('loadingState').classList.add('hidden');
     document.getElementById('errorState').classList.add('hidden');
     document.getElementById('historySection').classList.add('hidden');
@@ -763,6 +998,7 @@ class SidePanelApp {
   showLoading() {
     document.getElementById('contextSelector').classList.add('hidden');
     document.getElementById('results').classList.add('hidden');
+    document.getElementById('pdpView').classList.add('hidden');
     document.getElementById('loadingState').classList.remove('hidden');
     document.getElementById('errorState').classList.add('hidden');
     document.getElementById('historySection').classList.add('hidden');
@@ -775,6 +1011,16 @@ class SidePanelApp {
   showResults() {
     document.getElementById('contextSelector').classList.add('hidden');
     document.getElementById('results').classList.remove('hidden');
+    document.getElementById('pdpView').classList.add('hidden');
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('errorState').classList.add('hidden');
+    document.getElementById('historySection').classList.add('hidden');
+  }
+
+  showPdpView() {
+    document.getElementById('contextSelector').classList.add('hidden');
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('pdpView').classList.remove('hidden');
     document.getElementById('loadingState').classList.add('hidden');
     document.getElementById('errorState').classList.add('hidden');
     document.getElementById('historySection').classList.add('hidden');
@@ -783,6 +1029,7 @@ class SidePanelApp {
   showError(message) {
     document.getElementById('contextSelector').classList.add('hidden');
     document.getElementById('results').classList.add('hidden');
+    document.getElementById('pdpView').classList.add('hidden');
     document.getElementById('loadingState').classList.add('hidden');
     document.getElementById('errorState').classList.remove('hidden');
     document.getElementById('historySection').classList.add('hidden');

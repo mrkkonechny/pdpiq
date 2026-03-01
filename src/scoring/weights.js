@@ -211,6 +211,168 @@ export function getContextMultiplier(context, factor) {
   return CONTEXT_MULTIPLIERS[context]?.[factor] || 1.0;
 }
 
+// ==========================================
+// PDP QUALITY SCORING CONSTANTS
+// ==========================================
+
+/**
+ * PDP Quality category descriptions
+ */
+export const PDP_CATEGORY_DESCRIPTIONS = {
+  purchaseExperience: 'Price visibility, CTA buttons, discounts, payment methods, and urgency signals that drive conversion',
+  trustConfidence: 'Return policy, shipping info, trust badges, secure checkout, and guarantees that build buyer confidence',
+  visualPresentation: 'Product images, video, gallery features, lifestyle imagery, variant swatches, and image quality',
+  contentCompleteness: 'Variant selectors, size guides, related products, Q&A sections, content organization, and package contents',
+  reviewsSocialProof: 'Review display, star ratings, sorting/filtering, customer media, social proof indicators, and review volume'
+};
+
+/**
+ * PDP Quality category weights (must sum to 1.0)
+ */
+export const PDP_CATEGORY_WEIGHTS = {
+  purchaseExperience: 0.25,   // 25%
+  trustConfidence: 0.20,      // 20%
+  visualPresentation: 0.20,   // 20%
+  contentCompleteness: 0.15,  // 15%
+  reviewsSocialProof: 0.20    // 20%
+};
+
+/**
+ * PDP Quality factor weights within each category
+ */
+export const PDP_FACTOR_WEIGHTS = {
+  purchaseExperience: {
+    priceVisibility: 20,
+    ctaButtonPresence: 20,
+    ctaClarity: 15,
+    discountSaleMessaging: 15,
+    paymentMethodIndicators: 15,
+    urgencyScarcitySignals: 15
+  },
+  trustConfidence: {
+    returnPolicyDisplay: 20,
+    shippingInformation: 20,
+    trustBadges: 20,
+    secureCheckoutSignals: 15,
+    customerServiceIndicators: 15,
+    guaranteeWarrantyDisplay: 10
+  },
+  visualPresentation: {
+    productImageCount: 20,
+    videoPresence: 15,
+    imageGalleryFeatures: 15,
+    lifestyleContextImages: 15,
+    colorVariantSwatches: 20,
+    imageQualitySignals: 15
+  },
+  contentCompleteness: {
+    productVariantDisplay: 20,
+    sizeGuideFitInfo: 15,
+    relatedRecommendedProducts: 15,
+    qaSection: 15,
+    productDetailsOrganization: 15,
+    whatsInTheBox: 20
+  },
+  reviewsSocialProof: {
+    reviewDisplayProminence: 20,
+    starRatingVisual: 15,
+    reviewSortingFiltering: 15,
+    photoVideoReviews: 20,
+    socialProofIndicators: 15,
+    reviewCountThreshold: 15
+  }
+};
+
+/**
+ * PDP Quality context multipliers
+ */
+export const PDP_CONTEXT_MULTIPLIERS = {
+  want: {
+    lifestyleContextImages: 1.4,
+    colorVariantSwatches: 1.3,
+    photoVideoReviews: 1.3,
+    socialProofIndicators: 1.4,
+    urgencyScarcitySignals: 1.3,
+    sizeGuideFitInfo: 0.7,
+    whatsInTheBox: 0.7,
+    videoPresence: 1.2
+  },
+  need: {
+    lifestyleContextImages: 0.7,
+    colorVariantSwatches: 0.8,
+    photoVideoReviews: 0.9,
+    socialProofIndicators: 0.8,
+    urgencyScarcitySignals: 0.7,
+    sizeGuideFitInfo: 1.4,
+    whatsInTheBox: 1.4,
+    productVariantDisplay: 1.3,
+    videoPresence: 1.3
+  },
+  hybrid: {}
+};
+
+/**
+ * Get PDP Quality context multiplier
+ */
+export function getPdpContextMultiplier(context, factor) {
+  return PDP_CONTEXT_MULTIPLIERS[context]?.[factor] || 1.0;
+}
+
+/**
+ * PDP Quality grade description
+ */
+export function getPdpGradeDescription(grade) {
+  const descriptions = {
+    A: 'Excellent shopping experience; highly optimized for conversion',
+    B: 'Good shopping experience; minor improvements possible',
+    C: 'Average shopping experience; notable gaps to address',
+    D: 'Below average; multiple shopping experience issues',
+    F: 'Poor shopping experience; fundamental improvements needed'
+  };
+  return descriptions[grade] || '';
+}
+
+/**
+ * PDP Quality factor-to-recommendation mapping
+ */
+export const PDP_FACTOR_RECOMMENDATIONS = {
+  // Purchase Experience
+  'Price Visibility': 'pdp-price-missing',
+  'CTA Button Presence': 'pdp-cta-missing',
+  'CTA Clarity': 'pdp-cta-unclear',
+  'Discount/Sale Messaging': 'pdp-discount-missing',
+  'Payment Method Indicators': 'pdp-payment-methods-missing',
+  'Urgency/Scarcity Signals': 'pdp-urgency-missing',
+  // Trust & Confidence
+  'Return Policy Display': 'pdp-return-policy-missing',
+  'Shipping Information': 'pdp-shipping-missing',
+  'Trust Badges': 'pdp-trust-badges-missing',
+  'Secure Checkout Signals': 'pdp-secure-checkout-missing',
+  'Customer Service Indicators': 'pdp-customer-service-missing',
+  'Guarantee/Warranty Display': 'pdp-guarantee-missing',
+  // Visual Presentation
+  'Product Image Count': 'pdp-images-low',
+  'Video Presence': 'pdp-video-missing',
+  'Image Gallery Features': 'pdp-gallery-basic',
+  'Lifestyle/Context Images': 'pdp-lifestyle-images-missing',
+  'Color/Variant Swatches': 'pdp-swatches-missing',
+  'Image Quality Signals': 'pdp-image-quality-low',
+  // Content Completeness
+  'Product Variant Display': 'pdp-variants-missing',
+  'Size Guide/Fit Info': 'pdp-size-guide-missing',
+  'Related/Recommended Products': 'pdp-related-products-missing',
+  'Q&A Section': 'pdp-qa-missing',
+  'Product Details Organization': 'pdp-details-unorganized',
+  '"What\'s in the Box"': 'pdp-whats-in-box-missing',
+  // Reviews & Social Proof
+  'Review Display Prominence': 'pdp-reviews-not-prominent',
+  'Star Rating Visual': 'pdp-star-visual-missing',
+  'Review Sorting/Filtering': 'pdp-review-sort-missing',
+  'Photo/Video Reviews': 'pdp-review-media-missing',
+  'Social Proof Indicators': 'pdp-social-proof-missing',
+  'Review Count Threshold': 'pdp-review-count-low'
+};
+
 /**
  * Factor name to recommendation template ID mapping
  * Links factor display names to their corresponding recommendation templates

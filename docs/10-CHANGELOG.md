@@ -1,0 +1,103 @@
+# Changelog
+
+> **PDS Document 10** | Last Updated: 2026-03-01
+
+All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/). Most recent version at the top.
+
+## [Unreleased]
+
+### Added
+- PDP Quality scoring model: 30 factors across 5 categories measuring consumer shopping experience (ROAD-0027)
+  - Purchase Experience (25%): price visibility, CTA presence, CTA clarity, discount messaging, payment indicators, urgency signals
+  - Trust & Confidence (20%): return policy, shipping info, trust badges, secure checkout, customer service, guarantee display
+  - Visual Presentation (20%): image count, video presence, gallery features, lifestyle images, color swatches, image quality
+  - Content Completeness (15%): variant display, size guide, related products, Q&A section, content organization, package contents
+  - Reviews & Social Proof (20%): review prominence, star visuals, review sorting/filtering, photo reviews, social proof indicators, review count
+- PDP Quality context multipliers (Want/Need/Hybrid) adjusting factor weights by purchase type
+- PDP Quality tab in bottom navigation with shopping bag icon
+- PDP Quality recommendation engine (`PdpQualityRecommendationEngine`) with 30 recommendation templates
+- Dual grade badges in history list (AI Readiness + PDP Quality per entry)
+- PDP Quality section in HTML report export (score hero, category bars, factor details, grouped recommendations)
+- PDP Quality data in JSON export (`pdpScoring` and `pdpRecommendations` keys)
+- PDP Quality scores in comparison view with labeled AI Readiness / PDP Quality sections
+- Backward-compatible history: entries without PDP data gracefully show "N/A"
+
+### Changed
+- Bottom navigation expanded from 2 tabs to 3: AI Visibility (renamed from Results), PDP Quality, History
+- "Results" tab renamed to "AI Visibility" for clarity alongside PDP Quality tab
+- HTML report includes both AI Readiness and PDP Quality sections with labeled headers
+- Storage entries now include `pdpScore`, `pdpGrade`, and `pdpCategoryScores` fields
+- `performFullExtraction()` returns `pdpQuality` key with all 5 category extraction results (single DOM pass, DEC-0020)
+
+### Fixed
+
+### Removed
+
+### Deprecated
+
+### Security
+
+---
+
+## [1.1.0] — 2026-02-XX
+
+### Added
+- AI Discoverability category (20% weight) with 5 factors: AI Crawler Access, Entity Consistency, Answer-Format Content, Product Identifiers, llms.txt Presence
+- robots.txt parsing for 15 AI crawlers from 10 companies (OpenAI, Anthropic, Google, Perplexity, Apple, Meta, ByteDance, Cohere, You.com, Amazon)
+- llms.txt and llms-full.txt presence detection
+- Entity consistency scoring across Product schema name, H1, og:title, meta description, page title
+- Answer-format content detection ("best for" statements, comparisons, how-to, use cases)
+- Product identifier (GTIN/MPN/SKU) scoring with Shopify hasVariant fallback
+- Content Freshness factor using schema dateModified/datePublished
+- Social Proof Depth factor (sold count, customer count)
+- Expert Attribution factor (clinical, professional, editorial references)
+- Comparison Content factor in Content Quality (10 pts, contextual)
+- Specification Detail factor (measurement unit detection)
+- Last-Modified header fetch for content freshness
+- Apparel category auto-detection with N/A handling for warranty/compatibility/dimensions
+- French keyword support in apparel detection for Canadian retailers
+- Inline expandable recommendation tips for all 56 factors (FACTOR_RECOMMENDATIONS mapping)
+- Self-contained HTML report export with Tribbute branding, base64-embedded logo, priority-grouped recommendations
+- JSON data export
+- Side-by-side comparison view for 2 history entries
+- Bottom navigation tabs (Results / History)
+- JS-rendered page warning banner when SPA detected
+- Version badge in footer via chrome.runtime.getManifest().version
+- UTM-tracked external links (header logo, footer, report)
+
+### Changed
+- Category weights rebalanced: Structured Data 23→20%, Protocol & Meta 18→15%, Content Quality 23→20%, Content Structure 13→12%, AI Discoverability 10→20%
+- Content Structure factor weights rebalanced: contentRatio 12→8, tableStructure 10→7, ariaLabels 6→3, readability 8→7
+- Comparison Content weight doubled from 5→10 pts in Content Quality
+- Extraction logic consolidated from extractors/ directory into single content-script.js
+
+### Fixed
+- Shopify ProductGroup handling (treated identically to Product in schema extraction)
+- @id reference resolution for AggregateRating (common Shopify pattern)
+- Canonical URL handling for Shopify collection→product paths (isProductCanonical)
+- Feature extraction nav guard (skips header/footer/navigation containers)
+- False positive prevention in certification/warranty regex via negative-context guards
+- Race condition prevention via requestId system with 10-second timeout
+
+### Security
+- Message sender validation (sender.id === chrome.runtime.id)
+- URL safety guards via isSafeUrl() blocking file:/localhost/127.0.0.1/0.0.0.0
+- CSP enforcement: script-src 'self'; object-src 'self'
+- XSS prevention via escapeHtml() in sidepanel.js and esc() in report-template.js
+
+---
+
+## [1.0.0] — 2026-01-XX
+
+### Added
+- Initial Chrome extension release (Manifest V3)
+- Core scoring engine with 6 categories: Structured Data, Protocol & Meta, Content Quality, Content Structure, Authority & Trust, AI Discoverability
+- Context-sensitive scoring (Want/Need/Hybrid) with 10 factor multipliers
+- 56+ factor analysis with graduated scoring
+- JSON-LD and Microdata extraction (Product, Offer, AggregateRating, Review, FAQPage, BreadcrumbList, Organization, Brand, ImageObject)
+- og:image format verification via three-tier detection (Content-Type → magic bytes → URL extension)
+- Chrome Side Panel UI with grade badge, category breakdown, and recommendations
+- Analysis history with chrome.storage.local persistence (max 100 entries)
+- Auto-pruning at 80% storage quota
+- Prioritized recommendations engine with 58 templates
+- Privacy-first architecture (zero telemetry, all-local processing)

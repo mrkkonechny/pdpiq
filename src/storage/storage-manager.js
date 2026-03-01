@@ -41,7 +41,16 @@ export async function saveAnalysis(analysis) {
     recommendationCount: analysis.recommendations?.length || 0,
     criticalIssues: (analysis.recommendations || [])
       .filter(r => r.impact === 'high')
-      .length
+      .length,
+    // PDP Quality scores (backward-compatible — old entries won't have these)
+    pdpScore: analysis.pdpScoreResult?.totalScore ?? null,
+    pdpGrade: analysis.pdpScoreResult?.grade ?? null,
+    pdpCategoryScores: analysis.pdpScoreResult ? Object.fromEntries(
+      Object.entries(analysis.pdpScoreResult.categoryScores || {}).map(([key, data]) => [
+        key,
+        { score: Math.round(data.score), name: data.categoryName }
+      ])
+    ) : null
   };
 
   // Add to beginning of history

@@ -3,8 +3,8 @@
  * Generates prioritized recommendations based on scoring results
  */
 
-import { calculatePriority, RECOMMENDATION_TEMPLATES } from './recommendation-rules.js';
-import { getContextMultiplier } from '../scoring/weights.js';
+import { calculatePriority, RECOMMENDATION_TEMPLATES, PDP_RECOMMENDATION_TEMPLATES } from './recommendation-rules.js';
+import { getContextMultiplier, getPdpContextMultiplier } from '../scoring/weights.js';
 import { ScoringEngine } from '../scoring/scoring-engine.js';
 
 /**
@@ -522,6 +522,352 @@ export class RecommendationEngine {
 
   /**
    * Get quick wins (high impact, low effort)
+   * @returns {Array} Quick win recommendations
+   */
+  getQuickWins() {
+    return this.generateRecommendations().filter(r =>
+      (r.impact === 'high' || r.impact === 'medium') && r.effort === 'low'
+    );
+  }
+}
+
+// ==========================================
+// PDP QUALITY RECOMMENDATION ENGINE
+// ==========================================
+
+/**
+ * PDP Quality Recommendation Engine class
+ * Generates prioritized recommendations for PDP shopping experience issues
+ */
+export class PdpQualityRecommendationEngine {
+  /**
+   * @param {Object} pdpScoreResult - Result from ScoringEngine.calculatePdpQualityScore()
+   * @param {Object} extractedData - Raw extracted data (includes pdpQuality key)
+   */
+  constructor(pdpScoreResult, extractedData) {
+    this.scoreResult = pdpScoreResult;
+    this.extractedData = extractedData;
+    this.pdpData = extractedData.pdpQuality || {};
+    this.context = pdpScoreResult.context || 'hybrid';
+  }
+
+  /**
+   * Generate all PDP Quality recommendations
+   * @returns {Array} Sorted array of recommendations
+   */
+  generateRecommendations() {
+    const recommendations = [];
+
+    recommendations.push(...this.checkPurchaseExperienceIssues());
+    recommendations.push(...this.checkTrustConfidenceIssues());
+    recommendations.push(...this.checkVisualPresentationIssues());
+    recommendations.push(...this.checkContentCompletenessIssues());
+    recommendations.push(...this.checkReviewsSocialProofIssues());
+
+    // Filter nulls and sort by priority
+    const valid = recommendations.filter(r => r !== null);
+    return valid.sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      const impactOrder = { high: 0, medium: 1, low: 2 };
+      return (impactOrder[a.impact] || 2) - (impactOrder[b.impact] || 2);
+    });
+  }
+
+  /**
+   * Check Purchase Experience issues
+   */
+  checkPurchaseExperienceIssues() {
+    const recs = [];
+    const pe = this.pdpData.purchaseExperience || {};
+
+    if (!pe.priceVisible) {
+      recs.push(this.createRecommendation('pdp-price-missing'));
+    }
+
+    if (!pe.ctaPresent) {
+      recs.push(this.createRecommendation('pdp-cta-missing'));
+    } else if (pe.ctaClarity !== undefined && pe.ctaClarity < 0.5) {
+      recs.push(this.createRecommendation('pdp-cta-unclear'));
+    }
+
+    if (!pe.discountPresent) {
+      recs.push(this.createRecommendation('pdp-discount-missing'));
+    }
+
+    if (!pe.paymentMethodsPresent) {
+      recs.push(this.createRecommendation('pdp-payment-methods-missing'));
+    }
+
+    if (!pe.urgencyPresent) {
+      const multiplier = getPdpContextMultiplier(this.context, 'urgencyScarcitySignals');
+      if (multiplier > 1) {
+        recs.push({
+          ...this.createRecommendation('pdp-urgency-missing'),
+          contextual: true
+        });
+      } else {
+        recs.push(this.createRecommendation('pdp-urgency-missing'));
+      }
+    }
+
+    return recs;
+  }
+
+  /**
+   * Check Trust & Confidence issues
+   */
+  checkTrustConfidenceIssues() {
+    const recs = [];
+    const tc = this.pdpData.trustConfidence || {};
+
+    if (!tc.returnPolicyVisible) {
+      recs.push(this.createRecommendation('pdp-return-policy-missing'));
+    }
+
+    if (!tc.shippingInfoVisible) {
+      recs.push(this.createRecommendation('pdp-shipping-missing'));
+    }
+
+    if (!tc.trustBadgesPresent) {
+      recs.push(this.createRecommendation('pdp-trust-badges-missing'));
+    }
+
+    const secure = tc.secureCheckout || {};
+    if (!secure.https || !secure.secureMessaging) {
+      recs.push(this.createRecommendation('pdp-secure-checkout-missing'));
+    }
+
+    if (!tc.customerServicePresent) {
+      recs.push(this.createRecommendation('pdp-customer-service-missing'));
+    }
+
+    if (!tc.guaranteePresent) {
+      recs.push(this.createRecommendation('pdp-guarantee-missing'));
+    }
+
+    return recs;
+  }
+
+  /**
+   * Check Visual Presentation issues
+   */
+  checkVisualPresentationIssues() {
+    const recs = [];
+    const vp = this.pdpData.visualPresentation || {};
+
+    if ((vp.imageCount || 0) < 4) {
+      recs.push({
+        ...this.createRecommendation('pdp-images-low'),
+        currentState: `${vp.imageCount || 0} images`,
+        targetState: '4+ images'
+      });
+    }
+
+    if (!vp.videoPresent) {
+      const multiplier = getPdpContextMultiplier(this.context, 'videoPresence');
+      const rec = this.createRecommendation('pdp-video-missing');
+      if (multiplier > 1) {
+        recs.push({ ...rec, contextual: true });
+      } else {
+        recs.push(rec);
+      }
+    }
+
+    const gallery = vp.galleryFeatures || {};
+    if (!gallery.hasZoom && !gallery.hasLightbox) {
+      recs.push(this.createRecommendation('pdp-gallery-basic'));
+    }
+
+    const lifestyle = vp.lifestyleImages || {};
+    if (!lifestyle.detected) {
+      const multiplier = getPdpContextMultiplier(this.context, 'lifestyleContextImages');
+      const rec = this.createRecommendation('pdp-lifestyle-images-missing');
+      if (multiplier > 1) {
+        recs.push({ ...rec, contextual: true });
+      } else {
+        recs.push(rec);
+      }
+    }
+
+    const swatches = vp.variantSwatches || {};
+    if (!swatches.present) {
+      const multiplier = getPdpContextMultiplier(this.context, 'colorVariantSwatches');
+      const rec = this.createRecommendation('pdp-swatches-missing');
+      if (multiplier > 1) {
+        recs.push({ ...rec, contextual: true });
+      } else {
+        recs.push(rec);
+      }
+    }
+
+    const quality = vp.imageQuality || {};
+    if (!quality.hasHighRes && !quality.hasSrcset) {
+      recs.push(this.createRecommendation('pdp-image-quality-low'));
+    }
+
+    return recs;
+  }
+
+  /**
+   * Check Content Completeness issues
+   */
+  checkContentCompletenessIssues() {
+    const recs = [];
+    const cc = this.pdpData.contentCompleteness || {};
+
+    const variants = cc.variantSelectors || {};
+    if (!variants.present) {
+      const multiplier = getPdpContextMultiplier(this.context, 'productVariantDisplay');
+      const rec = this.createRecommendation('pdp-variants-missing');
+      if (multiplier > 1) {
+        recs.push({ ...rec, contextual: true });
+      } else {
+        recs.push(rec);
+      }
+    }
+
+    const sizeGuide = cc.sizeGuide || {};
+    if (!sizeGuide.present) {
+      const multiplier = getPdpContextMultiplier(this.context, 'sizeGuideFitInfo');
+      const rec = this.createRecommendation('pdp-size-guide-missing');
+      if (multiplier > 1) {
+        recs.push({ ...rec, contextual: true });
+      } else {
+        recs.push(rec);
+      }
+    }
+
+    const related = cc.relatedProducts || {};
+    if (!related.present) {
+      recs.push(this.createRecommendation('pdp-related-products-missing'));
+    }
+
+    const qa = cc.qaSection || {};
+    if (!qa.present) {
+      recs.push(this.createRecommendation('pdp-qa-missing'));
+    }
+
+    const org = cc.detailsOrganization || {};
+    if (!org.hasTabs && !org.hasAccordions && !org.hasSections) {
+      recs.push(this.createRecommendation('pdp-details-unorganized'));
+    }
+
+    const witb = cc.whatsInTheBox || {};
+    if (!witb.present) {
+      const multiplier = getPdpContextMultiplier(this.context, 'whatsInTheBox');
+      const rec = this.createRecommendation('pdp-whats-in-box-missing');
+      if (multiplier > 1) {
+        recs.push({ ...rec, contextual: true });
+      } else {
+        recs.push(rec);
+      }
+    }
+
+    return recs;
+  }
+
+  /**
+   * Check Reviews & Social Proof issues
+   */
+  checkReviewsSocialProofIssues() {
+    const recs = [];
+    const rsp = this.pdpData.reviewsSocialProof || {};
+
+    const prominence = rsp.reviewProminence || {};
+    if (!prominence.visibleInHero) {
+      recs.push(this.createRecommendation('pdp-reviews-not-prominent'));
+    }
+
+    const stars = rsp.starRatingVisual || {};
+    if (!stars.present) {
+      recs.push(this.createRecommendation('pdp-star-visual-missing'));
+    }
+
+    const sorting = rsp.reviewSorting || {};
+    if (!sorting.hasSort && !sorting.hasFilter) {
+      recs.push(this.createRecommendation('pdp-review-sort-missing'));
+    }
+
+    const media = rsp.photoVideoReviews || {};
+    if (!media.present) {
+      const multiplier = getPdpContextMultiplier(this.context, 'photoVideoReviews');
+      const rec = this.createRecommendation('pdp-review-media-missing');
+      if (multiplier > 1) {
+        recs.push({ ...rec, contextual: true });
+      } else {
+        recs.push(rec);
+      }
+    }
+
+    const social = rsp.socialProofIndicators || {};
+    if (!social.present) {
+      const multiplier = getPdpContextMultiplier(this.context, 'socialProofIndicators');
+      const rec = this.createRecommendation('pdp-social-proof-missing');
+      if (multiplier > 1) {
+        recs.push({ ...rec, contextual: true });
+      } else {
+        recs.push(rec);
+      }
+    }
+
+    const reviewCount = rsp.reviewCount || {};
+    if ((reviewCount.count || 0) < 50) {
+      recs.push({
+        ...this.createRecommendation('pdp-review-count-low'),
+        currentState: `${reviewCount.count || 0} reviews`,
+        targetState: '50+ reviews'
+      });
+    }
+
+    return recs;
+  }
+
+  /**
+   * Create a recommendation from a PDP template
+   * @param {string} templateId - Template ID
+   * @param {Object} extras - Additional properties to merge
+   * @returns {Object} Recommendation object
+   */
+  createRecommendation(templateId, extras = {}) {
+    const template = PDP_RECOMMENDATION_TEMPLATES[templateId];
+    if (!template) {
+      console.warn(`Unknown PDP recommendation template: ${templateId}`);
+      return null;
+    }
+
+    return {
+      id: templateId,
+      title: template.title,
+      description: template.description,
+      impact: template.impact,
+      effort: template.effort,
+      category: template.category,
+      priority: calculatePriority(template.impact, template.effort),
+      implementation: template.implementation,
+      ...extras
+    };
+  }
+
+  /**
+   * Get top N recommendations
+   * @param {number} n - Number of recommendations
+   * @returns {Array} Top N recommendations
+   */
+  getTopRecommendations(n = 5) {
+    return this.generateRecommendations().slice(0, n);
+  }
+
+  /**
+   * Get recommendations by category
+   * @param {string} category - Category name
+   * @returns {Array} Filtered recommendations
+   */
+  getRecommendationsByCategory(category) {
+    return this.generateRecommendations().filter(r => r.category === category);
+  }
+
+  /**
+   * Get quick wins (high/medium impact, low effort)
    * @returns {Array} Quick win recommendations
    */
   getQuickWins() {

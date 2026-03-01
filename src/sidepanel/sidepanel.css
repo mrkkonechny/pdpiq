@@ -640,6 +640,13 @@ body {
   background: var(--bg-secondary);
 }
 
+/* Dual grade badges container */
+.history-grades {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
 .history-grade {
   width: 32px;
   height: 32px;
@@ -651,6 +658,13 @@ body {
   border-radius: 4px;
   color: white;
   flex-shrink: 0;
+}
+
+.history-grade-sm {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+  align-self: flex-end;
 }
 
 .history-info {
@@ -775,6 +789,15 @@ body {
   font-size: 11px;
   color: var(--text-secondary);
   margin-top: 2px;
+}
+
+.compare-section-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  margin-bottom: 2px;
 }
 
 .compare-categories {

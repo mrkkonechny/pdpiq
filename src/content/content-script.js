@@ -95,6 +95,7 @@ function performFullExtraction() {
       contentStructure: extractContentStructure(),
       trustSignals: extractTrustSignals(),
       aiDiscoverability: extractAIDiscoverabilitySignals(),
+      pdpQuality: extractPdpQualitySignals(),
       pageInfo: {
         url: window.location.href,
         title: document.title,
@@ -2443,6 +2444,555 @@ function extractVisibleDateSignals() {
   }
 
   return result;
+}
+
+// ==========================================
+// PDP QUALITY SIGNALS EXTRACTOR
+// ==========================================
+
+/**
+ * Main PDP Quality extraction orchestrator
+ * Returns data for all 5 PDP Quality categories
+ */
+function extractPdpQualitySignals() {
+  return {
+    purchaseExperience: extractPurchaseExperience(),
+    trustConfidence: extractTrustConfidence(),
+    visualPresentation: extractVisualPresentation(),
+    contentCompleteness: extractContentCompleteness(),
+    reviewsSocialProof: extractReviewsSocialProof()
+  };
+}
+
+/**
+ * Extract Purchase Experience signals
+ */
+function extractPurchaseExperience() {
+  const bodyText = document.body.innerText;
+  const lower = bodyText.toLowerCase();
+
+  // Price Visibility: check DOM for visible price, then schema fallback
+  let priceVisible = false;
+  let priceText = null;
+  const priceSelectors = [
+    '.price', '.product-price', '.current-price', '[data-product-price]',
+    '.price--main', '.price__current', '.product__price', '.price-item--regular',
+    '.price-item--sale', '.product-single__price', '[class*="price"]',
+    '#price', '#product-price', '.offer-price', '.sale-price',
+    '.pdp-price', '.product-info-price', '[data-testid="price"]'
+  ];
+  for (const sel of priceSelectors) {
+    try {
+      const el = document.querySelector(sel);
+      if (el) {
+        const text = el.textContent.trim();
+        if (/[\$£€¥₹]|USD|CAD|GBP|EUR|\d+[.,]\d{2}/.test(text)) {
+          priceVisible = true;
+          priceText = text.substring(0, 30);
+          break;
+        }
+      }
+    } catch (e) { /* skip */ }
+  }
+  // Schema fallback for price
+  if (!priceVisible) {
+    for (const { item } of iterateSchemaItems(['product', 'productgroup'])) {
+      const offers = item.offers ? (Array.isArray(item.offers) ? item.offers : [item.offers]) : [];
+      for (const o of offers) {
+        if (o.price || o.lowPrice) {
+          priceVisible = true;
+          priceText = `${o.priceCurrency || ''} ${o.price || o.lowPrice}`.trim().substring(0, 30);
+          break;
+        }
+      }
+      if (priceVisible) break;
+    }
+  }
+
+  // CTA Button Presence & Clarity
+  let ctaFound = false;
+  let ctaText = null;
+  let ctaIsClear = false;
+  const ctaSelectors = [
+    'button[type="submit"]', '.add-to-cart', '#add-to-cart', '[data-add-to-cart]',
+    '.product-form__submit', '.shopify-payment-button button', '.btn-addtocart',
+    '.add-to-bag', '#AddToCart', '.product-form__cart-submit',
+    '[name="add"]', '[data-testid="add-to-cart"]', '.buy-now',
+    'button[data-action="add-to-cart"]', '.addtocart', '.add_to_cart',
+    'input[value*="Add to"]', 'button.single_add_to_cart_button'
+  ];
+  const clearCtaPatterns = /add to cart|add to bag|buy now|purchase|order now|shop now|get it now|subscribe|pre[\s-]?order/i;
+  const genericCtaPatterns = /submit|continue|select|choose|add|go/i;
+
+  for (const sel of ctaSelectors) {
+    try {
+      const el = document.querySelector(sel);
+      if (el) {
+        ctaFound = true;
+        ctaText = (el.textContent || el.value || el.getAttribute('aria-label') || '').trim().substring(0, 40);
+        ctaIsClear = clearCtaPatterns.test(ctaText);
+        break;
+      }
+    } catch (e) { /* skip */ }
+  }
+  // Broader fallback: any button with add-to-cart-like text
+  if (!ctaFound) {
+    const buttons = document.querySelectorAll('button, input[type="submit"], a.btn, a.button');
+    for (const btn of buttons) {
+      const text = (btn.textContent || btn.value || '').trim();
+      if (clearCtaPatterns.test(text)) {
+        ctaFound = true;
+        ctaText = text.substring(0, 40);
+        ctaIsClear = true;
+        break;
+      }
+    }
+  }
+
+  // Discount/Sale Messaging
+  let hasDiscount = false;
+  let discountText = null;
+  const discountSelectors = [
+    '.compare-at-price', '.was-price', '.original-price', '.price--compare',
+    '.price-item--compare', '.sale-badge', '.discount-badge', '.on-sale',
+    '[class*="compare"]', '[class*="savings"]', '[class*="discount"]',
+    '.sale-tag', '.price--was', '.strikethrough', 'del', 's'
+  ];
+  for (const sel of discountSelectors) {
+    try {
+      const el = document.querySelector(sel);
+      if (el && el.textContent.trim().length > 0) {
+        hasDiscount = true;
+        discountText = el.textContent.trim().substring(0, 40);
+        break;
+      }
+    } catch (e) { /* skip */ }
+  }
+  if (!hasDiscount) {
+    hasDiscount = /save\s+\d|%\s*off|\bsale\b|was\s*\$|compare\s*at|you\s+save|markdown|clearance/i.test(lower);
+  }
+
+  // Payment Method Indicators
+  let hasPaymentIndicators = false;
+  const paymentPatterns = /\b(visa|mastercard|amex|american express|paypal|apple pay|google pay|shop pay|afterpay|affirm|klarna|sezzle|zip pay|buy now pay later|bnpl|pay in \d|split (?:it )?into|installments?|4 interest[\s-]?free)\b/i;
+  hasPaymentIndicators = paymentPatterns.test(lower);
+  if (!hasPaymentIndicators) {
+    // Check for payment icons (img alt text or svg)
+    const paymentImgs = document.querySelectorAll('img[alt*="pay" i], img[alt*="visa" i], img[alt*="master" i], img[alt*="amex" i], img[alt*="klarna" i], img[alt*="afterpay" i]');
+    hasPaymentIndicators = paymentImgs.length > 0;
+  }
+
+  // Urgency/Scarcity Signals
+  let hasUrgency = false;
+  const urgencyPatterns = /\b(only \d+ left|low stock|limited (?:time|edition|quantity|supply|stock)|selling fast|almost gone|hurry|while (?:supplies|stocks?) last|ends? (?:soon|today|tonight)|countdown|flash sale|last chance|few remaining|back in stock)\b/i;
+  hasUrgency = urgencyPatterns.test(lower);
+  if (!hasUrgency) {
+    // Check for countdown timers
+    hasUrgency = document.querySelector('[class*="countdown"], [class*="timer"], [data-countdown]') !== null;
+  }
+
+  return {
+    priceVisible,
+    priceText,
+    ctaFound,
+    ctaText,
+    ctaIsClear,
+    hasDiscount,
+    discountText,
+    hasPaymentIndicators,
+    hasUrgency
+  };
+}
+
+/**
+ * Extract Trust & Confidence signals
+ */
+function extractTrustConfidence() {
+  const bodyText = document.body.innerText;
+  const lower = bodyText.toLowerCase();
+
+  // Return Policy Display
+  let hasReturnPolicy = false;
+  let returnPolicyText = null;
+  const returnSelectors = [
+    '[class*="return"]', '[class*="refund"]', '#return-policy', '#returns',
+    '[data-return-policy]', '.returns-info', '.return-policy'
+  ];
+  for (const sel of returnSelectors) {
+    try {
+      const el = document.querySelector(sel);
+      if (el && el.textContent.trim().length > 10) {
+        hasReturnPolicy = true;
+        returnPolicyText = el.textContent.trim().substring(0, 60);
+        break;
+      }
+    } catch (e) { /* skip */ }
+  }
+  if (!hasReturnPolicy) {
+    const returnMatch = lower.match(/((?:free |easy |hassle[\s-]?free )?(?:\d+[\s-]?day )?(?:return|refund|exchange)(?:s| policy| guarantee)?)/i);
+    if (returnMatch) {
+      hasReturnPolicy = true;
+      returnPolicyText = returnMatch[1].trim().substring(0, 60);
+    }
+  }
+
+  // Shipping Information
+  let hasShippingInfo = false;
+  let shippingText = null;
+  const shippingSelectors = [
+    '[class*="shipping"]', '[class*="delivery"]', '#shipping-info',
+    '[data-shipping]', '.shipping-info', '.delivery-info'
+  ];
+  for (const sel of shippingSelectors) {
+    try {
+      const el = document.querySelector(sel);
+      if (el && el.textContent.trim().length > 5) {
+        hasShippingInfo = true;
+        shippingText = el.textContent.trim().substring(0, 60);
+        break;
+      }
+    } catch (e) { /* skip */ }
+  }
+  if (!hasShippingInfo) {
+    const shipMatch = lower.match(/(free shipping|ships? (?:in|within|next)|delivery (?:in|within|by)|estimated delivery|standard shipping|express shipping|\$\d+(?:\.\d{2})?\s*shipping|\d[\s-]?\d?\s*(?:business )?day(?:s)?\s*(?:shipping|delivery))/i);
+    if (shipMatch) {
+      hasShippingInfo = true;
+      shippingText = shipMatch[1].trim().substring(0, 60);
+    }
+  }
+
+  // Trust Badges
+  let hasTrustBadges = false;
+  const trustBadgeSelectors = [
+    '[class*="trust-badge"]', '[class*="trust_badge"]', '[class*="trustbadge"]',
+    '[class*="security-badge"]', '[class*="badge"]', '.trust-seals',
+    'img[alt*="secure" i]', 'img[alt*="trust" i]', 'img[alt*="verified" i]',
+    'img[alt*="norton" i]', 'img[alt*="mcafee" i]', 'img[alt*="ssl" i]',
+    'img[alt*="bbb" i]', 'img[alt*="guarantee" i]'
+  ];
+  for (const sel of trustBadgeSelectors) {
+    try {
+      const el = document.querySelector(sel);
+      if (el) {
+        hasTrustBadges = true;
+        break;
+      }
+    } catch (e) { /* skip */ }
+  }
+  if (!hasTrustBadges) {
+    hasTrustBadges = /\b(ssl secured?|norton secured?|mcafee secure|verified by|trusted (?:shop|store|seller)|bbb accredited|money[\s-]?back guarantee)\b/i.test(lower);
+  }
+
+  // Secure Checkout Signals
+  const isHttps = window.location.protocol === 'https:';
+  let hasSecureCheckoutMessaging = /\b(secure checkout|safe checkout|encrypted|256[\s-]?bit|ssl|secure (?:payment|transaction|ordering))\b/i.test(lower);
+  const hasSecureCheckout = isHttps && hasSecureCheckoutMessaging;
+
+  // Customer Service Indicators
+  let hasCustomerService = false;
+  const csPatterns = /\b(live chat|chat with us|call us|contact us|customer (?:support|service|care)|help center|1[\s-]?800[\s-]?\d{3}[\s-]?\d{4}|\(\d{3}\)\s*\d{3}[\s-]?\d{4}|email us|support@|help@)\b/i;
+  hasCustomerService = csPatterns.test(lower);
+  if (!hasCustomerService) {
+    hasCustomerService = document.querySelector('[class*="live-chat"], [class*="chat-widget"], [data-chat], #chat-widget, .chat-button, [class*="customer-service"]') !== null;
+  }
+
+  // Guarantee/Warranty Display
+  let hasGuarantee = false;
+  let guaranteeText = null;
+  const guaranteePatterns = /(\d+[\s-]*(?:year|month|day|yr|mo)[\s-]*(?:limited\s+)?(?:warranty|guarantee)|(?:lifetime|full|money[\s-]?back)\s+(?:warranty|guarantee)|satisfaction\s+guarante?e|100%\s+(?:satisfaction|money[\s-]?back))/i;
+  const guaranteeNegative = /no warranty|without warranty|void(?:s|ed)? (?:the\s+)?warranty/i;
+  if (!guaranteeNegative.test(lower)) {
+    const match = bodyText.match(guaranteePatterns);
+    if (match) {
+      hasGuarantee = true;
+      guaranteeText = match[1].trim().substring(0, 50);
+    }
+  }
+
+  return {
+    hasReturnPolicy,
+    returnPolicyText,
+    hasShippingInfo,
+    shippingText,
+    hasTrustBadges,
+    hasSecureCheckout,
+    isHttps,
+    hasSecureCheckoutMessaging,
+    hasCustomerService,
+    hasGuarantee,
+    guaranteeText
+  };
+}
+
+/**
+ * Extract Visual Presentation signals
+ */
+function extractVisualPresentation() {
+  // Product image count
+  const gallerySelectors = [
+    '.product-gallery img', '.product-images img', '.product-photos img',
+    '.product-media img', '.product__media img', '.product-single__photos img',
+    '.product-gallery__image', '[data-product-images] img', '[class*="product-gallery"] img',
+    '[class*="product-image"] img', '.carousel img', '.slider img',
+    '.swiper-slide img', '.slick-slide img'
+  ];
+  let productImages = [];
+  for (const sel of gallerySelectors) {
+    try {
+      const imgs = document.querySelectorAll(sel);
+      if (imgs.length > productImages.length) {
+        productImages = Array.from(imgs);
+      }
+    } catch (e) { /* skip */ }
+  }
+  // Fallback: count images in product content area
+  if (productImages.length === 0) {
+    const mainContent = document.querySelector('main, article, [role="main"], .product-detail, .product-details');
+    if (mainContent) {
+      productImages = Array.from(mainContent.querySelectorAll('img')).filter(img => {
+        const w = img.naturalWidth || img.width;
+        return w > 100; // Filter out tiny icons
+      });
+    }
+  }
+  const imageCount = productImages.length;
+
+  // Video Presence
+  const hasVideo = document.querySelector(
+    'video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="wistia"], ' +
+    '[class*="product-video"], [data-video], [class*="video-player"]'
+  ) !== null;
+
+  // Image Gallery Features (zoom, lightbox, navigation)
+  const hasGalleryFeatures = document.querySelector(
+    '[class*="zoom"], [data-zoom], [class*="lightbox"], [data-lightbox], [data-fancybox], ' +
+    '[class*="magnif"], .pswp, .fancybox, [class*="gallery-nav"], ' +
+    '[class*="thumbnail"], .product-thumbnails, [class*="carousel-nav"], ' +
+    '[class*="slide-nav"], .slick-dots, .swiper-pagination'
+  ) !== null;
+
+  // Lifestyle/Context Images (images showing product in use)
+  // Heuristic: check for alt text suggesting lifestyle or context imagery
+  let hasLifestyleImages = false;
+  for (const img of productImages) {
+    const alt = (img.alt || '').toLowerCase();
+    if (/in use|lifestyle|model|worn|wearing|styled|room|kitchen|outdoor|action|being used|on body|person|modeled/i.test(alt)) {
+      hasLifestyleImages = true;
+      break;
+    }
+  }
+  // Fallback: check if there are multiple images (common pattern for lifestyle shots)
+  if (!hasLifestyleImages && imageCount >= 4) {
+    // If there are many images, assume some are lifestyle
+    hasLifestyleImages = imageCount >= 6;
+  }
+
+  // Color/Variant Swatches
+  const hasSwatches = document.querySelector(
+    '[class*="swatch"], [class*="color-picker"], [class*="variant-picker"], ' +
+    '[class*="color-option"], [data-option="color"], [data-option="colour"], ' +
+    '.product-form__option--color, [class*="option-swatch"], ' +
+    'input[type="radio"][name*="color" i], input[type="radio"][name*="colour" i]'
+  ) !== null;
+
+  // Image Quality Signals (high-res images with srcset)
+  let hasHighResImages = false;
+  for (const img of productImages.slice(0, 5)) {
+    const w = img.naturalWidth || parseInt(img.getAttribute('width')) || 0;
+    const hasSrcset = !!img.srcset || !!img.getAttribute('data-srcset');
+    if (w >= 1000 || hasSrcset) {
+      hasHighResImages = true;
+      break;
+    }
+  }
+
+  return {
+    imageCount,
+    hasVideo,
+    hasGalleryFeatures,
+    hasLifestyleImages,
+    hasSwatches,
+    hasHighResImages
+  };
+}
+
+/**
+ * Extract Content Completeness signals
+ */
+function extractContentCompleteness() {
+  const bodyText = document.body.innerText;
+  const lower = bodyText.toLowerCase();
+
+  // Product Variant Display (size/color/option selectors)
+  const hasVariants = document.querySelector(
+    'select[name*="option" i], select[name*="variant" i], select[name*="size" i], ' +
+    '[class*="variant-selector"], [class*="product-option"], [class*="option-selector"], ' +
+    '.product-form__option, [data-product-option], input[type="radio"][name*="size" i], ' +
+    '[class*="size-selector"], [class*="size-picker"]'
+  ) !== null;
+
+  // Size Guide/Fit Info
+  let hasSizeGuide = false;
+  const sizeGuideSelectors = [
+    '[class*="size-guide"]', '[class*="size-chart"]', '[class*="fit-guide"]',
+    'a[href*="size-guide"]', 'a[href*="size-chart"]', '[data-size-guide]',
+    '[class*="sizing"]'
+  ];
+  for (const sel of sizeGuideSelectors) {
+    try {
+      if (document.querySelector(sel)) {
+        hasSizeGuide = true;
+        break;
+      }
+    } catch (e) { /* skip */ }
+  }
+  if (!hasSizeGuide) {
+    hasSizeGuide = /\b(size guide|size chart|sizing guide|fit guide|find your size|how to measure)\b/i.test(lower);
+  }
+
+  // Related/Recommended Products
+  const hasRelatedProducts = document.querySelector(
+    '[class*="related-products"],' +
+    '[class*="recommended-products"],' +
+    '[class*="you-may-also"],' +
+    '[class*="also-like"],' +
+    '[class*="similar-products"],' +
+    '[class*="customers-also"],' +
+    '[class*="frequently-bought"],' +
+    '[data-related-products],' +
+    '[class*="product-recommendations"],' +
+    '[class*="upsell"],' +
+    '[class*="cross-sell"]'
+  ) !== null || /\b(you may also like|customers also (?:bought|viewed)|similar products|related products|recommended for you|frequently bought together|complete the look)\b/i.test(lower);
+
+  // Q&A Section (distinct from editorial FAQ)
+  let hasQASection = false;
+  const qaSelectors = [
+    '[class*="question-answer"]', '[class*="q-and-a"]', '[class*="qa-section"]',
+    '[class*="customer-questions"]', '#questions', '#qa',
+    '[class*="ask-a-question"]', '[data-qa-section]'
+  ];
+  for (const sel of qaSelectors) {
+    try {
+      if (document.querySelector(sel)) {
+        hasQASection = true;
+        break;
+      }
+    } catch (e) { /* skip */ }
+  }
+  if (!hasQASection) {
+    hasQASection = /\b(customer questions|ask a question|questions?\s*(?:&|and)\s*answers?|q\s*&\s*a)\b/i.test(lower);
+  }
+
+  // Product Details Organization (tabs, accordions, or clear sections)
+  const hasOrganizedDetails = document.querySelector(
+    '[role="tablist"], [class*="tabs"], [class*="accordion"], [class*="collapsible"], ' +
+    '[class*="expandable"], [data-toggle="collapse"], .tab-content, .panel-group, ' +
+    '[class*="product-tabs"], [class*="product-accordion"]'
+  ) !== null;
+
+  // "What's in the Box" / Package Contents
+  let hasWhatsInBox = false;
+  hasWhatsInBox = /\b(what'?s in the box|package (?:contents|includes?)|included (?:items|accessories)|comes with|box contents|in the (?:box|package)|items included)\b/i.test(lower);
+
+  return {
+    hasVariants,
+    hasSizeGuide,
+    hasRelatedProducts,
+    hasQASection,
+    hasOrganizedDetails,
+    hasWhatsInBox
+  };
+}
+
+/**
+ * Extract Reviews & Social Proof signals
+ */
+function extractReviewsSocialProof() {
+  const bodyText = document.body.innerText;
+  const lower = bodyText.toLowerCase();
+
+  // Review Display Prominence (star rating visible in hero area)
+  let hasProminentReviews = false;
+  const heroSelectors = [
+    '.product-info', '.product-hero', '.product-summary', '.product__info',
+    '.product-single__meta', '.product-detail', 'main', 'article'
+  ];
+  for (const sel of heroSelectors) {
+    try {
+      const hero = document.querySelector(sel);
+      if (hero) {
+        const ratingEl = hero.querySelector(
+          '[class*="rating"], [class*="stars"], [class*="review-count"], ' +
+          '[itemprop="aggregateRating"], [class*="star-rating"]'
+        );
+        if (ratingEl) {
+          hasProminentReviews = true;
+          break;
+        }
+      }
+    } catch (e) { /* skip */ }
+  }
+
+  // Star Rating Visual (visual star display, not just numbers)
+  const hasStarVisual = document.querySelector(
+    '[class*="star-rating"], [class*="stars"], svg[class*="star"], ' +
+    '[class*="rating-star"], .star-icon, [class*="star-filled"], ' +
+    'img[alt*="star" i], [aria-label*="star" i], [aria-label*="rating" i]'
+  ) !== null;
+
+  // Review Sorting/Filtering
+  const hasReviewSorting = document.querySelector(
+    '[class*="review-sort"], [class*="review-filter"], select[name*="sort" i], ' +
+    '[class*="sort-reviews"], [data-review-sort], [class*="filter-bar"]'
+  ) !== null || /\b(sort by|filter reviews?|most helpful|most recent|highest rated|lowest rated)\b/i.test(lower);
+
+  // Photo/Video Reviews
+  const hasMediaReviews = document.querySelector(
+    '[class*="review-photo"], [class*="review-image"], [class*="review-video"], ' +
+    '[class*="customer-photo"], [class*="ugc"], [class*="user-content"], ' +
+    '[class*="review-media"], [data-review-photos]'
+  ) !== null;
+
+  // Social Proof Indicators
+  let hasSocialProof = false;
+  hasSocialProof = /\b(\d[\d,]*\+?\s*(?:people|customers|buyers|shoppers)\s*(?:bought|purchased|love|viewed)|best[\s-]?seller|most popular|trending|top[\s-]?rated|#1\s*(?:best|top|selling))\b/i.test(lower);
+  if (!hasSocialProof) {
+    hasSocialProof = document.querySelector(
+      '[class*="bestseller"], [class*="best-seller"], [class*="trending"], ' +
+      '[class*="most-popular"], [class*="social-proof"]'
+    ) !== null;
+  }
+
+  // Review Count Threshold (50+ for PDP Quality, higher bar than AI Readiness's 25)
+  let reviewCount = 0;
+  const countEl = document.querySelector('[itemprop="reviewCount"], .review-count, .reviews-count');
+  if (countEl) {
+    const match = (countEl.content || countEl.textContent).match(/(\d[\d,]*)/);
+    if (match) reviewCount = parseInt(match[1].replace(/,/g, ''), 10);
+  }
+  // Schema fallback
+  if (reviewCount === 0) {
+    for (const { item } of iterateSchemaItems(['product', 'productgroup'])) {
+      if (item.aggregateRating) {
+        const rating = item.aggregateRating['@id'] ? null : item.aggregateRating;
+        if (rating) {
+          reviewCount = parseInt(rating.reviewCount, 10) || parseInt(rating.ratingCount, 10) || 0;
+          if (reviewCount > 0) break;
+        }
+      }
+    }
+  }
+
+  return {
+    hasProminentReviews,
+    hasStarVisual,
+    hasReviewSorting,
+    hasMediaReviews,
+    hasSocialProof,
+    reviewCount,
+    meetsThreshold: reviewCount >= 50
+  };
 }
 
 // Log that content script is loaded

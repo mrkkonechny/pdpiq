@@ -154,14 +154,159 @@ function factorCountSummary(factors) {
 }
 
 /**
+ * Build the PDP Quality section of the report (returns empty string if no data).
+ * @param {Object} [pdpResult] - PDP score result
+ * @param {Array} [pdpRecs] - PDP recommendations
+ * @param {string} contextLabel - e.g. "Want Context"
+ * @returns {string} HTML string
+ */
+function buildPdpSection(pdpResult, pdpRecs, contextLabel) {
+  if (!pdpResult) return '';
+
+  const { totalScore, grade, gradeDescription, categoryScores } = pdpResult;
+  const gradeColors = { A: '#22c55e', B: '#84cc16', C: '#eab308', D: '#f97316', F: '#ef4444' };
+  const gradeColor = gradeColors[grade] || '#ef4444';
+
+  const pdpCategoryOrder = [
+    'purchaseExperience',
+    'trustConfidence',
+    'visualPresentation',
+    'contentCompleteness',
+    'reviewsSocialProof'
+  ];
+
+  const pdpBars = pdpCategoryOrder
+    .filter(k => categoryScores[k])
+    .map(k => categoryBar(categoryScores[k].categoryName, categoryScores[k].score, categoryScores[k].weight))
+    .join('');
+
+  const pdpDetails = pdpCategoryOrder
+    .filter(k => categoryScores[k])
+    .map(k => {
+      const cat = categoryScores[k];
+      const score = Math.round(cat.score);
+      const color = score >= 80 ? '#22c55e' : score >= 60 ? '#eab308' : '#ef4444';
+      return `
+        <div style="margin-bottom:28px;page-break-inside:avoid">
+          <h3 style="font-size:14px;font-weight:700;color:#111827;margin:0 0 4px;padding-bottom:6px;border-bottom:2px solid #e5e7eb">
+            ${esc(cat.categoryName)}
+            <span style="float:right;color:${color}">${score}/100</span>
+          </h3>
+          <div style="font-size:11px;color:#9ca3af;margin-bottom:10px">${factorCountSummary(cat.factors || [])}</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:#f9fafb">
+                <th style="padding:6px 8px;text-align:left;color:#6b7280;font-weight:600">Factor</th>
+                <th style="padding:6px 8px;text-align:center;color:#6b7280;font-weight:600">Status</th>
+                <th style="padding:6px 8px;text-align:right;color:#6b7280;font-weight:600">Score</th>
+                <th style="padding:6px 8px;text-align:left;color:#6b7280;font-weight:600">Details</th>
+              </tr>
+            </thead>
+            <tbody>${factorRows(cat.factors || [])}</tbody>
+          </table>
+        </div>`;
+    }).join('');
+
+  // PDP recommendations grouped by priority
+  const allPdpRecs = (pdpRecs || []).slice(0, 20);
+  const pdpQuickWins = allPdpRecs.filter(r => (r.impact === 'high' || r.impact === 'medium') && r.effort === 'low');
+  const pdpMedPriority = allPdpRecs.filter(r => !((r.impact === 'high' || r.impact === 'medium') && r.effort === 'low') && r.priority <= 3);
+  const pdpNiceToHave = allPdpRecs.filter(r => !((r.impact === 'high' || r.impact === 'medium') && r.effort === 'low') && r.priority > 3);
+
+  function pdpRecCard(rec, i) {
+    return `
+    <div style="margin-bottom:14px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:8px;page-break-inside:avoid">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">
+        <span style="font-size:13px;font-weight:700;color:#111827">${i + 1}. ${esc(rec.title)}</span>
+        <div style="display:flex;gap:4px;flex-shrink:0">${impactBadge(rec.impact)}${effortBadge(rec.effort)}</div>
+      </div>
+      <p style="font-size:12px;color:#4b5563;margin:0 0 8px">${esc(rec.description)}</p>
+      ${rec.implementation ? `<div style="font-size:11px;color:#6b7280;background:#f9fafb;padding:8px 10px;border-radius:6px;border-left:3px solid #d1d5db">${rec.implementation}</div>` : ''}
+    </div>`;
+  }
+
+  let pdpCounter = 0;
+  const pdpRecSections = [];
+  if (pdpQuickWins.length > 0) {
+    pdpRecSections.push(`<h3 style="font-size:13px;font-weight:700;color:#059669;margin:16px 0 8px">Quick Wins</h3>`);
+    pdpRecSections.push(pdpQuickWins.map(r => pdpRecCard(r, ++pdpCounter)).join(''));
+  }
+  if (pdpMedPriority.length > 0) {
+    pdpRecSections.push(`<h3 style="font-size:13px;font-weight:700;color:#d97706;margin:16px 0 8px">Medium Priority</h3>`);
+    pdpRecSections.push(pdpMedPriority.map(r => pdpRecCard(r, ++pdpCounter)).join(''));
+  }
+  if (pdpNiceToHave.length > 0) {
+    pdpRecSections.push(`<h3 style="font-size:13px;font-weight:700;color:#6b7280;margin:16px 0 8px">Nice to Have</h3>`);
+    pdpRecSections.push(pdpNiceToHave.map(r => pdpRecCard(r, ++pdpCounter)).join(''));
+  }
+
+  // PDP executive summary
+  const pdpTotalFactors = pdpCategoryOrder.reduce((sum, k) => sum + (categoryScores[k]?.factors?.length || 0), 0);
+  const pdpFailingFactors = pdpCategoryOrder.reduce((sum, k) => sum + (categoryScores[k]?.factors?.filter(f => f.status === 'fail').length || 0), 0);
+  const pdpWarningFactors = pdpCategoryOrder.reduce((sum, k) => sum + (categoryScores[k]?.factors?.filter(f => f.status === 'warning').length || 0), 0);
+  const pdpPassingFactors = pdpTotalFactors - pdpFailingFactors - pdpWarningFactors;
+
+  const pdpCriticalRecs = allPdpRecs.filter(r => r.impact === 'high');
+
+  return `
+  <!-- PDP Quality Section Separator -->
+  <div style="margin:40px 0;border-top:3px solid #e5e7eb;padding-top:40px">
+
+  <!-- PDP Quality Score Hero -->
+  <div style="font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:1px;color:#6b7280;margin-bottom:12px">PDP Quality Score</div>
+  <div class="score-hero" style="display:flex;align-items:center;gap:24px;margin-bottom:24px;padding:24px;background:#f9fafb;border-radius:12px;border:1px solid #e5e7eb">
+    <div style="position:relative;flex-shrink:0">
+      ${scoreGaugeSvg(totalScore, grade)}
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <div style="font-size:28px;font-weight:800;color:${gradeColor};line-height:1">${esc(grade)}</div>
+        <div style="font-size:13px;font-weight:700;color:#374151">${esc(totalScore)}/100</div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:20px;font-weight:700;color:#111827;margin-bottom:6px">PDP Quality: ${esc(totalScore)}/100 (Grade ${esc(grade)})</div>
+      <div style="font-size:13px;color:#6b7280;margin-bottom:8px">${esc(gradeDescription)}</div>
+      <div style="font-size:12px;color:#9ca3af">${esc(contextLabel)} · ${allPdpRecs.length} recommendations</div>
+    </div>
+  </div>
+
+  <!-- PDP Executive Summary -->
+  <div style="margin-bottom:36px;padding:16px 18px;background:#fef3c7;border-radius:10px;border:1px solid #fbbf24">
+    <h2 style="font-size:14px;font-weight:700;color:#92400e;margin:0 0 10px">PDP Quality Summary</h2>
+    <div style="font-size:12px;color:#92400e;line-height:1.6">
+      <p style="margin:0 0 6px">This page scores <strong>${totalScore}/100</strong> across ${pdpTotalFactors} shopping experience factors: <strong style="color:#22c55e">${pdpPassingFactors} pass</strong>, <strong style="color:#d97706">${pdpWarningFactors} warning</strong>, <strong style="color:#ef4444">${pdpFailingFactors} fail</strong>.</p>
+      ${pdpCriticalRecs.length > 0 ? `<p style="margin:0"><strong>${pdpCriticalRecs.length} high-impact issue${pdpCriticalRecs.length > 1 ? 's' : ''}</strong>: ${pdpCriticalRecs.slice(0, 3).map(r => esc(r.title)).join(', ')}${pdpCriticalRecs.length > 3 ? ', ...' : ''}.</p>` : '<p style="margin:0">No high-impact issues found.</p>'}
+    </div>
+  </div>
+
+  <!-- PDP Category Breakdown -->
+  <h2 style="font-size:16px;font-weight:700;color:#111827;margin:0 0 16px">PDP Quality — Category Breakdown</h2>
+  <div style="margin-bottom:36px">${pdpBars}</div>
+
+  <!-- PDP Factor Detail -->
+  <h2 style="font-size:16px;font-weight:700;color:#111827;margin:0 0 16px">PDP Quality — Factor Detail</h2>
+  <div style="margin-bottom:36px">${pdpDetails}</div>
+
+  <!-- PDP Recommendations -->
+  <h2 style="font-size:16px;font-weight:700;color:#111827;margin:0 0 16px">
+    PDP Quality — Recommendations
+    <span style="font-size:12px;font-weight:400;color:#6b7280;margin-left:8px">${allPdpRecs.length} total · showing top ${Math.min(20, allPdpRecs.length)}</span>
+  </h2>
+  <div style="margin-bottom:40px">${pdpRecSections.join('') || '<p style="color:#6b7280;font-size:13px">No recommendations — excellent shopping experience!</p>'}</div>
+
+  </div>`;
+}
+
+/**
  * Generate a complete self-contained HTML report document.
  * @param {Object} result - scoreResult from ScoringEngine.calculateScore()
  * @param {Object} pageInfo - page metadata (url, title, domain)
  * @param {Array} recommendations - sorted recommendation array
  * @param {string} context - analysis context (want/need/hybrid)
+ * @param {Object} [pdpResult] - pdpScoreResult from ScoringEngine.calculatePdpQualityScore()
+ * @param {Array} [pdpRecommendations] - sorted PDP recommendation array
  * @returns {string} Complete HTML document string
  */
-export function generateHtmlReport(result, pageInfo, recommendations, context) {
+export function generateHtmlReport(result, pageInfo, recommendations, context, pdpResult, pdpRecommendations) {
   const { totalScore, grade, gradeDescription, categoryScores } = result;
   const gradeColors = { A: '#22c55e', B: '#84cc16', C: '#eab308', D: '#f97316', F: '#ef4444' };
   const gradeColor = gradeColors[grade] || '#ef4444';
@@ -308,7 +453,7 @@ export function generateHtmlReport(result, pageInfo, recommendations, context) {
   <div class="header-flex" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #e5e7eb">
     <div>
       <div style="font-size:22px;font-weight:800;color:#111827;letter-spacing:-0.5px">pdp<span style="color:#4f46e5">IQ</span></div>
-      <div style="font-size:11px;color:#6b7280;margin-top:2px">AI Citation Readiness for eCommerce Product Pages</div>
+      <div style="font-size:11px;color:#6b7280;margin-top:2px">AI Citation Readiness &amp; PDP Quality for eCommerce Product Pages</div>
       <div style="font-size:11px;color:#6b7280;margin-top:6px">Generated ${esc(reportDate)}</div>
       <div style="font-size:11px;color:#9ca3af;margin-top:2px">${esc(contextLabel)} · Report #${reportId}</div>
     </div>
@@ -323,7 +468,8 @@ export function generateHtmlReport(result, pageInfo, recommendations, context) {
     <div style="font-size:11px;color:#6b7280;word-break:break-all">${esc(pageInfo?.url || '')}</div>
   </div>
 
-  <!-- Score Hero -->
+  <!-- AI Readiness Score Hero -->
+  <div style="font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:1px;color:#6b7280;margin-bottom:12px">AI Readiness Score</div>
   <div class="score-hero" style="display:flex;align-items:center;gap:24px;margin-bottom:24px;padding:24px;background:#f9fafb;border-radius:12px;border:1px solid #e5e7eb">
     <div style="position:relative;flex-shrink:0">
       ${scoreGaugeSvg(totalScore, grade)}
@@ -371,12 +517,14 @@ export function generateHtmlReport(result, pageInfo, recommendations, context) {
   <h2 style="font-size:16px;font-weight:700;color:#111827;margin:0 0 16px">Factor Detail</h2>
   <div style="margin-bottom:36px">${categoryDetails}</div>
 
-  <!-- Recommendations -->
+  <!-- AI Readiness Recommendations -->
   <h2 style="font-size:16px;font-weight:700;color:#111827;margin:0 0 16px">
     Recommendations
     <span style="font-size:12px;font-weight:400;color:#6b7280;margin-left:8px">${(recommendations || []).length} total · showing top ${Math.min(20, (recommendations || []).length)}</span>
   </h2>
   <div style="margin-bottom:40px">${recItems || '<p style="color:#6b7280;font-size:13px">No recommendations — excellent coverage!</p>'}</div>
+
+  ${buildPdpSection(pdpResult, pdpRecommendations, contextLabel)}
 
   <!-- Footer -->
   <div style="padding-top:20px;border-top:1px solid #e5e7eb">
@@ -390,7 +538,7 @@ export function generateHtmlReport(result, pageInfo, recommendations, context) {
     </div>
     <div style="font-size:10px;color:#c4c8cf;line-height:1.5">
       <p style="margin:0 0 4px">Scores are based on publicly visible page content at the time of analysis. AI citation behaviour varies by model and may change over time. This report is for informational purposes and does not guarantee specific outcomes.</p>
-      <p style="margin:0">pdpIQ analyses ${totalFactors} factors across 6 categories. All analysis runs locally in your browser — no page data is sent to external servers.</p>
+      <p style="margin:0">pdpIQ analyses ${totalFactors} AI readiness factors across 6 categories${pdpResult ? ' and 30 PDP quality factors across 5 categories' : ''}. All analysis runs locally in your browser — no page data is sent to external servers.</p>
     </div>
   </div>
 

@@ -594,13 +594,297 @@ export const RECOMMENDATION_TEMPLATES = {
   }
 };
 
+// ==========================================
+// PDP QUALITY RECOMMENDATION TEMPLATES
+// ==========================================
+
 /**
- * Get recommendation template by ID
+ * PDP Quality recommendation templates for common shopping experience issues
+ */
+export const PDP_RECOMMENDATION_TEMPLATES = {
+  // Purchase Experience
+  'pdp-price-missing': {
+    title: 'Make price clearly visible',
+    description: 'No visible price found on the page. Price is the most critical conversion factor — shoppers who can\'t find the price quickly will leave.',
+    impact: 'high',
+    effort: 'low',
+    category: 'purchaseExperience',
+    implementation: 'Display the product price prominently near the product title and CTA button. Use large, readable font. If pricing varies by variant, show the starting price with "From $X" text.'
+  },
+
+  'pdp-cta-missing': {
+    title: 'Add a clear add-to-cart or buy button',
+    description: 'No add-to-cart or buy-now button detected. Without a clear CTA, visitors cannot convert.',
+    impact: 'high',
+    effort: 'low',
+    category: 'purchaseExperience',
+    implementation: 'Add a prominent &lt;button&gt; element with clear purchase text ("Add to Cart", "Buy Now"). Place it above the fold, near the price. Use a contrasting colour that stands out from the page background.'
+  },
+
+  'pdp-cta-unclear': {
+    title: 'Improve CTA button clarity',
+    description: 'The call-to-action button text is generic or unclear. Specific, action-oriented text converts better than vague labels.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'purchaseExperience',
+    implementation: 'Use specific, action-oriented CTA text: "Add to Cart", "Buy Now", "Add to Bag". Avoid generic labels like "Submit" or "Continue". Make the button large enough to tap on mobile (44px+ height).'
+  },
+
+  'pdp-discount-missing': {
+    title: 'Add discount or sale messaging',
+    description: 'No compare-at price, sale badge, or savings callout found. Highlighting value increases conversion rates and reduces price objections.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'purchaseExperience',
+    implementation: 'Show the original price struck through alongside the sale price. Add a "Save X%" or "You save $X" callout. Use visual badges like "SALE" or "LIMITED OFFER" near the price. Include compare-at pricing in your Product schema.'
+  },
+
+  'pdp-payment-methods-missing': {
+    title: 'Display accepted payment methods',
+    description: 'No payment method icons or buy-now-pay-later messaging found. Showing payment options reduces checkout friction and increases buyer confidence.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'purchaseExperience',
+    implementation: 'Add payment method icons (Visa, Mastercard, PayPal, Apple Pay) near the CTA button. If you offer BNPL options (Klarna, Afterpay, Shop Pay Installments), show a "Pay in 4 installments of $X" message below the price.'
+  },
+
+  'pdp-urgency-missing': {
+    title: 'Add urgency or scarcity signals',
+    description: 'No low-stock indicators, limited-time offers, or countdown timers found. Legitimate urgency signals can increase conversion rates.',
+    impact: 'low',
+    effort: 'medium',
+    category: 'purchaseExperience',
+    implementation: 'Add truthful scarcity messaging: "Only X left in stock", "Limited edition", or "Sale ends [date]". Display real-time inventory counts when stock is low. Avoid fake urgency — it erodes trust.'
+  },
+
+  // Trust & Confidence
+  'pdp-return-policy-missing': {
+    title: 'Display return policy on product page',
+    description: 'No return or refund policy information visible on the product page. Return policy visibility is a top trust factor for online purchases.',
+    impact: 'high',
+    effort: 'low',
+    category: 'trustConfidence',
+    implementation: 'Add a visible return policy summary near the CTA: "Free 30-day returns" or "Easy returns within 60 days". Link to the full return policy. Use an icon for quick scanning.'
+  },
+
+  'pdp-shipping-missing': {
+    title: 'Add shipping information',
+    description: 'No shipping cost, delivery speed, or free shipping messaging found. Unexpected shipping costs are the top reason for cart abandonment.',
+    impact: 'high',
+    effort: 'low',
+    category: 'trustConfidence',
+    implementation: 'Display shipping information near the price and CTA: "Free shipping over $50", "Ships in 1-2 business days", or estimated delivery date. If shipping cost varies, add a shipping calculator or a clear minimum for free shipping.'
+  },
+
+  'pdp-trust-badges-missing': {
+    title: 'Add trust badges and security seals',
+    description: 'No trust badges, security seals, or certification icons found. Visual trust signals reduce purchase anxiety.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'trustConfidence',
+    implementation: 'Add recognizable trust badges near the CTA or payment section: SSL/secure checkout seal, payment processor badges (Stripe, PayPal Verified), industry certifications, or "Trusted by X+ customers". Keep badges small and unobtrusive.'
+  },
+
+  'pdp-secure-checkout-missing': {
+    title: 'Add secure checkout messaging',
+    description: 'No "secure checkout" messaging or HTTPS indicators found. Explicit security messaging reassures customers sharing payment information.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'trustConfidence',
+    implementation: 'Add a lock icon with "Secure Checkout" text near the CTA button. Ensure your site uses HTTPS. Display "Your payment information is encrypted and secure" messaging near the checkout area.'
+  },
+
+  'pdp-customer-service-missing': {
+    title: 'Add customer service contact information',
+    description: 'No phone number, live chat, or email contact found on the product page. Visible customer service options build confidence for hesitant buyers.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'trustConfidence',
+    implementation: 'Add at least one contact method visible on the product page: live chat widget, phone number, or email link. "Questions? Chat with us" or "Need help? Call 1-800-XXX-XXXX" near the product details.'
+  },
+
+  'pdp-guarantee-missing': {
+    title: 'Display guarantee or warranty prominently',
+    description: 'No money-back guarantee or warranty information prominently displayed. Guarantees reduce purchase risk perception.',
+    impact: 'low',
+    effort: 'low',
+    category: 'trustConfidence',
+    implementation: 'Add a visible guarantee statement: "100% Satisfaction Guarantee", "Money-back guarantee", or warranty duration. Place it near the CTA or in a trust badge row. Use a shield or checkmark icon for visual impact.'
+  },
+
+  // Visual Presentation
+  'pdp-images-low': {
+    title: 'Add more product images',
+    description: 'Fewer than 4 product images found. Multiple angles and views help customers evaluate the product and reduce return rates.',
+    impact: 'high',
+    effort: 'medium',
+    category: 'visualPresentation',
+    implementation: 'Provide at least 4 product images: front view, back view, detail/close-up, and in-context/lifestyle shot. For apparel, include on-model photos. For electronics, show ports and size comparison. Use consistent white background for main images.'
+  },
+
+  'pdp-video-missing': {
+    title: 'Add product video',
+    description: 'No product video found on the page. Video increases engagement and conversion, especially for products that benefit from demonstration.',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'visualPresentation',
+    implementation: 'Add an embedded product video showing the item in use, key features, or unboxing. Keep videos 30-90 seconds. Host on YouTube/Vimeo for performance, or use a native &lt;video&gt; element. Place the video thumbnail in the image gallery.'
+  },
+
+  'pdp-gallery-basic': {
+    title: 'Enhance image gallery features',
+    description: 'Image gallery lacks zoom, lightbox, or navigation controls. Rich gallery features help customers inspect product details closely.',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'visualPresentation',
+    implementation: 'Add hover-to-zoom or click-to-enlarge functionality to product images. Include thumbnail navigation for browsing multiple images. Implement a lightbox/modal for full-screen viewing. Most eCommerce platforms offer gallery plugins with these features.'
+  },
+
+  'pdp-lifestyle-images-missing': {
+    title: 'Add lifestyle and in-context images',
+    description: 'No lifestyle or in-use product images detected. Showing products in real-world context helps customers envision ownership.',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'visualPresentation',
+    implementation: 'Add images showing the product being used in real settings: a person wearing the clothing, furniture in a room, a tool in use. Include alt text that describes the context (e.g., "Woman wearing [product] at outdoor cafe"). Mix studio and lifestyle shots in the gallery.'
+  },
+
+  'pdp-swatches-missing': {
+    title: 'Add colour or variant swatches',
+    description: 'No visual colour or variant selectors found. Swatches let customers preview options without navigating away.',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'visualPresentation',
+    implementation: 'Replace text-only variant dropdowns with visual swatches: colour circles, pattern thumbnails, or material textures. Update the main product image when a swatch is selected. Most Shopify themes support swatches natively or via apps.'
+  },
+
+  'pdp-image-quality-low': {
+    title: 'Improve product image quality',
+    description: 'Product images may be low resolution or lack responsive srcset attributes. High-quality images increase perceived product value.',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'visualPresentation',
+    implementation: 'Use images at least 1000px wide for zoom capability. Add srcset attributes for responsive loading across devices. Compress images for fast loading while maintaining visual quality. Use WebP with JPEG fallback for optimal file size.'
+  },
+
+  // Content Completeness
+  'pdp-variants-missing': {
+    title: 'Add product variant selectors',
+    description: 'No size, colour, or option selectors found. If the product has variants, clear selection UI is essential for purchase completion.',
+    impact: 'high',
+    effort: 'medium',
+    category: 'contentCompleteness',
+    implementation: 'Add clear variant selectors for all product options (size, colour, material, etc.). Use radio buttons, dropdown menus, or visual swatches. Show which variants are in stock. Update price and images when variants change.'
+  },
+
+  'pdp-size-guide-missing': {
+    title: 'Add size guide or fit information',
+    description: 'No size chart or fit guidance found. Missing size information is a major driver of returns, especially for apparel.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'contentCompleteness',
+    implementation: 'Add a size chart accessible from the product page (modal, accordion, or inline table). Include measurements in both inches and centimetres. For apparel, add fit notes: "Runs true to size", "Model is 5\'10\" wearing size M". For other products, include dimension diagrams.'
+  },
+
+  'pdp-related-products-missing': {
+    title: 'Add related or recommended products',
+    description: 'No "You may also like", "Customers also bought", or similar product recommendation section found. Cross-selling increases average order value.',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'contentCompleteness',
+    implementation: 'Add a "You May Also Like" or "Frequently Bought Together" section below the main product content. Show 4-6 related products with images, titles, and prices. Use your platform\'s built-in recommendation engine or a third-party app.'
+  },
+
+  'pdp-qa-missing': {
+    title: 'Add customer Q&A section',
+    description: 'No customer questions and answers section found. Q&A reduces pre-purchase uncertainty and provides valuable long-tail content.',
+    impact: 'low',
+    effort: 'medium',
+    category: 'contentCompleteness',
+    implementation: 'Add a "Questions & Answers" section where customers can ask and receive answers. Seed with 5-10 common questions. Display question count and allow sorting. This is distinct from editorial FAQ — it should support customer-submitted questions.'
+  },
+
+  'pdp-details-unorganized': {
+    title: 'Organize product details with tabs or accordions',
+    description: 'Product details are not organized into clear sections. Tabs or accordions improve scannability and help customers find specific information quickly.',
+    impact: 'low',
+    effort: 'medium',
+    category: 'contentCompleteness',
+    implementation: 'Organize product details into tabs (Description, Specifications, Reviews, Shipping) or accordion sections. Each section should have a clear heading. Keep the most important content (description) visible by default. Use consistent formatting across all products.'
+  },
+
+  'pdp-whats-in-box-missing': {
+    title: 'Add "What\'s in the Box" or package contents',
+    description: 'No package contents or included items listing found. Customers want to know exactly what they are purchasing, especially for bundled or multi-component products.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'contentCompleteness',
+    implementation: 'Add a "What\'s in the Box" or "Package Includes" section listing all included items: the product itself, accessories, cables, manuals, etc. Use a simple bulleted list. For apparel, list what the outfit includes (e.g., "Includes top and matching belt").'
+  },
+
+  // Reviews & Social Proof
+  'pdp-reviews-not-prominent': {
+    title: 'Make reviews more prominent in the hero area',
+    description: 'Star rating and review count are not visible in the product hero area. Review visibility near the product title significantly impacts purchase decisions.',
+    impact: 'high',
+    effort: 'low',
+    category: 'reviewsSocialProof',
+    implementation: 'Display the star rating and review count directly below or next to the product title in the hero area. Make it clickable to scroll to the full reviews section. Use a format like "★★★★☆ (142 reviews)" that is immediately scannable.'
+  },
+
+  'pdp-star-visual-missing': {
+    title: 'Add visual star rating display',
+    description: 'No visual star rating (filled/empty stars) found. Visual ratings are processed faster than numeric ratings and build instant trust.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'reviewsSocialProof',
+    implementation: 'Display the average rating using filled and empty star icons (SVG or CSS). Show the numeric rating alongside (e.g., "4.5 out of 5"). Use gold/yellow colour for filled stars. Ensure the rating is visible without scrolling.'
+  },
+
+  'pdp-review-sort-missing': {
+    title: 'Add review sorting and filtering',
+    description: 'No review sorting or filtering options found. Customers need to find relevant reviews quickly — filtering by rating or topic increases engagement.',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'reviewsSocialProof',
+    implementation: 'Add sort options: "Most Recent", "Most Helpful", "Highest Rated", "Lowest Rated". Add filter-by-rating buttons (5-star, 4-star, etc.) with review counts per star level. Consider topic-based filtering if you have enough reviews.'
+  },
+
+  'pdp-review-media-missing': {
+    title: 'Enable customer photo and video reviews',
+    description: 'No customer-submitted photos or videos found in reviews. User-generated media is highly trusted and increases conversion rates.',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'reviewsSocialProof',
+    implementation: 'Enable photo and video uploads in your review collection system. Display a "Reviews with images" gallery at the top of the reviews section. Most review platforms (Judge.me, Yotpo, Stamped) support media reviews natively. Incentivize photo reviews with small discounts.'
+  },
+
+  'pdp-social-proof-missing': {
+    title: 'Add social proof indicators',
+    description: 'No "X people bought this", bestseller badges, or similar social proof found. Quantified social proof reduces purchase hesitation.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'reviewsSocialProof',
+    implementation: 'Add visible social proof: "X,XXX+ sold", "Bestseller", "Trending", or "X people are viewing this now". Use real data — fake social proof erodes trust. Place badges near the product title or price for maximum visibility.'
+  },
+
+  'pdp-review-count-low': {
+    title: 'Increase review volume',
+    description: 'Fewer than 50 reviews found. Higher review volume increases buyer confidence and provides more diverse perspectives.',
+    impact: 'medium',
+    effort: 'high',
+    category: 'reviewsSocialProof',
+    implementation: 'Implement automated post-purchase review request emails (7-14 days after delivery). Offer incentives for reviews (discount codes, loyalty points). Make the review form simple — star rating + optional text. Consider importing reviews from other channels if applicable.'
+  }
+};
+
+/**
+ * Get recommendation template by ID (searches both AI and PDP templates)
  * @param {string} id - Template ID
  * @returns {Object|null} Template or null
  */
 export function getRecommendationTemplate(id) {
-  return RECOMMENDATION_TEMPLATES[id] || null;
+  return RECOMMENDATION_TEMPLATES[id] || PDP_RECOMMENDATION_TEMPLATES[id] || null;
 }
 
 /**
