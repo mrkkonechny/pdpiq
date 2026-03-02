@@ -38,6 +38,58 @@ _No active bugs._
 - **Related:** —
 - **Notes:** Discovered via user report on https://cleanflow.net — size guide was present and scored as pass (15/15) but `pdp-size-guide-missing` recommendation was still emitted. All PDP recommendations were affected. The bug existed since PDP Quality was introduced in v2.0.0.
 
+### BUG-0014 — `hasDiscount` false negative on B2B/industrial/parts platforms (missing MSRP patterns)
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-02
+- **Date Resolved:** 2026-03-02
+- **Found In:** `src/content/content-script.js` → `extractPurchaseExperience()` → `discountSelectors` and text regex
+- **Root Cause:** The discount selector list and text regex were oriented toward consumer eCommerce patterns (Shopify compare-at pricing, "save X", "% off"). B2B and parts sites like finditparts.com show discounts as MSRP/list-price vs. sale-price patterns using class names like `list-price`, `msrp`, `price-original`, `price-crossed`, `sale-price`. Additionally, finditparts.com had `Offer.price: $142.49` in its Product schema while displaying `$106.99` in the DOM — a 25% discount that no text or class-name pattern detected.
+- **Fix:** (1) Added 10 new selectors covering list-price, MSRP, regular-price, price-original, price-before, price-crossed, sale-price, and line-through patterns. (2) Extended text regex with `list price`, `msrp`, `reg. $`, `retail price`, `special price`, `price drop`. (3) Added a schema/DOM price mismatch heuristic: if the schema Offer price is >5% higher than the DOM-captured price, `hasDiscount` is set to true.
+- **Related:** QA-2026-03-02 (finditparts.com single-site audit)
+- **Notes:** The schema/DOM mismatch heuristic is a reliable signal because merchants set schema prices to list/MSRP while displaying a lower sale price in the DOM. The 5% threshold prevents floating-point rounding from triggering false positives.
+
+### BUG-0015 — `reviewCount` false positive from aria-label on section headings containing part numbers
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-02
+- **Date Resolved:** 2026-03-02
+- **Found In:** `src/content/content-script.js` → `extractReviewsSocialProof()` → review count selector + regex
+- **Root Cause:** `[aria-label*="reviews" i]` matched an H2 section heading with aria-label "PETERBILT P27-1069 Customer Reviews". The greedy `(\d[\d,]*)` regex then matched the first digit sequence in the string — `"27"` from the part number `P27-1069` — and returned it as the review count. The page actually had zero reviews ("No reviews yet").
+- **Fix:** Added `:not(h1):not(h2):not(h3):not(h4):not([role="heading"])` to the aria-label selector. Replaced the greedy digit extraction with a context-aware regex that requires the number to be adjacent to "review" or "rating" words, with a final fallback that skips strings matching part-number patterns (letter + digits + hyphen + digits).
+- **Related:** QA-2026-03-02 (finditparts.com single-site audit)
+
+### BUG-0016 — `hasLifestyleImages` false positive on industrial/parts pages via image-count fallback
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-02
+- **Date Resolved:** 2026-03-02
+- **Found In:** `src/content/content-script.js` → `extractVisualPresentation()` → lifestyle fallback
+- **Root Cause:** The unconditional `imageCount >= 6` fallback set `hasLifestyleImages = true` regardless of product category. A Peterbilt door window switch with 6 product-angle images (front, back, sides, connectors, diagram) was incorrectly credited with lifestyle imagery.
+- **Fix:** Added a category guard that checks breadcrumb text and URL path for industrial/parts keywords (electrical, switch, solenoid, actuator, hardware, industrial, heavy-duty, component, fitting, connector, valve, relay, sensor, plumbing, fastener, bearing, and URL patterns `/categories/`, `/parts/`, `/components/`). The fallback only fires when no industrial/parts signals are detected.
+- **Related:** QA-2026-03-02 (finditparts.com single-site audit)
+
+### BUG-0017 — `hasOrganizedDetails` false negative on semantic section/heading structure
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-02
+- **Date Resolved:** 2026-03-02
+- **Found In:** `src/content/content-script.js` → `extractContentCompleteness()` → `hasOrganizedDetails`
+- **Root Cause:** Detection only matched interactive widget patterns (tabs, accordions, collapsibles). Custom React platforms like finditparts.com organise content using semantic `<section>` elements with H2 headings ("Part Description", "Customer Reviews", "Manufacturer Information", "Questions & Answers") — four clearly organised sections that score zero because no tab or accordion widget is present.
+- **Fix:** Added a semantic fallback: if the `<main>` element contains 3 or more `<section>` elements, or 3 or more H2/H3 headings, `hasOrganizedDetails` is set to true.
+- **Related:** QA-2026-03-02 (finditparts.com single-site audit)
+
+### BUG-0018 — `customerCount` regex matches part numbers via `\b` boundary (AI Readiness)
+- **Status:** Fixed
+- **Severity:** Low
+- **Date Found:** 2026-03-02
+- **Date Resolved:** 2026-03-02
+- **Found In:** `src/content/content-script.js` → `extractSocialProof()` → `customerMatch` regex
+- **Root Cause:** `\b(\d{3,})` asserts a word boundary before a digit group. After a hyphen, `\b` fires between the non-word `-` and the word-character `1`, so `P27-1069` matches `\b1069` if "customers" appears in nearby page text (e.g., "P27-1069 Customer Reviews" section heading). This produced `customerCount: 1069` on a page with zero actual customers.
+- **Fix:** Changed `\b(\d{3,})` to `(?:^|[\s,])(\d{3,})` — requires the digit group to be preceded by whitespace, a comma, or start-of-line, which hyphen-separated part numbers do not satisfy.
+- **Related:** QA-2026-03-02 (finditparts.com single-site audit)
+- **Notes:** Affects AI Readiness trust signals only, not PDP Quality score.
+
 ### BUG-0012 — `priceText` truncates to label text, hiding the actual price value
 - **Status:** Fixed
 - **Severity:** Low

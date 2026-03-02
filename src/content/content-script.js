@@ -2213,7 +2213,9 @@ function detectExpertAttribution() {
 function extractSocialProof() {
   const text = document.body.innerText.toLowerCase();
   const soldMatch = text.match(/\b(\d[\d,]+)[ \t]*(?:sold|purchased)\b/i);
-  const customerMatch = text.match(/\b(\d{3,}[\d,]*)[ \t]*(?:happy[ \t]+)?customers?\b/i);
+  // Require a space, comma, or start-of-line before the digit group to prevent matching
+  // part numbers like "P27-1069" where \b fires between the hyphen and digit
+  const customerMatch = text.match(/(?:^|[\s,])(\d{3,}[\d,]*)[ \t]*(?:happy[ \t]+)?customers?\b/i);
 
   return {
     soldCount: soldMatch ? parseInt(soldMatch[1].replace(/,/g, ''), 10) : null,
@@ -2571,7 +2573,13 @@ function extractPurchaseExperience() {
     // [class*="compare"] removed — too broad, matches "Compare Product" nav buttons
     '[class*="compare-at"]', '[class*="compare-price"]', '[class*="price-compare"]',
     '[class*="savings"]', '[class*="discount"]',
-    '.sale-tag', '.price--was', '.strikethrough', 'del', 's'
+    '.sale-tag', '.price--was', '.strikethrough', 'del', 's',
+    // B2B / industrial / automotive parts platforms (MSRP/list-price patterns)
+    '[class*="list-price"]', '[class*="msrp"]',
+    '[class*="regular-price"]', '[class*="price-regular"]',
+    '[class*="price-original"]', '[class*="price-before"]',
+    '[class*="price-crossed"]', '[class*="sale-price"]',
+    'span[class*="line-through"]', '[class*="was-now"]'
   ];
   for (const sel of discountSelectors) {
     try {
@@ -2584,7 +2592,26 @@ function extractPurchaseExperience() {
     } catch (e) { /* skip */ }
   }
   if (!hasDiscount) {
-    hasDiscount = /save\s+\d|%\s*off|\bsale\b|was\s*\$|compare\s*at|you\s+save|markdown|clearance/i.test(lower);
+    hasDiscount = /save\s+\d|%\s*off|\bsale\b|was\s*\$|compare\s*at|you\s+save|markdown|clearance|list\s+price|msrp|\breg\.\s*\$|retail\s+price|special\s+price|price\s+drop/i.test(lower);
+  }
+  // Schema/DOM price mismatch: if schema Offer price is materially higher than the
+  // DOM-captured price, the page is showing a sale price (common on B2B/parts sites
+  // that use MSRP in schema and a discounted price in the DOM)
+  if (!hasDiscount && priceVisible && priceText) {
+    for (const { item } of iterateSchemaItems(['product', 'productgroup'])) {
+      const offers = item.offers ? (Array.isArray(item.offers) ? item.offers : [item.offers]) : [];
+      for (const o of offers) {
+        const schemaPrice = parseFloat(o.price);
+        const domPriceMatch = priceText.replace(/,/g, '').match(/[\d]+\.?\d*/);
+        const domPrice = domPriceMatch ? parseFloat(domPriceMatch[0]) : null;
+        if (schemaPrice && domPrice && domPrice < schemaPrice * 0.95) {
+          hasDiscount = true;
+          discountText = `Sale price (was ${o.priceCurrency || ''}${o.price})`;
+          break;
+        }
+      }
+      if (hasDiscount) break;
+    }
   }
 
   // Payment Method Indicators
@@ -2900,10 +2927,16 @@ function extractVisualPresentation() {
       break;
     }
   }
-  // Fallback: check if there are multiple images (common pattern for lifestyle shots)
-  if (!hasLifestyleImages && imageCount >= 4) {
-    // If there are many images, assume some are lifestyle
-    hasLifestyleImages = imageCount >= 6;
+  // Fallback: many images suggests lifestyle content — but only for consumer products,
+  // not industrial/parts/B2B pages where multiple angles are standard product photography
+  if (!hasLifestyleImages && imageCount >= 6) {
+    const crumbEl = document.querySelector('[class*="breadcrumb"], nav[aria-label*="breadcrumb" i]');
+    const crumbText = (crumbEl ? crumbEl.textContent : '').toLowerCase();
+    const isIndustrialOrParts = /electrical|switch|solenoid|actuator|hardware|industrial|heavy.?duty|component|fitting|connector|valve|relay|sensor|plumbing|fastener|bearing/i.test(crumbText)
+      || /\/(categories|parts|components|assemblies|products\/\d)/i.test(window.location.pathname);
+    if (!isIndustrialOrParts) {
+      hasLifestyleImages = true;
+    }
   }
 
   // Color/Variant Swatches
@@ -3033,7 +3066,15 @@ function extractContentCompleteness() {
     '[role="tablist"], [class*="tabs"], [class*="accordion"], [class*="collapsible"], ' +
     '[class*="expandable"], [data-toggle="collapse"], .tab-content, .panel-group, ' +
     '[class*="product-tabs"], [class*="product-accordion"]'
-  ) !== null;
+  ) !== null
+  // Semantic fallback: 3+ named sections or headings within the main content area
+  // covers custom React/Next.js platforms that use <section> + H2 instead of widgets
+  || (() => {
+    const main = document.querySelector('main, [role="main"]');
+    if (!main) return false;
+    return main.querySelectorAll('section').length >= 3
+        || main.querySelectorAll('h2, h3').length >= 3;
+  })();
 
   // "What's in the Box" / Package Contents
   let hasWhatsInBox = false;
@@ -3139,15 +3180,19 @@ function extractReviewsSocialProof() {
     '[itemprop="reviewCount"], .review-count, .reviews-count, ' +
     '[class*="review-count"], [class*="rating-count"], [class*="reviews-count"], ' +
     '[data-testid*="review-count" i], [data-testid*="rating-count" i], ' +
-    '[aria-label*="reviews" i], ' +
+    // Exclude heading elements — aria-label on section headings can contain part numbers
+    '[aria-label*="reviews" i]:not(h1):not(h2):not(h3):not(h4):not([role="heading"]), ' +
     // Amazon-specific
     '#acrCustomerReviewText, [data-hook="total-review-count"]'
   );
   if (countEl) {
-    // aria-label may contain "X ratings" — extract number from text or attribute
     const raw = countEl.getAttribute('aria-label') || countEl.content || countEl.textContent;
-    const match = raw.match(/(\d[\d,]*)/);
-    if (match) reviewCount = parseInt(match[1].replace(/,/g, ''), 10);
+    // Require the number to be adjacent to review/rating context — prevents matching
+    // part numbers that happen to appear in aria-label text (e.g. "P27-1069 Customer Reviews")
+    const match = raw.match(/(\d[\d,]*)\s*(?:review|rating)/i)
+               || raw.match(/(?:review|rating)s?\s*[:(]?\s*\(?(\d[\d,]*)/i)
+               || (!/[A-Z]\d+[-–]\d+/i.test(raw) && raw.match(/(\d[\d,]*)/));
+    if (match) reviewCount = parseInt((match[1] || match[2] || '0').replace(/,/g, ''), 10);
   }
   // Schema fallback
   if (reviewCount === 0) {
