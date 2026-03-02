@@ -2488,7 +2488,11 @@ function extractPurchaseExperience() {
         const text = el.textContent.trim();
         if (/[\$£€¥₹]|USD|CAD|GBP|EUR|\d+[.,]\d{2}/.test(text)) {
           priceVisible = true;
-          priceText = text.substring(0, 30);
+          // Strip common label prefixes so the actual price value is captured
+          priceText = text
+            .replace(/^(regular price|sale price|now|was|from|price)[:\s]*/i, '')
+            .trim()
+            .substring(0, 30);
           break;
         }
       }
@@ -2875,7 +2879,15 @@ function extractVisualPresentation() {
     '[class*="zoom"], [data-zoom], [class*="lightbox"], [data-lightbox], [data-fancybox], ' +
     '[class*="magnif"], .pswp, .fancybox, [class*="gallery-nav"], ' +
     '[class*="thumbnail"], .product-thumbnails, [class*="carousel-nav"], ' +
-    '[class*="slide-nav"], .slick-dots, .swiper-pagination'
+    '[class*="slide-nav"], .slick-dots, .swiper-pagination, ' +
+    // ARIA navigation buttons (custom React/Next.js carousels)
+    'button[aria-label*="next" i], button[aria-label*="previous" i], ' +
+    'button[aria-label*="next image" i], button[aria-label*="prev image" i], ' +
+    // data-testid patterns (Walmart, SportChek, generic React)
+    '[data-testid*="carousel"], [data-testid*="gallery"], ' +
+    '[data-testid*="image-next"], [data-testid*="image-prev"], ' +
+    // Class fragments for custom galleries
+    '[class*="media-gallery"], [class*="image-gallery"], [class*="photo-gallery"]'
   ) !== null;
 
   // Lifestyle/Context Images (images showing product in use)

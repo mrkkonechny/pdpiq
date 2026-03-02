@@ -38,6 +38,28 @@ _No active bugs._
 - **Related:** —
 - **Notes:** Discovered via user report on https://cleanflow.net — size guide was present and scored as pass (15/15) but `pdp-size-guide-missing` recommendation was still emitted. All PDP recommendations were affected. The bug existed since PDP Quality was introduced in v2.0.0.
 
+### BUG-0012 — `priceText` truncates to label text, hiding the actual price value
+- **Status:** Fixed
+- **Severity:** Low
+- **Date Found:** 2026-03-02
+- **Date Resolved:** 2026-03-02
+- **Found In:** `src/content/content-script.js` → `extractPurchaseExperience()` → price selector loop
+- **Root Cause:** `text.substring(0, 30)` was applied to the full element text before stripping label prefixes. Elements like `<span class="price">Regular price\n          \n     $69.90</span>` produce text where the first 30 characters are consumed by the "Regular price" label and whitespace, leaving `priceText` with no numeric value.
+- **Fix:** Applied a regex to strip common label prefixes (`regular price`, `sale price`, `now`, `was`, `from`, `price:`) before taking the 30-character substring.
+- **Related:** QA-2026-03-02 (8-site PDP quality audit)
+- **Notes:** Discovered on www.reitmans.com. Score is unaffected (priceVisible is set correctly by the regex match); only the display text shown in factor details was wrong.
+
+### BUG-0013 — `hasGalleryFeatures` false negative on Walmart and Old Navy (custom React carousels)
+- **Status:** Fixed
+- **Severity:** Low
+- **Date Found:** 2026-03-02
+- **Date Resolved:** 2026-03-02
+- **Found In:** `src/content/content-script.js` → `extractVisualPresentation()` → `hasGalleryFeatures`
+- **Root Cause:** The selector list targeted third-party library class names (Slick `.slick-dots`, Swiper `.swiper-pagination`, PhotoSwipe `.pswp`, FancyBox) and generic fragments like `[class*="gallery-nav"]`. Custom React/Next.js carousels (Walmart, Old Navy) use ARIA-labelled navigation buttons and data-testid attributes that none of these patterns match.
+- **Fix:** Added ARIA navigation button selectors (`button[aria-label*="next" i]`, `button[aria-label*="previous" i]`, `button[aria-label*="next image" i]`), `data-testid` patterns for carousel/gallery/image-nav elements, and class fragment patterns (`[class*="media-gallery"]`, `[class*="image-gallery"]`, `[class*="photo-gallery"]`).
+- **Related:** QA-2026-03-02 (8-site PDP quality audit)
+- **Notes:** Note that Walmart's `imageCount: 70` likely includes recommendation carousel images — this is a separate data quality issue (no fix in this pass).
+
 ### BUG-0007 — Payment indicators miss SVG-only payment badge implementations (false negative)
 - **Status:** Fixed
 - **Severity:** Medium
