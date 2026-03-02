@@ -584,21 +584,21 @@ export class PdpQualityRecommendationEngine {
       recs.push(this.createRecommendation('pdp-price-missing'));
     }
 
-    if (!pe.ctaPresent) {
+    if (!pe.ctaFound) {
       recs.push(this.createRecommendation('pdp-cta-missing'));
-    } else if (pe.ctaClarity !== undefined && pe.ctaClarity < 0.5) {
+    } else if (!pe.ctaIsClear) {
       recs.push(this.createRecommendation('pdp-cta-unclear'));
     }
 
-    if (!pe.discountPresent) {
+    if (!pe.hasDiscount) {
       recs.push(this.createRecommendation('pdp-discount-missing'));
     }
 
-    if (!pe.paymentMethodsPresent) {
+    if (!pe.hasPaymentIndicators) {
       recs.push(this.createRecommendation('pdp-payment-methods-missing'));
     }
 
-    if (!pe.urgencyPresent) {
+    if (!pe.hasUrgency) {
       const multiplier = getPdpContextMultiplier(this.context, 'urgencyScarcitySignals');
       if (multiplier > 1) {
         recs.push({
@@ -620,28 +620,28 @@ export class PdpQualityRecommendationEngine {
     const recs = [];
     const tc = this.pdpData.trustConfidence || {};
 
-    if (!tc.returnPolicyVisible) {
+    if (!tc.hasReturnPolicy) {
       recs.push(this.createRecommendation('pdp-return-policy-missing'));
     }
 
-    if (!tc.shippingInfoVisible) {
+    if (!tc.hasShippingInfo) {
       recs.push(this.createRecommendation('pdp-shipping-missing'));
     }
 
-    if (!tc.trustBadgesPresent) {
+    if (!tc.hasTrustBadges) {
       recs.push(this.createRecommendation('pdp-trust-badges-missing'));
     }
 
-    const secure = tc.secureCheckout || {};
-    if (!secure.https || !secure.secureMessaging) {
+    // Recommend when explicit secure checkout signal is absent (HTTPS alone = warning, not pass)
+    if (!tc.hasSecureCheckout) {
       recs.push(this.createRecommendation('pdp-secure-checkout-missing'));
     }
 
-    if (!tc.customerServicePresent) {
+    if (!tc.hasCustomerService) {
       recs.push(this.createRecommendation('pdp-customer-service-missing'));
     }
 
-    if (!tc.guaranteePresent) {
+    if (!tc.hasGuarantee) {
       recs.push(this.createRecommendation('pdp-guarantee-missing'));
     }
 
@@ -663,7 +663,7 @@ export class PdpQualityRecommendationEngine {
       });
     }
 
-    if (!vp.videoPresent) {
+    if (!vp.hasVideo) {
       const multiplier = getPdpContextMultiplier(this.context, 'videoPresence');
       const rec = this.createRecommendation('pdp-video-missing');
       if (multiplier > 1) {
@@ -673,13 +673,11 @@ export class PdpQualityRecommendationEngine {
       }
     }
 
-    const gallery = vp.galleryFeatures || {};
-    if (!gallery.hasZoom && !gallery.hasLightbox) {
+    if (!vp.hasGalleryFeatures) {
       recs.push(this.createRecommendation('pdp-gallery-basic'));
     }
 
-    const lifestyle = vp.lifestyleImages || {};
-    if (!lifestyle.detected) {
+    if (!vp.hasLifestyleImages) {
       const multiplier = getPdpContextMultiplier(this.context, 'lifestyleContextImages');
       const rec = this.createRecommendation('pdp-lifestyle-images-missing');
       if (multiplier > 1) {
@@ -689,8 +687,7 @@ export class PdpQualityRecommendationEngine {
       }
     }
 
-    const swatches = vp.variantSwatches || {};
-    if (!swatches.present) {
+    if (!vp.hasSwatches) {
       const multiplier = getPdpContextMultiplier(this.context, 'colorVariantSwatches');
       const rec = this.createRecommendation('pdp-swatches-missing');
       if (multiplier > 1) {
@@ -700,8 +697,7 @@ export class PdpQualityRecommendationEngine {
       }
     }
 
-    const quality = vp.imageQuality || {};
-    if (!quality.hasHighRes && !quality.hasSrcset) {
+    if (!vp.hasHighResImages) {
       recs.push(this.createRecommendation('pdp-image-quality-low'));
     }
 
@@ -715,8 +711,7 @@ export class PdpQualityRecommendationEngine {
     const recs = [];
     const cc = this.pdpData.contentCompleteness || {};
 
-    const variants = cc.variantSelectors || {};
-    if (!variants.present) {
+    if (!cc.hasVariants) {
       const multiplier = getPdpContextMultiplier(this.context, 'productVariantDisplay');
       const rec = this.createRecommendation('pdp-variants-missing');
       if (multiplier > 1) {
@@ -726,8 +721,7 @@ export class PdpQualityRecommendationEngine {
       }
     }
 
-    const sizeGuide = cc.sizeGuide || {};
-    if (!sizeGuide.present) {
+    if (!cc.hasSizeGuide) {
       const multiplier = getPdpContextMultiplier(this.context, 'sizeGuideFitInfo');
       const rec = this.createRecommendation('pdp-size-guide-missing');
       if (multiplier > 1) {
@@ -737,23 +731,19 @@ export class PdpQualityRecommendationEngine {
       }
     }
 
-    const related = cc.relatedProducts || {};
-    if (!related.present) {
+    if (!cc.hasRelatedProducts) {
       recs.push(this.createRecommendation('pdp-related-products-missing'));
     }
 
-    const qa = cc.qaSection || {};
-    if (!qa.present) {
+    if (!cc.hasQASection) {
       recs.push(this.createRecommendation('pdp-qa-missing'));
     }
 
-    const org = cc.detailsOrganization || {};
-    if (!org.hasTabs && !org.hasAccordions && !org.hasSections) {
+    if (!cc.hasOrganizedDetails) {
       recs.push(this.createRecommendation('pdp-details-unorganized'));
     }
 
-    const witb = cc.whatsInTheBox || {};
-    if (!witb.present) {
+    if (!cc.hasWhatsInBox) {
       const multiplier = getPdpContextMultiplier(this.context, 'whatsInTheBox');
       const rec = this.createRecommendation('pdp-whats-in-box-missing');
       if (multiplier > 1) {
@@ -773,23 +763,19 @@ export class PdpQualityRecommendationEngine {
     const recs = [];
     const rsp = this.pdpData.reviewsSocialProof || {};
 
-    const prominence = rsp.reviewProminence || {};
-    if (!prominence.visibleInHero) {
+    if (!rsp.hasProminentReviews) {
       recs.push(this.createRecommendation('pdp-reviews-not-prominent'));
     }
 
-    const stars = rsp.starRatingVisual || {};
-    if (!stars.present) {
+    if (!rsp.hasStarVisual) {
       recs.push(this.createRecommendation('pdp-star-visual-missing'));
     }
 
-    const sorting = rsp.reviewSorting || {};
-    if (!sorting.hasSort && !sorting.hasFilter) {
+    if (!rsp.hasReviewSorting) {
       recs.push(this.createRecommendation('pdp-review-sort-missing'));
     }
 
-    const media = rsp.photoVideoReviews || {};
-    if (!media.present) {
+    if (!rsp.hasMediaReviews) {
       const multiplier = getPdpContextMultiplier(this.context, 'photoVideoReviews');
       const rec = this.createRecommendation('pdp-review-media-missing');
       if (multiplier > 1) {
@@ -799,8 +785,7 @@ export class PdpQualityRecommendationEngine {
       }
     }
 
-    const social = rsp.socialProofIndicators || {};
-    if (!social.present) {
+    if (!rsp.hasSocialProof) {
       const multiplier = getPdpContextMultiplier(this.context, 'socialProofIndicators');
       const rec = this.createRecommendation('pdp-social-proof-missing');
       if (multiplier > 1) {
@@ -810,11 +795,11 @@ export class PdpQualityRecommendationEngine {
       }
     }
 
-    const reviewCount = rsp.reviewCount || {};
-    if ((reviewCount.count || 0) < 50) {
+    const reviewCount = rsp.reviewCount || 0;
+    if (reviewCount < 50) {
       recs.push({
         ...this.createRecommendation('pdp-review-count-low'),
-        currentState: `${reviewCount.count || 0} reviews`,
+        currentState: `${reviewCount} reviews`,
         targetState: '50+ reviews'
       });
     }

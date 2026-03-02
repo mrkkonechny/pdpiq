@@ -2514,12 +2514,21 @@ function extractPurchaseExperience() {
   let ctaText = null;
   let ctaIsClear = false;
   const ctaSelectors = [
-    'button[type="submit"]', '.add-to-cart', '#add-to-cart', '[data-add-to-cart]',
+    // Specific add-to-cart identifiers (highest confidence)
+    '.add-to-cart', '#add-to-cart', '[data-add-to-cart]',
     '.product-form__submit', '.shopify-payment-button button', '.btn-addtocart',
     '.add-to-bag', '#AddToCart', '.product-form__cart-submit',
     '[name="add"]', '[data-testid="add-to-cart"]', '.buy-now',
     'button[data-action="add-to-cart"]', '.addtocart', '.add_to_cart',
-    'input[value*="Add to"]', 'button.single_add_to_cart_button'
+    'input[value*="Add to"]', 'button.single_add_to_cart_button',
+    // Scoped submit buttons: product form context before global fallback
+    'form[action*="/cart/add"] button[type="submit"]',
+    'form[action*="cart"] button[type="submit"]',
+    '.product-form button[type="submit"]',
+    'form[class*="product"] button[type="submit"]',
+    'form[id*="product"] button[type="submit"]',
+    // Generic fallback last to avoid capturing search/newsletter forms
+    'button[type="submit"]'
   ];
   const clearCtaPatterns = /add to cart|add to bag|buy now|purchase|order now|shop now|get it now|subscribe|pre[\s-]?order/i;
   const genericCtaPatterns = /submit|continue|select|choose|add|go/i;
@@ -2555,7 +2564,9 @@ function extractPurchaseExperience() {
   const discountSelectors = [
     '.compare-at-price', '.was-price', '.original-price', '.price--compare',
     '.price-item--compare', '.sale-badge', '.discount-badge', '.on-sale',
-    '[class*="compare"]', '[class*="savings"]', '[class*="discount"]',
+    // [class*="compare"] removed — too broad, matches "Compare Product" nav buttons
+    '[class*="compare-at"]', '[class*="compare-price"]', '[class*="price-compare"]',
+    '[class*="savings"]', '[class*="discount"]',
     '.sale-tag', '.price--was', '.strikethrough', 'del', 's'
   ];
   for (const sel of discountSelectors) {
@@ -2577,9 +2588,32 @@ function extractPurchaseExperience() {
   const paymentPatterns = /\b(visa|mastercard|amex|american express|paypal|apple pay|google pay|shop pay|afterpay|affirm|klarna|sezzle|zip pay|buy now pay later|bnpl|pay in \d|split (?:it )?into|installments?|4 interest[\s-]?free)\b/i;
   hasPaymentIndicators = paymentPatterns.test(lower);
   if (!hasPaymentIndicators) {
-    // Check for payment icons (img alt text or svg)
-    const paymentImgs = document.querySelectorAll('img[alt*="pay" i], img[alt*="visa" i], img[alt*="master" i], img[alt*="amex" i], img[alt*="klarna" i], img[alt*="afterpay" i]');
+    // Check for payment icons — <img> alt text
+    const paymentImgs = document.querySelectorAll(
+      'img[alt*="pay" i], img[alt*="visa" i], img[alt*="master" i], ' +
+      'img[alt*="amex" i], img[alt*="klarna" i], img[alt*="afterpay" i]'
+    );
     hasPaymentIndicators = paymentImgs.length > 0;
+  }
+  if (!hasPaymentIndicators) {
+    // SVG payment icons (modern Shopify themes + React storefronts use inline SVG, not <img>)
+    const paymentSvgSelectors = [
+      'svg[aria-label*="visa" i]', 'svg[aria-label*="mastercard" i]',
+      'svg[aria-label*="amex" i]', 'svg[aria-label*="paypal" i]',
+      'svg[aria-label*="apple pay" i]', 'svg[aria-label*="google pay" i]',
+      'svg[aria-label*="shop pay" i]', 'svg[aria-label*="afterpay" i]',
+      'svg[aria-label*="klarna" i]', 'svg[title*="visa" i]',
+      'svg[title*="mastercard" i]', 'svg[title*="paypal" i]',
+      // Payment icon container classes (Shopify + custom)
+      '.payment-icons', '[class*="payment-icon"]', '[class*="payment-method"]',
+      '[class*="accepted-payment"]', '[class*="payment-logos"]',
+      '.shopify-payment-button__more-options'
+    ];
+    for (const sel of paymentSvgSelectors) {
+      try {
+        if (document.querySelector(sel)) { hasPaymentIndicators = true; break; }
+      } catch (e) { /* skip */ }
+    }
   }
 
   // Urgency/Scarcity Signals
@@ -2734,10 +2768,14 @@ function extractTrustConfidence() {
   let hasTrustBadges = false;
   const trustBadgeSelectors = [
     '[class*="trust-badge"]', '[class*="trust_badge"]', '[class*="trustbadge"]',
-    '[class*="security-badge"]', '[class*="badge"]', '.trust-seals',
+    '[class*="security-badge"]', '[class*="security-seal"]', '[class*="trust-seal"]',
+    '[class*="trust-icon"]', '.trust-seals',
     'img[alt*="secure" i]', 'img[alt*="trust" i]', 'img[alt*="verified" i]',
     'img[alt*="norton" i]', 'img[alt*="mcafee" i]', 'img[alt*="ssl" i]',
-    'img[alt*="bbb" i]', 'img[alt*="guarantee" i]'
+    'img[alt*="bbb" i]', 'img[alt*="guarantee" i]',
+    'svg[aria-label*="secure" i]', 'svg[aria-label*="ssl" i]',
+    'svg[aria-label*="verified" i]', 'svg[aria-label*="norton" i]',
+    'svg[aria-label*="mcafee" i]', 'svg[aria-label*="guarantee" i]'
   ];
   for (const sel of trustBadgeSelectors) {
     try {
@@ -2893,12 +2931,25 @@ function extractContentCompleteness() {
   const lower = bodyText.toLowerCase();
 
   // Product Variant Display (size/color/option selectors)
-  const hasVariants = document.querySelector(
+  let hasVariants = document.querySelector(
     'select[name*="option" i], select[name*="variant" i], select[name*="size" i], ' +
     '[class*="variant-selector"], [class*="product-option"], [class*="option-selector"], ' +
     '.product-form__option, [data-product-option], input[type="radio"][name*="size" i], ' +
-    '[class*="size-selector"], [class*="size-picker"]'
+    '[class*="size-selector"], [class*="size-picker"], ' +
+    // Amazon-specific
+    'select[name*="size_name" i], [id*="size_name" i], [id*="variation_size" i], ' +
+    // Data attribute patterns (custom themes, React)
+    '[data-option-index], [data-variant-id], [data-option-name], ' +
+    // Class fragment patterns for custom implementations
+    '[class*="size-option"], [class*="option__btn"], [class*="variant-option"], ' +
+    '[class*="variant__btn"], [class*="product__option"], ' +
+    // Shopify SingleOptionSelector pattern
+    'select[id*="SingleOptionSelector"]'
   ) !== null;
+  // Text-based fallback for React/custom platforms where class names are hashed
+  if (!hasVariants) {
+    hasVariants = /\bselect\s+(?:a\s+)?(?:size|colou?r|style|option)\b|\bchoose\s+(?:a\s+)?(?:size|colou?r|style)\b/i.test(lower);
+  }
 
   // Size Guide/Fit Info
   let hasSizeGuide = false;
@@ -2931,7 +2982,14 @@ function extractContentCompleteness() {
     '[data-related-products],' +
     '[class*="product-recommendations"],' +
     '[class*="upsell"],' +
-    '[class*="cross-sell"]'
+    '[class*="cross-sell"],' +
+    // Amazon
+    '[data-feature-name="similarities_widget"],[data-feature-name="pd_related_pdp"],' +
+    '[data-feature-name="bought_together"],[id*="sims-carousel"],' +
+    // Walmart / SportChek / generic React
+    '[data-testid*="related" i],[data-testid*="recommendation" i],' +
+    '[data-testid*="also-like" i],[data-testid*="similar" i],' +
+    '[id*="related-products"],[id*="recommendations"]'
   ) !== null || /\b(you may also like|customers also (?:bought|viewed)|similar products|related products|recommended for you|frequently bought together|complete the look)\b/i.test(lower);
 
   // Q&A Section (distinct from editorial FAQ)
@@ -2939,7 +2997,12 @@ function extractContentCompleteness() {
   const qaSelectors = [
     '[class*="question-answer"]', '[class*="q-and-a"]', '[class*="qa-section"]',
     '[class*="customer-questions"]', '#questions', '#qa',
-    '[class*="ask-a-question"]', '[data-qa-section]'
+    '[class*="ask-a-question"]', '[data-qa-section]',
+    // Amazon
+    '[id="Ask"]', '[data-feature-name="ask"]', '[data-feature-name="qa"]',
+    // Walmart / generic React
+    '[data-testid*="question" i]', '[data-testid*="qa" i]',
+    '[id*="questions-answers"]', '[id*="customer-questions"]'
   ];
   for (const sel of qaSelectors) {
     try {
@@ -2993,7 +3056,13 @@ function extractReviewsSocialProof() {
       if (hero) {
         const ratingEl = hero.querySelector(
           '[class*="rating"], [class*="stars"], [class*="review-count"], ' +
-          '[itemprop="aggregateRating"], [class*="star-rating"]'
+          '[itemprop="aggregateRating"], [class*="star-rating"], ' +
+          // ARIA-based (covers hashed CSS module class names)
+          '[aria-label*="rating" i], [aria-label*="out of 5" i], [aria-label*="out of 5.0" i], ' +
+          // data-testid patterns (Walmart, SportChek, other React platforms)
+          '[data-testid*="rating" i], [data-testid*="review" i], ' +
+          // Amazon-specific
+          '[class*="a-icon-star"], [data-hook="average-star-rating"], [data-hook="rating-out-of-text"]'
         );
         if (ratingEl) {
           hasProminentReviews = true;
@@ -3001,6 +3070,20 @@ function extractReviewsSocialProof() {
         }
       }
     } catch (e) { /* skip */ }
+  }
+  // Schema-based fallback: if aggregateRating with a count exists, the page almost
+  // certainly surfaces that rating in the product hero area
+  if (!hasProminentReviews) {
+    for (const { item } of iterateSchemaItems(['product', 'productgroup'])) {
+      if (item.aggregateRating && !item.aggregateRating['@id']) {
+        const count = parseInt(item.aggregateRating.reviewCount, 10) ||
+                      parseInt(item.aggregateRating.ratingCount, 10) || 0;
+        if (count > 0) {
+          hasProminentReviews = true;
+          break;
+        }
+      }
+    }
   }
 
   // Star Rating Visual (visual star display, not just numbers)
@@ -3013,8 +3096,13 @@ function extractReviewsSocialProof() {
   // Review Sorting/Filtering
   const hasReviewSorting = document.querySelector(
     '[class*="review-sort"], [class*="review-filter"], select[name*="sort" i], ' +
-    '[class*="sort-reviews"], [data-review-sort], [class*="filter-bar"]'
-  ) !== null || /\b(sort by|filter reviews?|most helpful|most recent|highest rated|lowest rated)\b/i.test(lower);
+    '[class*="sort-reviews"], [data-review-sort], [class*="filter-bar"], ' +
+    // Amazon-specific
+    '[id*="sort-order"], [data-action*="sort"], [data-hook*="sort"], ' +
+    // Generic React / data-testid patterns
+    '[data-testid*="review-sort" i], [data-testid*="sort-review" i], ' +
+    '[data-testid*="review-filter" i]'
+  ) !== null || /\b(sort by|filter reviews?|most helpful|most recent|top reviews|highest rated|lowest rated|most critical|newest|oldest)\b/i.test(lower);
 
   // Photo/Video Reviews
   const hasMediaReviews = document.querySelector(
@@ -3035,9 +3123,18 @@ function extractReviewsSocialProof() {
 
   // Review Count Threshold (50+ for PDP Quality, higher bar than AI Readiness's 25)
   let reviewCount = 0;
-  const countEl = document.querySelector('[itemprop="reviewCount"], .review-count, .reviews-count');
+  const countEl = document.querySelector(
+    '[itemprop="reviewCount"], .review-count, .reviews-count, ' +
+    '[class*="review-count"], [class*="rating-count"], [class*="reviews-count"], ' +
+    '[data-testid*="review-count" i], [data-testid*="rating-count" i], ' +
+    '[aria-label*="reviews" i], ' +
+    // Amazon-specific
+    '#acrCustomerReviewText, [data-hook="total-review-count"]'
+  );
   if (countEl) {
-    const match = (countEl.content || countEl.textContent).match(/(\d[\d,]*)/);
+    // aria-label may contain "X ratings" — extract number from text or attribute
+    const raw = countEl.getAttribute('aria-label') || countEl.content || countEl.textContent;
+    const match = raw.match(/(\d[\d,]*)/);
     if (match) reviewCount = parseInt(match[1].replace(/,/g, ''), 10);
   }
   // Schema fallback
