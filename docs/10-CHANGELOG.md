@@ -1,10 +1,10 @@
 # Changelog
 
-> **PDS Document 10** | Last Updated: 2026-03-01
+> **PDS Document 10** | Last Updated: 2026-03-02
 
 All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/). Most recent version at the top.
 
-## [Unreleased]
+## [2.0.1] — 2026-03-02
 
 ### Added
 - Download Report and Download Analysis Data buttons on PDP Quality tab (ROAD-0032)
