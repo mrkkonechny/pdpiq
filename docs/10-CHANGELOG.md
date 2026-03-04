@@ -8,6 +8,33 @@ All notable changes to this project. Format follows [Keep a Changelog](https://k
 
 ---
 
+## [2.1.1] — 2026-03-04
+
+### Fixed
+- `robots.isBlocked` was computed identically to `robots.noindex`, causing double-penalisation across AI Readiness and SEO categories and duplicate recommendations for the same issue
+- `og:type = "og:product"` (Shopify) passed the scorer but triggered a false `og-type-missing` recommendation — rec engine now mirrors scorer's `isProductType` check
+- SEO category scorers (`scoreTitleMeta`, `scoreTechnicalFoundations`, `scoreContentSignals`, `scoreNavigationDiscovery`) were missing `Math.min(100, rawScore)` guard present in all other category scorers
+- URL slug rec engine used falsy check (`!url.isClean`) while scorer used safe default (`!== false`), causing rec to fire even when scorer passed the factor
+- Title length recommendation triggered outside 40–70 chars but scorer awards full pass only at 50–60 chars — now aligned to 50–60
+- Tab switching during an active analysis reverted to the context selector instead of preserving the loading state, potentially triggering a second concurrent analysis
+- Internal link count queried all page anchors (including nav/header/footer), making the factor trivially pass; now scoped to main content area with early exit at threshold
+- Hreflang absence scored as `warning` with half-points, preventing monolingual sites from achieving a perfect SEO score; now scores `pass` with N/A label
+- Spreading a `null` return from `createRecommendation()` silently produced an incomplete recommendation object that bypassed the null filter
+- `materials-missing` and `care-instructions-missing` recommendations fired unconditionally on every product page; now gated to apparel products only
+- `awards-missing` recommendation fired on every page regardless of context; now only fires when context multiplier boosts authority signals
+- SEO score result was missing `context` field, breaking the pattern of all other score results
+- `switchTab()` branches for results/pdp/seo did not defensively hide `loadingState` and `errorState` before delegating to show helpers
+- `pruneIfNearQuota()` mutated the caller's array in-place; now reads fresh history internally and returns a boolean
+- `updatePageInfo()` called `new URL(tab.url)` without guarding against `chrome://` URLs, causing silent errors when the side panel is open without a web page active
+- `processResults()` called `new URL(pageUrl)` without error handling for malformed URLs
+
+### Changed
+- Extracted shared `setupCategoryListDelegation()` method — eliminates three identical event delegation blocks
+- Extracted shared `sortRecommendations()` module-level function — eliminates three identical sort comparators across all three recommendation engines
+- Removed unused `getTopRecommendations()`, `getRecommendationsByCategory()`, `getCriticalRecommendations()`, and `getQuickWins()` methods from `RecommendationEngine` and `PdpQualityRecommendationEngine`
+
+---
+
 ## [2.1.0] — 2026-03-04
 
 ### Added
