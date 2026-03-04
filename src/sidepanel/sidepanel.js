@@ -135,56 +135,14 @@ class SidePanelApp {
       this.exportData();
     });
 
-    // Event delegation for category list (prevents memory leaks from re-rendering)
-    document.getElementById('categoryList').addEventListener('click', (e) => {
-      // Handle category header clicks (expand/collapse)
-      const header = e.target.closest('.category-header');
-      if (header && !e.target.closest('.factor-expand-btn')) {
-        const card = header.closest('.category-card');
-        const isExpanded = header.dataset.expanded === 'true';
-        header.dataset.expanded = !isExpanded;
-        header.querySelector('.expand-icon').textContent = isExpanded ? '+' : '−';
-        card.querySelector('.category-details').classList.toggle('hidden');
-        return;
-      }
-
-      // Handle factor expand button clicks
-      const expandBtn = e.target.closest('.factor-expand-btn');
-      if (expandBtn) {
-        e.stopPropagation();
-        const factor = expandBtn.closest('.factor');
-        const rec = factor.querySelector('.factor-recommendation');
-        const isExpanded = !rec.classList.contains('hidden');
-        rec.classList.toggle('hidden');
-        expandBtn.textContent = isExpanded ? '▶' : '▼';
-      }
+    // Event delegation for all category lists (prevents memory leaks from re-rendering)
+    ['categoryList', 'pdpCategoryList', 'seoCategoryList'].forEach(id => {
+      this.setupCategoryListDelegation(id);
     });
+  }
 
-    // Event delegation for PDP category list
-    document.getElementById('pdpCategoryList').addEventListener('click', (e) => {
-      const header = e.target.closest('.category-header');
-      if (header && !e.target.closest('.factor-expand-btn')) {
-        const card = header.closest('.category-card');
-        const isExpanded = header.dataset.expanded === 'true';
-        header.dataset.expanded = !isExpanded;
-        header.querySelector('.expand-icon').textContent = isExpanded ? '+' : '−';
-        card.querySelector('.category-details').classList.toggle('hidden');
-        return;
-      }
-
-      const expandBtn = e.target.closest('.factor-expand-btn');
-      if (expandBtn) {
-        e.stopPropagation();
-        const factor = expandBtn.closest('.factor');
-        const rec = factor.querySelector('.factor-recommendation');
-        const isExpanded = !rec.classList.contains('hidden');
-        rec.classList.toggle('hidden');
-        expandBtn.textContent = isExpanded ? '▶' : '▼';
-      }
-    });
-
-    // Event delegation for SEO category list
-    document.getElementById('seoCategoryList').addEventListener('click', (e) => {
+  setupCategoryListDelegation(containerId) {
+    document.getElementById(containerId).addEventListener('click', (e) => {
       const header = e.target.closest('.category-header');
       if (header && !e.target.closest('.factor-expand-btn')) {
         const card = header.closest('.category-card');
@@ -230,7 +188,7 @@ class SidePanelApp {
   async updatePageInfo() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab) {
+      if (tab && tab.url && (tab.url.startsWith('http:') || tab.url.startsWith('https:'))) {
         const domain = new URL(tab.url).hostname;
         document.getElementById('pageDomain').textContent = domain;
       }
@@ -299,7 +257,8 @@ class SidePanelApp {
     try {
       // Get current page URL for network fetches
       const pageUrl = this.currentData.pageInfo?.url;
-      const baseUrl = pageUrl ? new URL(pageUrl).origin : null;
+      let baseUrl = null;
+      try { baseUrl = pageUrl ? new URL(pageUrl).origin : null; } catch { if (DEBUG) console.log('Could not parse page URL:', pageUrl); }
 
       // Verify og:image format if present
       let imageVerification = null;
@@ -1177,9 +1136,13 @@ class SidePanelApp {
       document.getElementById('historySection').classList.add('hidden');
       document.getElementById('pdpView').classList.add('hidden');
       document.getElementById('seoView').classList.add('hidden');
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('errorState').classList.add('hidden');
 
       if (this.scoreResult) {
         this.showResults();
+      } else if (this.currentRequestId) {
+        this.showLoading();
       } else {
         this.showContextSelector();
       }
@@ -1187,9 +1150,13 @@ class SidePanelApp {
       document.getElementById('historySection').classList.add('hidden');
       document.getElementById('results').classList.add('hidden');
       document.getElementById('seoView').classList.add('hidden');
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('errorState').classList.add('hidden');
 
       if (this.pdpScoreResult) {
         this.showPdpView();
+      } else if (this.currentRequestId) {
+        this.showLoading();
       } else {
         this.showContextSelector();
       }
@@ -1197,9 +1164,13 @@ class SidePanelApp {
       document.getElementById('historySection').classList.add('hidden');
       document.getElementById('results').classList.add('hidden');
       document.getElementById('pdpView').classList.add('hidden');
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('errorState').classList.add('hidden');
 
       if (this.seoScoreResult) {
         this.showSeoView();
+      } else if (this.currentRequestId) {
+        this.showLoading();
       } else {
         this.showContextSelector();
       }

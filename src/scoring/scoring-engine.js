@@ -1966,6 +1966,7 @@ export class ScoringEngine {
       totalScore,
       grade,
       gradeDescription: getSeoGradeDescription(grade),
+      context: 'neutral',
       categoryScores,
       timestamp: new Date().toISOString()
     };
@@ -2092,7 +2093,7 @@ export class ScoringEngine {
     rawScore += productInTitleScore;
 
     return {
-      score: rawScore,
+      score: Math.min(100, rawScore),
       maxScore: 100,
       factors,
       weight: SEO_CATEGORY_WEIGHTS.titleMeta,
@@ -2112,8 +2113,9 @@ export class ScoringEngine {
     const schemas = extractedData.structuredData?.schemas || {};
     const js = extractedData.contentStructure?.jsDependency || {};
 
-    // Page Indexable (25 pts)
-    const isIndexable = !robots.noindex && !robots.isBlocked;
+    // Page Indexable (25 pts) — checks meta robots noindex only; robots.txt blocking
+    // is handled separately in AI Discoverability via service worker fetch.
+    const isIndexable = !robots.noindex;
     const indexableScore = isIndexable ? weights.pageIndexable : 0;
     factors.push({
       name: 'Page Indexable',
@@ -2121,7 +2123,7 @@ export class ScoringEngine {
       points: indexableScore,
       maxPoints: weights.pageIndexable,
       critical: !isIndexable,
-      details: robots.noindex ? 'CRITICAL: noindex directive found' : robots.isBlocked ? 'CRITICAL: robots.txt blocks indexing' : 'Page is indexable'
+      details: robots.noindex ? 'CRITICAL: noindex directive found' : 'Page is indexable'
     });
     rawScore += indexableScore;
 
@@ -2196,7 +2198,7 @@ export class ScoringEngine {
     rawScore += jsScore;
 
     return {
-      score: rawScore,
+      score: Math.min(100, rawScore),
       maxScore: 100,
       factors,
       weight: SEO_CATEGORY_WEIGHTS.technicalFoundations,
@@ -2329,7 +2331,7 @@ export class ScoringEngine {
     rawScore += urlScore;
 
     return {
-      score: rawScore,
+      score: Math.min(100, rawScore),
       maxScore: 100,
       factors,
       weight: SEO_CATEGORY_WEIGHTS.contentSignals,
@@ -2430,15 +2432,14 @@ export class ScoringEngine {
     rawScore += internalScore;
 
     // Hreflang Configuration (20 pts) — informational for bilingual sites
+    // Monolingual sites score full points with N/A status so they can achieve a perfect score.
     const hreflang = meta.hreflang || {};
     const hasHreflang = hreflang.present === true && (hreflang.count || 0) > 0;
-    // Hreflang is optional for monolingual sites — award full points if present, half if absent
-    // (monolingual sites shouldn't be penalised)
-    const hreflangScore = hasHreflang ? weights.hreflangConfiguration : Math.round(weights.hreflangConfiguration * 0.5);
-    const hreflangStatus = hasHreflang ? 'pass' : 'warning';
+    const hreflangScore = hasHreflang ? weights.hreflangConfiguration : weights.hreflangConfiguration;
+    const hreflangStatus = hasHreflang ? 'pass' : 'pass';
     const hreflangDetails = hasHreflang
       ? `${hreflang.count} hreflang tag${hreflang.count !== 1 ? 's' : ''} (${(hreflang.languages || []).map(l => l.lang).join(', ')})`
-      : 'No hreflang tags (optional for monolingual sites)';
+      : 'N/A — monolingual site';
     factors.push({
       name: 'Hreflang Configuration',
       status: hreflangStatus,
@@ -2449,7 +2450,7 @@ export class ScoringEngine {
     rawScore += hreflangScore;
 
     return {
-      score: rawScore,
+      score: Math.min(100, rawScore),
       maxScore: 100,
       factors,
       weight: SEO_CATEGORY_WEIGHTS.navigationDiscovery,

@@ -16,11 +16,9 @@ const QUOTA_WARNING_THRESHOLD = 0.8; // Prune when 80% full
  * @returns {Promise<Object>} Saved analysis with ID
  */
 export async function saveAnalysis(analysis) {
+  // Check storage quota and prune if needed, then fetch fresh history
+  await pruneIfNearQuota();
   let history = await getHistory();
-
-  // Check storage quota and prune if needed
-  await pruneIfNearQuota(history);
-  history = await getHistory(); // Refresh after potential pruning
 
   const entry = {
     id: Date.now().toString(),
@@ -77,9 +75,9 @@ export async function saveAnalysis(analysis) {
 
 /**
  * Check storage quota and prune old entries if approaching limit
- * @param {Array} history - Current history array
+ * @returns {Promise<boolean>} True if pruning occurred (caller should re-fetch history)
  */
-async function pruneIfNearQuota(history) {
+async function pruneIfNearQuota() {
   try {
     const bytesUsed = await chrome.storage.local.getBytesInUse(HISTORY_KEY);
     const usageRatio = bytesUsed / STORAGE_QUOTA_BYTES;
@@ -87,16 +85,18 @@ async function pruneIfNearQuota(history) {
     if (usageRatio >= QUOTA_WARNING_THRESHOLD) {
       if (DEBUG) console.log(`pdpIQ: Storage at ${Math.round(usageRatio * 100)}%, pruning old entries`);
 
-      // Remove oldest 20% of entries
-      const pruneCount = Math.max(1, Math.floor(history.length * 0.2));
-      history.length = Math.max(0, history.length - pruneCount);
+      const current = await getHistory();
+      const pruneCount = Math.max(1, Math.floor(current.length * 0.2));
+      current.length = Math.max(0, current.length - pruneCount);
 
-      await chrome.storage.local.set({ [HISTORY_KEY]: history });
+      await chrome.storage.local.set({ [HISTORY_KEY]: current });
       if (DEBUG) console.log(`pdpIQ: Pruned ${pruneCount} old entries`);
+      return true;
     }
   } catch (e) {
     console.warn('pdpIQ: Error checking storage quota', e);
   }
+  return false;
 }
 
 /**

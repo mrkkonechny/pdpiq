@@ -617,8 +617,10 @@ function extractMetaTags() {
     },
     robots: {
       content: robotsMeta?.content,
-      noindex: (robotsMeta?.content || '').toLowerCase().includes('noindex'),
-      isBlocked: (robotsMeta?.content || '').toLowerCase().includes('noindex')
+      noindex: (robotsMeta?.content || '').toLowerCase().includes('noindex')
+      // Note: x-robots-tag HTTP headers and robots.txt blocking cannot be detected from
+      // a content script — those signals are handled separately via service worker fetches
+      // in the AI Discoverability category (networkData.robots.blockedCrawlers).
     },
     technical: {
       isHttps: window.location.protocol === 'https:',
@@ -3300,15 +3302,21 @@ function extractSeoSignals() {
     hasKeywords
   };
 
-  // Internal links: count <a href> pointing to the same origin
+  // Internal links: count <a href> pointing to the same origin, scoped to main content
+  // to exclude nav/header/footer links which would make this factor trivially pass.
   const origin = window.location.origin;
+  const linkScope = getMainContentArea();
   let internalLinkCount = 0;
-  document.querySelectorAll('a[href]').forEach(a => {
+  const linkEls = linkScope.querySelectorAll('a[href]');
+  for (const a of linkEls) {
     try {
       const resolved = new URL(a.getAttribute('href'), origin);
-      if (resolved.origin === origin) internalLinkCount++;
+      if (resolved.origin === origin) {
+        internalLinkCount++;
+        if (internalLinkCount >= 10) break; // Early exit — threshold met
+      }
     } catch { /* ignore invalid hrefs */ }
-  });
+  }
   const internalLinks = { count: internalLinkCount };
 
   return { titleTag, urlStructure, internalLinks };

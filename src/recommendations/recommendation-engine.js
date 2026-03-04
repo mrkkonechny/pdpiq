@@ -8,6 +8,19 @@ import { getContextMultiplier, getPdpContextMultiplier } from '../scoring/weight
 import { ScoringEngine } from '../scoring/scoring-engine.js';
 
 /**
+ * Shared sort comparator for all three recommendation engines.
+ * Sorts by priority ascending, then by impact (high > medium > low).
+ */
+function sortRecommendations(recommendations) {
+  const valid = recommendations.filter(r => r !== null);
+  const impactOrder = { high: 0, medium: 1, low: 2 };
+  return valid.sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority - b.priority;
+    return (impactOrder[a.impact] || 2) - (impactOrder[b.impact] || 2);
+  });
+}
+
+/**
  * Recommendation Engine class
  */
 export class RecommendationEngine {
@@ -39,7 +52,6 @@ export class RecommendationEngine {
     recommendations.push(...this.checkAuthorityTrustIssues());
     recommendations.push(...this.checkAIDiscoverabilityIssues());
 
-    // Sort by priority (lower = higher priority)
     return this.prioritizeRecommendations(recommendations);
   }
 
@@ -54,8 +66,8 @@ export class RecommendationEngine {
     const canonical = this.extractedData.metaTags?.canonical || {};
     const standard = this.extractedData.metaTags?.standard || {};
 
-    // CRITICAL: Robots blocking
-    if (robots.isBlocked) {
+    // CRITICAL: Robots blocking (meta noindex)
+    if (robots.noindex) {
       recs.push(this.createRecommendation('robots-blocking'));
     }
 
@@ -87,8 +99,8 @@ export class RecommendationEngine {
       recs.push(this.createRecommendation('twitter-card-missing'));
     }
 
-    // og:type missing or not product
-    if (!og.type || (og.type !== 'product' && !og.type.startsWith('product.'))) {
+    // og:type missing or not product — mirror scorer's isProductType check
+    if (!og.type || (og.type !== 'product' && og.type !== 'og:product' && !og.type.startsWith('product.'))) {
       recs.push(this.createRecommendation('og-type-missing'));
     }
 
@@ -233,13 +245,13 @@ export class RecommendationEngine {
       recs.push(this.createRecommendation('description-quality-low'));
     }
 
-    // Materials missing
-    if (!details.hasMaterials) {
+    // Materials missing (only relevant for physical/apparel products)
+    if (!details.hasMaterials && this.isApparel) {
       recs.push(this.createRecommendation('materials-missing'));
     }
 
-    // Care instructions missing
-    if (!details.hasCareInstructions) {
+    // Care instructions missing (only relevant for apparel products)
+    if (!details.hasCareInstructions && this.isApparel) {
       recs.push(this.createRecommendation('care-instructions-missing'));
     }
 
@@ -338,13 +350,16 @@ export class RecommendationEngine {
       const multiplier = getContextMultiplier(this.context, 'reviewCount');
       const impact = multiplier > 1 ? 'high' : 'medium';
 
-      recs.push({
-        ...this.createRecommendation('reviews-low-count'),
-        impact,
-        priority: calculatePriority(impact, 'high'),
-        currentState: `${reviews.count} reviews`,
-        targetState: '50+ reviews'
-      });
+      const base = this.createRecommendation('reviews-low-count');
+      if (base) {
+        recs.push({
+          ...base,
+          impact,
+          priority: calculatePriority(impact, 'high'),
+          currentState: `${reviews.count} reviews`,
+          targetState: '50+ reviews'
+        });
+      }
     }
 
     // Brand unclear
@@ -388,10 +403,13 @@ export class RecommendationEngine {
       }
     }
 
-    // Awards
+    // Awards — only recommend when context multiplier boosts it (want/need), not universally
     const awards = this.extractedData.trustSignals?.awards || {};
     if (!awards.found) {
-      recs.push(this.createRecommendation('awards-missing'));
+      const multiplier = getContextMultiplier(this.context, 'certifications'); // proxy for authority signals
+      if (multiplier > 1) {
+        recs.push(this.createRecommendation('awards-missing'));
+      }
     }
 
     // Content freshness — check via scoring results
@@ -478,57 +496,9 @@ export class RecommendationEngine {
    * @returns {Array} Sorted recommendations
    */
   prioritizeRecommendations(recommendations) {
-    // Filter out nulls
-    const valid = recommendations.filter(r => r !== null);
-
-    // Sort by priority (1 is highest), then by impact
-    return valid.sort((a, b) => {
-      // Priority first
-      if (a.priority !== b.priority) {
-        return a.priority - b.priority;
-      }
-
-      // Then by impact
-      const impactOrder = { high: 0, medium: 1, low: 2 };
-      return (impactOrder[a.impact] || 2) - (impactOrder[b.impact] || 2);
-    });
+    return sortRecommendations(recommendations);
   }
 
-  /**
-   * Get top N recommendations
-   * @param {number} n - Number of recommendations
-   * @returns {Array} Top N recommendations
-   */
-  getTopRecommendations(n = 5) {
-    return this.generateRecommendations().slice(0, n);
-  }
-
-  /**
-   * Get recommendations by category
-   * @param {string} category - Category name
-   * @returns {Array} Filtered recommendations
-   */
-  getRecommendationsByCategory(category) {
-    return this.generateRecommendations().filter(r => r.category === category);
-  }
-
-  /**
-   * Get critical recommendations (high impact)
-   * @returns {Array} Critical recommendations
-   */
-  getCriticalRecommendations() {
-    return this.generateRecommendations().filter(r => r.impact === 'high');
-  }
-
-  /**
-   * Get quick wins (high impact, low effort)
-   * @returns {Array} Quick win recommendations
-   */
-  getQuickWins() {
-    return this.generateRecommendations().filter(r =>
-      (r.impact === 'high' || r.impact === 'medium') && r.effort === 'low'
-    );
-  }
 }
 
 // ==========================================
@@ -564,13 +534,7 @@ export class PdpQualityRecommendationEngine {
     recommendations.push(...this.checkContentCompletenessIssues());
     recommendations.push(...this.checkReviewsSocialProofIssues());
 
-    // Filter nulls and sort by priority
-    const valid = recommendations.filter(r => r !== null);
-    return valid.sort((a, b) => {
-      if (a.priority !== b.priority) return a.priority - b.priority;
-      const impactOrder = { high: 0, medium: 1, low: 2 };
-      return (impactOrder[a.impact] || 2) - (impactOrder[b.impact] || 2);
-    });
+    return sortRecommendations(recommendations);
   }
 
   /**
@@ -833,33 +797,6 @@ export class PdpQualityRecommendationEngine {
     };
   }
 
-  /**
-   * Get top N recommendations
-   * @param {number} n - Number of recommendations
-   * @returns {Array} Top N recommendations
-   */
-  getTopRecommendations(n = 5) {
-    return this.generateRecommendations().slice(0, n);
-  }
-
-  /**
-   * Get recommendations by category
-   * @param {string} category - Category name
-   * @returns {Array} Filtered recommendations
-   */
-  getRecommendationsByCategory(category) {
-    return this.generateRecommendations().filter(r => r.category === category);
-  }
-
-  /**
-   * Get quick wins (high/medium impact, low effort)
-   * @returns {Array} Quick win recommendations
-   */
-  getQuickWins() {
-    return this.generateRecommendations().filter(r =>
-      (r.impact === 'high' || r.impact === 'medium') && r.effort === 'low'
-    );
-  }
 }
 
 // ==========================================
@@ -894,12 +831,7 @@ export class SeoQualityRecommendationEngine {
     recommendations.push(...this.checkContentSignalIssues());
     recommendations.push(...this.checkNavigationIssues());
 
-    const valid = recommendations.filter(r => r !== null);
-    return valid.sort((a, b) => {
-      if (a.priority !== b.priority) return a.priority - b.priority;
-      const impactOrder = { high: 0, medium: 1, low: 2 };
-      return (impactOrder[a.impact] || 2) - (impactOrder[b.impact] || 2);
-    });
+    return sortRecommendations(recommendations);
   }
 
   /**
@@ -916,7 +848,7 @@ export class SeoQualityRecommendationEngine {
       recs.push(this.createRecommendation('seo-title-missing'));
     } else {
       const len = title.length || 0;
-      if (len < 40 || len > 70) {
+      if (len < 50 || len > 60) {
         recs.push(this.createRecommendation('seo-title-length'));
       }
     }
@@ -951,7 +883,7 @@ export class SeoQualityRecommendationEngine {
     const schemas = this.extractedData.structuredData?.schemas || {};
     const js = this.extractedData.contentStructure?.jsDependency || {};
 
-    if (robots.noindex || robots.isBlocked) {
+    if (robots.noindex) {
       recs.push(this.createRecommendation('seo-noindex'));
     }
 
@@ -1005,7 +937,7 @@ export class SeoQualityRecommendationEngine {
       recs.push(this.createRecommendation('seo-readability'));
     }
 
-    if (!url.isClean || !url.hasKeywords) {
+    if (url.isClean === false || url.hasKeywords === false) {
       recs.push(this.createRecommendation('seo-url-slug'));
     }
 
