@@ -1,10 +1,14 @@
 # Changelog
 
-> **PDS Document 10** | Last Updated: 2026-03-03
+> **PDS Document 10** | Last Updated: 2026-03-04
 
 All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/). Most recent version at the top.
 
 ## [Unreleased]
+
+---
+
+## [2.1.0] — 2026-03-04
 
 ### Added
 - **SEO Quality** scoring dimension: 4 categories (Title & Meta, Technical Foundations, Content Signals, Navigation & Discovery), 19 factors, context-neutral scoring (DEC-0024)
