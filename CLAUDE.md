@@ -17,11 +17,12 @@ When you encounter a bug, complete a feature, make an architectural decision, or
 
 ## Project Overview
 
-pdpIQ (Product Description Page IQ) is a Chrome extension by **Tribbute** that analyzes eCommerce Product Detail Pages (PDPs) with a dual scoring model:
+pdpIQ (Product Description Page IQ) is a Chrome extension by **Tribbute** that analyzes eCommerce Product Detail Pages (PDPs) with a triple scoring model:
 1. **AI Readiness** — 56 factors across 6 categories measuring how well product pages are optimized for AI citation
 2. **PDP Quality** — 30 factors across 5 categories measuring the consumer shopping experience (conversion, trust, visual presentation)
+3. **SEO Quality** — 19 factors across 4 categories measuring on-page SEO signals (context-neutral)
 
-Both scores are calculated from a single DOM extraction pass, displayed in separate tabs, and saved together in history.
+All three scores are calculated from a single DOM extraction pass, displayed in separate tabs, and saved together in history.
 
 ## Tech Stack
 
@@ -105,22 +106,23 @@ pdpiq/
 **Core Analysis:**
 - **AI Readiness:** 56 factors across 6 categories with letter grades (A-F)
 - **PDP Quality:** 30 factors across 5 categories with letter grades (A-F)
-- Context-sensitive scoring (Want/Need/Hybrid purchase types) — applies to both scores
+- **SEO Quality:** 19 factors across 4 categories with letter grades (A-F) — context-neutral
+- Context-sensitive scoring (Want/Need/Hybrid purchase types) — applies to AI Readiness and PDP Quality; SEO Quality is always context-neutral
 - Actionable recommendations with inline expandable tips per factor (all factors mapped)
 - Apparel category detection — warranty/compatibility/dimensions auto-marked N/A for fashion products (AI Readiness)
 
 **History & Comparison:**
 - Analysis history saved to `chrome.storage.local` (up to 20 shown)
-- Dual grade badges per history entry (AI Readiness + PDP Quality)
-- Side-by-side comparison with both score types
-- Bottom nav tabs: AI Visibility, PDP Quality, History
+- Triple grade badges per history entry (AI Readiness + PDP Quality + SEO Quality)
+- Side-by-side comparison with all three score types
+- Bottom nav tabs: AI Visibility, PDP Quality, SEO, History
 
 **Export:**
-- **Download Report** — Self-contained HTML report via `report-template.js` (Tribbute-branded, base64-embedded logo, all CSS inline). Includes both AI Readiness and PDP Quality sections with executive summaries, grade legends, context explanation, priority-grouped recommendations with effort badges, pass/fail counts per category, and unique report ID.
-- **Download Analysis Data** — Raw JSON export of both scores and extraction data
+- **Download Report** — Self-contained HTML report via `report-template.js` (Tribbute-branded, base64-embedded logo, all CSS inline). Includes AI Readiness, PDP Quality, and SEO Quality sections with executive summaries, grade legends, context explanation, priority-grouped recommendations with effort badges, pass/fail counts per category, and unique report ID.
+- **Download Analysis Data** — Raw JSON export of all three scores and extraction data
 
 **UI:**
-- 3-tab bottom navigation: AI Visibility (renamed from Results), PDP Quality, History
+- 4-tab bottom navigation: AI Visibility, PDP Quality, SEO, History
 - Version badge in footer (reads from `chrome.runtime.getManifest().version`)
 - JS-rendered page warning banner when SPA detected
 - UTM-tracked links to tribbute.com in header logo, footer, and report
@@ -159,7 +161,7 @@ pdpiq/
 **Key Architecture Decisions** (DEC-0019, DEC-0020, DEC-0021):
 - PDP Quality is a separate score, not combined with AI Readiness
 - Single DOM extraction pass produces data for both scores (shared extraction via `pdpQuality` key in `performFullExtraction()`)
-- Tab-based UI: 3 bottom nav tabs (AI Visibility, PDP Quality, History)
+- Tab-based UI: 4 bottom nav tabs (AI Visibility, PDP Quality, SEO, History)
 - Same grading scale (A/B/C/D/F, thresholds 90/80/70/60) with different grade descriptions
 - PDP extraction is fully DOM-based — no network requests required
 - Backward-compatible history: old entries without `pdpScore` show "N/A"
@@ -179,6 +181,34 @@ pdpiq/
 **PDP Quality Recommendations** (in `recommendation-engine.js` and `recommendation-rules.js`):
 - `PdpQualityRecommendationEngine` class with per-category check methods
 - `PDP_RECOMMENDATION_TEMPLATES` — 30 templates mapped via `PDP_FACTOR_RECOMMENDATIONS` in `weights.js`
+
+#### SEO Quality Score
+
+**Category Weights** (total = 100%):
+- Title & Meta: 25% (title tag presence/length, meta description presence/length, product name in title)
+- Technical Foundations: 25% (page indexable, canonical URL, product schema, breadcrumb schema, JS dependency)
+- Content Signals: 25% (content length 300+ words, heading structure, image alt coverage, readability, URL slug quality)
+- Navigation & Discovery: 25% (breadcrumb navigation, H1–product name alignment, internal links 10+, hreflang)
+
+**Context:** SEO Quality is always context-neutral — no Want/Need/Hybrid multipliers apply.
+
+**Key Architecture Decisions** (DEC-0024):
+- SEO Quality is a third independent score, not combined with AI Readiness or PDP Quality
+- Reuses already-extracted data from `metaTags`, `contentStructure`, `structuredData`, `contentQuality`
+- Adds `extractSeoSignals()` for 3 new lightweight signals: title tag, URL structure, internal link count
+- Returns `{ totalScore, grade, gradeDescription, categoryScores, timestamp }` — no `context` field
+- Backward-compatible history: old entries without `seoScore` show "N/A"
+
+**SEO Quality Extraction** (in `content-script.js`):
+- `extractSeoSignals()` — returns `{ titleTag: { text, length, present }, urlStructure: { path, depth, length, isClean, hasKeywords }, internalLinks: { count } }`
+
+**SEO Quality Scoring** (in `scoring-engine.js`):
+- `calculateSeoQualityScore(extractedData)` — returns `{ totalScore, grade, gradeDescription, categoryScores, timestamp }`
+- `scoreTitleMeta()`, `scoreTechnicalFoundations()`, `scoreContentSignals()`, `scoreNavigationDiscovery()`
+
+**SEO Quality Recommendations** (in `recommendation-engine.js` and `recommendation-rules.js`):
+- `SeoQualityRecommendationEngine` class with per-category check methods
+- `SEO_RECOMMENDATION_TEMPLATES` — 19 templates mapped via `SEO_FACTOR_RECOMMENDATIONS` in `weights.js`
 
 ### Structured Data Extraction
 
@@ -399,6 +429,7 @@ When `contentStructure.jsDependency.dependencyLevel === 'high'` (React/Vue SPA),
 Factors in the side panel have expandable recommendation tips:
 - **AI Readiness:** `FACTOR_RECOMMENDATIONS` maps 56 factor names → `RECOMMENDATION_TEMPLATES` (58 templates)
 - **PDP Quality:** `PDP_FACTOR_RECOMMENDATIONS` maps 30 factor names → `PDP_RECOMMENDATION_TEMPLATES` (30 templates)
+- **SEO Quality:** `SEO_FACTOR_RECOMMENDATIONS` maps 19 factor names → `SEO_RECOMMENDATION_TEMPLATES` (19 templates)
 - Click the ▶ arrow on any factor to see actionable advice
 - Tips include a description and implementation guidance
 
@@ -414,7 +445,13 @@ Factors in the side panel have expandable recommendation tips:
 - Generates recommendations for all failing factors across all 5 PDP categories
 - Uses `createRecommendation(templateId)` to pull from `PDP_RECOMMENDATION_TEMPLATES`
 - Context-aware: adjusts based on `PDP_CONTEXT_MULTIPLIERS` (e.g., urgency boosted in Want context)
-- Both engines share the same priority grouping: **Quick Wins**, **Medium Priority**, **Nice to Have**
+
+**SEO Quality** — `SeoQualityRecommendationEngine` in `recommendation-engine.js`:
+- Generates recommendations for all failing/warning factors across all 4 SEO categories
+- Uses `createRecommendation(templateId)` to pull from `SEO_RECOMMENDATION_TEMPLATES`
+- Context-neutral: no multipliers applied — same recommendations regardless of Want/Need/Hybrid
+
+All three engines share the same priority grouping: **Quick Wins**, **Medium Priority**, **Nice to Have**
 
 ### Hreflang Extraction
 
@@ -430,14 +467,14 @@ This is informational context for bilingual sites (common with Canadian retailer
 | File | Purpose |
 |------|---------|
 | `manifest.json` | Extension permissions, CSP, content script config |
-| `src/content/content-script.js` | Orchestrates all data extraction (inline) — includes both AI and PDP Quality extractors |
-| `src/scoring/weights.js` | All scoring weights, multipliers, and factor-to-recommendation mappings (AI + PDP) |
-| `src/scoring/scoring-engine.js` | Score calculation logic — `calculateScore()` (AI) + `calculatePdpQualityScore()` (PDP) |
+| `src/content/content-script.js` | Orchestrates all data extraction (inline) — includes AI, PDP Quality, and SEO extractors |
+| `src/scoring/weights.js` | All scoring weights, multipliers, and factor-to-recommendation mappings (AI + PDP + SEO) |
+| `src/scoring/scoring-engine.js` | Score calculation logic — `calculateScore()` (AI) + `calculatePdpQualityScore()` (PDP) + `calculateSeoQualityScore()` (SEO) |
 | `src/scoring/grading.js` | `getGradeColor()`, `getGradeBackgroundColor()`, re-exports `getGrade`/`getGradeDescription` |
-| `src/recommendations/recommendation-rules.js` | `RECOMMENDATION_TEMPLATES` (AI) + `PDP_RECOMMENDATION_TEMPLATES` (PDP) |
-| `src/recommendations/recommendation-engine.js` | `RecommendationEngine` (AI) + `PdpQualityRecommendationEngine` (PDP) |
-| `src/sidepanel/sidepanel.js` | UI state management, dual-tab rendering, history, comparison, export |
-| `src/sidepanel/report-template.js` | HTML report generation with both AI and PDP sections |
+| `src/recommendations/recommendation-rules.js` | `RECOMMENDATION_TEMPLATES` (AI) + `PDP_RECOMMENDATION_TEMPLATES` (PDP) + `SEO_RECOMMENDATION_TEMPLATES` (SEO) |
+| `src/recommendations/recommendation-engine.js` | `RecommendationEngine` (AI) + `PdpQualityRecommendationEngine` (PDP) + `SeoQualityRecommendationEngine` (SEO) |
+| `src/sidepanel/sidepanel.js` | UI state management, triple-tab rendering, history, comparison, export |
+| `src/sidepanel/report-template.js` | HTML report generation with AI Readiness, PDP Quality, and SEO Quality sections |
 | `src/background/service-worker.js` | Message routing, sender validation, URL safety, network fetches |
 | `src/storage/storage-manager.js` | History CRUD, quota pruning |
 

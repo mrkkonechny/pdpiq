@@ -1,6 +1,6 @@
 # Decision Log
 
-> **PDS Document 07** | Last Updated: 2026-03-01
+> **PDS Document 07** | Last Updated: 2026-03-03
 
 Track architectural, technical, and strategic decisions with their rationale. Most recent entries at the top. Never delete entries — decisions that were later reversed are valuable context.
 
@@ -21,6 +21,26 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 ---
 
 ## Decisions
+
+### DEC-0024 — Add SEO Quality as third scoring dimension
+- **Date:** 2026-03-04
+- **Status:** Accepted
+- **Context:** pdpIQ had two scoring models (AI Readiness, PDP Quality). Merchants and SEO practitioners requested a third dimension evaluating on-page SEO signals: title/meta, technical foundations, content signals, and navigation/discovery. SEO Quality covers factors already useful for the AI Readiness score (canonical, indexability, schema) but evaluated against organic search best practices, not LLM citation practices.
+- **Decision:** Add `SEO Quality` as a context-neutral third scoring dimension with 4 categories (25% each), 19 factors total. Reuses already-extracted data from `metaTags`, `contentStructure`, `structuredData`, and `contentQuality`. Adds `extractSeoSignals()` for 3 new signals (title tag, URL structure, internal link count). Adds a 4th bottom nav tab ("SEO") with a magnifying glass icon.
+- **Rationale:** Many factors already extracted by pdpIQ (canonical, robots, heading structure, readability, schema) are directly relevant to SEO. A dedicated SEO tab surfaces this value with correct framing. Context-neutral scoring was chosen because SEO is independent of consumer purchase intent.
+- **Alternatives Considered:** Folding SEO factors into AI Readiness (rejected — different audiences and interpretation). Adding SEO as optional overlay on existing tabs (rejected — requires a standalone experience for clarity).
+- **Consequences:** 4-tab bottom nav (AI Visibility, PDP Quality, SEO, History). History entries gain a 3rd grade badge. Reports gain a SEO section. Extraction pass gains 3 lightweight signals (no network requests). Storage entries gain `seoScore`, `seoGrade`, `seoCategoryScores` keys.
+- **Related:** ROAD-0033
+
+### DEC-0023 — Heuristic-based product content area scan for feature list extraction (Tier 2.5)
+- **Date:** 2026-03-03
+- **Status:** Accepted
+- **Context:** Feature List extraction scored 0/10 on sites using utility-first CSS (Tailwind), page builders, or custom WooCommerce themes. Tier 1 (CSS selectors) fails without semantic class names. Tier 2 (heading keywords) fails when headings are descriptive rather than generic. Tier 3 (`extractFeatureLikeItems`) is too restrictive with its benefit-verb filter. This gap affects a growing population of custom-themed sites.
+- **Decision:** Add a new Tier 2.5 fallback that uses `getMainContentArea()` to scope into the product zone, then scans all `<ul>/<ol>` elements for structural feature-list characteristics. Heuristics: ≥3 direct `<li>` children with 15–500 char text, average qualifying text ≥25 chars, ≤50% link-wrapped items, not inside nav/header/footer/sidebar/cart. Select the list with the most qualifying items and run `extractFeaturesFromContainer()` (permissive harvester).
+- **Rationale:** Structural heuristics are more resilient than class-name matching for utility-first CSS frameworks. The length and link-ratio filters reliably distinguish feature lists from navigation menus without relying on semantic markup. Using `extractFeaturesFromContainer()` (not `extractFeatureLikeItems()`) avoids the overly strict benefit-verb gate that caused the original false negative.
+- **Alternatives Considered:** Expand Tier 2 heading keywords with more patterns (fragile — creative headings are unbounded). Lower Tier 3 verb threshold (would increase false positives on non-feature lists). NLP-based classification (too heavy for a content script).
+- **Consequences:** May capture non-feature lists that happen to match the structural heuristics (mitigated by the nav/sidebar exclusion and length filters). Adds ~2ms per extraction for the DOM scan. Only fires when Tiers 1 and 2 both fail, so no impact on sites with semantic markup.
+- **Related:** BUG-0020
 
 ### DEC-0022 — Expandable element detection for Trust & Confidence extraction
 - **Date:** 2026-03-01

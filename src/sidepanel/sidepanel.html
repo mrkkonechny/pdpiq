@@ -18,7 +18,7 @@
           <img src="../../icons/tribbute-logo.png" alt="Tribbute" class="header-logo">
         </a>
       </div>
-      <p class="header-tagline">Score your AI Visibility &amp; PDP Quality</p>
+      <p class="header-tagline">Score your AI Visibility, PDP Quality &amp; SEO</p>
       <div class="page-info" id="pageInfo">
         <span class="page-domain" id="pageDomain">-</span>
       </div>
@@ -164,6 +164,51 @@
       </div>
     </section>
 
+    <!-- SEO Quality Results -->
+    <section id="seoView" class="results hidden">
+      <!-- Overall SEO Score -->
+      <div class="score-card">
+        <div class="grade-container">
+          <div class="grade" id="seoGradeDisplay" role="status" aria-label="SEO Quality grade">-</div>
+        </div>
+        <div class="score-details">
+          <div class="score-value" role="status" aria-label="SEO Quality score"><span id="seoScoreValue">0</span><span class="score-max">/100</span></div>
+          <div class="context-label" id="seoContextLabel">Context-Neutral</div>
+          <div class="grade-description" id="seoGradeDescription">-</div>
+        </div>
+      </div>
+
+      <!-- Category Breakdown -->
+      <div class="section-header">
+        <h3>Category Scores</h3>
+      </div>
+      <div class="categories" id="seoCategoryList">
+        <!-- Dynamically populated -->
+      </div>
+
+      <!-- Recommendations -->
+      <div class="section-header">
+        <h3>Recommendations</h3>
+        <span class="rec-count" id="seoRecCount">0</span>
+      </div>
+      <div class="recommendations" id="seoRecommendationList">
+        <!-- Dynamically populated -->
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button id="seoReanalyzeBtn" class="btn btn-secondary">
+          Re-analyze with Different Context
+        </button>
+        <button id="seoExportReportBtn" class="btn btn-primary">
+          Download Report
+        </button>
+        <button id="seoExportBtn" class="btn btn-secondary">
+          Download Analysis Data
+        </button>
+      </div>
+    </section>
+
     <!-- Error State -->
     <section id="errorState" class="error-state hidden">
       <div class="error-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2L1 21h22L12 2z" fill="currentColor" opacity="0.15"/><path d="M12 2L1 21h22L12 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/><path d="M12 10v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg></div>
@@ -229,6 +274,14 @@
           <path d="M7 7V5a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
         </svg>
         <span class="nav-label">PDP Quality</span>
+      </button>
+      <button class="nav-btn" data-tab="seo">
+        <!-- Magnifying glass -->
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.5" opacity="0.35"/>
+          <path d="M13 13L16.5 16.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+        </svg>
+        <span class="nav-label">SEO</span>
       </button>
       <button class="nav-btn" data-tab="history">
         <!-- Clock -->

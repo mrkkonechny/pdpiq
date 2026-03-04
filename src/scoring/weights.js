@@ -446,3 +446,103 @@ export const FACTOR_RECOMMENDATIONS = {
   'Product Identifiers': 'product-identifiers-missing',
   'llms.txt Presence': 'llms-txt-missing'
 };
+
+// ==========================================
+// SEO QUALITY SCORING CONSTANTS
+// ==========================================
+
+/**
+ * SEO Quality category descriptions
+ */
+export const SEO_CATEGORY_DESCRIPTIONS = {
+  titleMeta: 'Title tag and meta description presence, length, and product name alignment',
+  technicalFoundations: 'Indexability, canonical URL, schema markup, and JavaScript dependency',
+  contentSignals: 'Content length, heading structure, image accessibility, readability, and URL quality',
+  navigationDiscovery: 'Breadcrumb navigation, H1 alignment, internal links, and hreflang configuration'
+};
+
+/**
+ * SEO Quality category weights (must sum to 1.0)
+ */
+export const SEO_CATEGORY_WEIGHTS = {
+  titleMeta: 0.25,
+  technicalFoundations: 0.25,
+  contentSignals: 0.25,
+  navigationDiscovery: 0.25
+};
+
+/**
+ * SEO Quality factor weights within each category (each sums to 100)
+ */
+export const SEO_FACTOR_WEIGHTS = {
+  titleMeta: {
+    titleTagPresent: 20,
+    titleLengthOptimal: 20,
+    metaDescriptionPresent: 20,
+    metaDescriptionLength: 20,
+    productNameInTitle: 20
+  },
+  technicalFoundations: {
+    pageIndexable: 25,
+    canonicalValid: 20,
+    productSchemaPresent: 20,
+    breadcrumbSchemaPresent: 15,
+    lowJsDependency: 20
+  },
+  contentSignals: {
+    sufficientContentLength: 25,
+    headingStructure: 20,
+    imageAltCoverage: 20,
+    contentReadability: 20,
+    urlSlugQuality: 15
+  },
+  navigationDiscovery: {
+    breadcrumbNavigation: 30,
+    h1ProductNameAlignment: 25,
+    internalLinkPresence: 25,
+    hreflangConfiguration: 20
+  }
+};
+
+/**
+ * SEO Quality grade description
+ */
+export function getSeoGradeDescription(grade) {
+  const descriptions = {
+    A: 'Excellent SEO foundation; well-optimised for organic search',
+    B: 'Good SEO foundation; minor improvements possible',
+    C: 'Average SEO health; notable gaps to address',
+    D: 'Below average SEO; multiple technical issues found',
+    F: 'Poor SEO health; fundamental fixes needed'
+  };
+  return descriptions[grade] || '';
+}
+
+/**
+ * SEO Quality factor-to-recommendation mapping
+ */
+export const SEO_FACTOR_RECOMMENDATIONS = {
+  // Title & Meta
+  'Title Tag Present': 'seo-title-missing',
+  'Title Length Optimal': 'seo-title-length',
+  'Meta Description Present': 'seo-meta-desc-missing',
+  'Meta Description Length': 'seo-meta-desc-length',
+  'Product Name in Title': 'seo-product-name-title',
+  // Technical Foundations
+  'Page Indexable': 'seo-noindex',
+  'Canonical URL Valid': 'seo-canonical',
+  'Product Schema Present': 'seo-product-schema',
+  'Breadcrumb Schema Present': 'seo-breadcrumb-schema',
+  'Low JS Dependency': 'seo-js-dependency',
+  // Content Signals
+  'Sufficient Content Length': 'seo-content-length',
+  'Heading Structure': 'seo-heading-structure',
+  'Image Alt Coverage': 'seo-image-alt',
+  'Content Readability': 'seo-readability',
+  'URL Slug Quality': 'seo-url-slug',
+  // Navigation & Discovery
+  'Breadcrumb Navigation': 'seo-breadcrumb-nav',
+  'H1–Product Name Alignment': 'seo-h1-alignment',
+  'Internal Link Presence': 'seo-internal-links',
+  'Hreflang Configuration': 'seo-hreflang'
+};

@@ -50,6 +50,15 @@ export async function saveAnalysis(analysis) {
         key,
         { score: Math.round(data.score), name: data.categoryName }
       ])
+    ) : null,
+    // SEO Quality scores (backward-compatible — old entries won't have these)
+    seoScore: analysis.seoScoreResult?.totalScore ?? null,
+    seoGrade: analysis.seoScoreResult?.grade ?? null,
+    seoCategoryScores: analysis.seoScoreResult ? Object.fromEntries(
+      Object.entries(analysis.seoScoreResult.categoryScores || {}).map(([key, data]) => [
+        key,
+        { score: Math.round(data.score), name: data.categoryName }
+      ])
     ) : null
   };
 

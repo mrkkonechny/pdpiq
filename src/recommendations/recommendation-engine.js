@@ -3,7 +3,7 @@
  * Generates prioritized recommendations based on scoring results
  */
 
-import { calculatePriority, RECOMMENDATION_TEMPLATES, PDP_RECOMMENDATION_TEMPLATES } from './recommendation-rules.js';
+import { calculatePriority, RECOMMENDATION_TEMPLATES, PDP_RECOMMENDATION_TEMPLATES, SEO_RECOMMENDATION_TEMPLATES } from './recommendation-rules.js';
 import { getContextMultiplier, getPdpContextMultiplier } from '../scoring/weights.js';
 import { ScoringEngine } from '../scoring/scoring-engine.js';
 
@@ -859,5 +859,216 @@ export class PdpQualityRecommendationEngine {
     return this.generateRecommendations().filter(r =>
       (r.impact === 'high' || r.impact === 'medium') && r.effort === 'low'
     );
+  }
+}
+
+// ==========================================
+// SEO QUALITY RECOMMENDATION ENGINE
+// ==========================================
+
+/**
+ * SEO Quality Recommendation Engine class
+ * Generates prioritized recommendations for SEO issues
+ * Context-neutral: no multipliers applied
+ */
+export class SeoQualityRecommendationEngine {
+  /**
+   * @param {Object} seoScoreResult - Result from ScoringEngine.calculateSeoQualityScore()
+   * @param {Object} extractedData - Raw extracted data (includes seoSignals key)
+   */
+  constructor(seoScoreResult, extractedData) {
+    this.scoreResult = seoScoreResult;
+    this.extractedData = extractedData;
+    this.seoData = extractedData.seoSignals || {};
+  }
+
+  /**
+   * Generate all SEO Quality recommendations
+   * @returns {Array} Sorted array of recommendations
+   */
+  generateRecommendations() {
+    const recommendations = [];
+
+    recommendations.push(...this.checkTitleMetaIssues());
+    recommendations.push(...this.checkTechnicalIssues());
+    recommendations.push(...this.checkContentSignalIssues());
+    recommendations.push(...this.checkNavigationIssues());
+
+    const valid = recommendations.filter(r => r !== null);
+    return valid.sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      const impactOrder = { high: 0, medium: 1, low: 2 };
+      return (impactOrder[a.impact] || 2) - (impactOrder[b.impact] || 2);
+    });
+  }
+
+  /**
+   * Check Title & Meta issues
+   */
+  checkTitleMetaIssues() {
+    const recs = [];
+    const title = this.seoData.titleTag || {};
+    const meta = this.extractedData.metaTags || {};
+    const standard = meta.standard || {};
+    const metaDesc = standard.description || standard.metaDescription || '';
+
+    if (!title.present) {
+      recs.push(this.createRecommendation('seo-title-missing'));
+    } else {
+      const len = title.length || 0;
+      if (len < 40 || len > 70) {
+        recs.push(this.createRecommendation('seo-title-length'));
+      }
+    }
+
+    if (!metaDesc) {
+      recs.push(this.createRecommendation('seo-meta-desc-missing'));
+    } else {
+      const len = metaDesc.length;
+      if (len < 100 || len > 180) {
+        recs.push(this.createRecommendation('seo-meta-desc-length'));
+      }
+    }
+
+    // Product name in title — check via score result
+    const titleMetaFactors = this.scoreResult.categoryScores?.titleMeta?.factors || [];
+    for (const factor of titleMetaFactors) {
+      if (factor.name === 'Product Name in Title' && factor.status === 'fail') {
+        recs.push(this.createRecommendation('seo-product-name-title'));
+      }
+    }
+
+    return recs;
+  }
+
+  /**
+   * Check Technical Foundations issues
+   */
+  checkTechnicalIssues() {
+    const recs = [];
+    const robots = this.extractedData.metaTags?.robots || {};
+    const canonical = this.extractedData.metaTags?.canonical || {};
+    const schemas = this.extractedData.structuredData?.schemas || {};
+    const js = this.extractedData.contentStructure?.jsDependency || {};
+
+    if (robots.noindex || robots.isBlocked) {
+      recs.push(this.createRecommendation('seo-noindex'));
+    }
+
+    if (!canonical.present || (!canonical.matchesCurrentUrl && !canonical.isProductCanonical)) {
+      recs.push(this.createRecommendation('seo-canonical'));
+    }
+
+    if (!schemas.product) {
+      recs.push(this.createRecommendation('seo-product-schema'));
+    }
+
+    if (!schemas.breadcrumb) {
+      recs.push(this.createRecommendation('seo-breadcrumb-schema'));
+    }
+
+    if (js.dependencyLevel === 'high') {
+      recs.push(this.createRecommendation('seo-js-dependency'));
+    }
+
+    return recs;
+  }
+
+  /**
+   * Check Content Signals issues
+   */
+  checkContentSignalIssues() {
+    const recs = [];
+    const desc = this.extractedData.contentQuality?.description || {};
+    const textMetrics = this.extractedData.contentQuality?.textMetrics || {};
+    const headings = this.extractedData.contentStructure?.headings || {};
+    const images = this.extractedData.contentStructure?.images || {};
+    const url = this.seoData.urlStructure || {};
+
+    const wordCount = desc.wordCount || textMetrics.wordCount || 0;
+    if (wordCount < 300) {
+      recs.push(this.createRecommendation('seo-content-length'));
+    }
+
+    const h1Count = headings.h1?.count || 0;
+    const hierarchyValid = headings.hierarchyValid !== false;
+    if (h1Count !== 1 || !hierarchyValid) {
+      recs.push(this.createRecommendation('seo-heading-structure'));
+    }
+
+    if ((images.altCoverage || 0) < 0.9) {
+      recs.push(this.createRecommendation('seo-image-alt'));
+    }
+
+    const readability = textMetrics.readabilityScore ?? null;
+    if (readability !== null && readability < 40) {
+      recs.push(this.createRecommendation('seo-readability'));
+    }
+
+    if (!url.isClean || !url.hasKeywords) {
+      recs.push(this.createRecommendation('seo-url-slug'));
+    }
+
+    return recs;
+  }
+
+  /**
+   * Check Navigation & Discovery issues
+   */
+  checkNavigationIssues() {
+    const recs = [];
+    const structure = this.extractedData.contentStructure || {};
+    const schemas = this.extractedData.structuredData?.schemas || {};
+    const headings = structure.headings || {};
+    const hreflang = this.extractedData.metaTags?.hreflang || {};
+    const internalLinks = this.seoData.internalLinks || {};
+
+    const hasDomBreadcrumbs = structure.breadcrumbs?.present === true || structure.breadcrumbs?.count > 0;
+    const hasBreadcrumbSchema = !!schemas.breadcrumb;
+    if (!hasDomBreadcrumbs && !hasBreadcrumbSchema) {
+      recs.push(this.createRecommendation('seo-breadcrumb-nav'));
+    }
+
+    // H1 alignment — check via score result
+    const navFactors = this.scoreResult.categoryScores?.navigationDiscovery?.factors || [];
+    for (const factor of navFactors) {
+      if (factor.name === 'H1–Product Name Alignment' && factor.status === 'fail') {
+        recs.push(this.createRecommendation('seo-h1-alignment'));
+      }
+    }
+
+    if ((internalLinks.count || 0) < 3) {
+      recs.push(this.createRecommendation('seo-internal-links'));
+    }
+
+    // Hreflang only recommended if absent AND we can infer the site is multilingual
+    // (checking hreflang = warning in scoring, but only recommend if there's evidence of multiple languages)
+    // Skip for monolingual sites — don't burden them with an inapplicable recommendation
+
+    return recs;
+  }
+
+  /**
+   * Create a recommendation from a SEO template
+   * @param {string} templateId - Template ID
+   * @returns {Object|null} Recommendation object
+   */
+  createRecommendation(templateId) {
+    const template = SEO_RECOMMENDATION_TEMPLATES[templateId];
+    if (!template) {
+      console.warn(`Unknown SEO recommendation template: ${templateId}`);
+      return null;
+    }
+
+    return {
+      id: templateId,
+      title: template.title,
+      description: template.description,
+      impact: template.impact,
+      effort: template.effort,
+      category: template.category,
+      priority: calculatePriority(template.impact, template.effort),
+      implementation: template.implementation
+    };
   }
 }

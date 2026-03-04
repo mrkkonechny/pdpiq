@@ -878,13 +878,197 @@ export const PDP_RECOMMENDATION_TEMPLATES = {
   }
 };
 
+// ==========================================
+// SEO QUALITY RECOMMENDATION TEMPLATES
+// ==========================================
+
+/**
+ * SEO Quality recommendation templates
+ */
+export const SEO_RECOMMENDATION_TEMPLATES = {
+  // Title & Meta
+  'seo-title-missing': {
+    title: 'Add a title tag',
+    description: 'No title tag found. The title tag is one of the most important on-page SEO signals — it appears in search results and browser tabs.',
+    impact: 'high',
+    effort: 'low',
+    category: 'titleMeta',
+    implementation: 'Add &lt;title&gt;Product Name – Brand | Category&lt;/title&gt; to the page &lt;head&gt;. Keep it between 50–60 characters. Include the product name first, followed by the brand. Avoid keyword stuffing.'
+  },
+
+  'seo-title-length': {
+    title: 'Optimise title tag length',
+    description: 'The title tag is outside the optimal 50–60 character range. Titles that are too long get truncated in search results; too short miss ranking opportunities.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'titleMeta',
+    implementation: 'Revise the title to be 50–60 characters. Lead with the product name, include the brand, and optionally a key differentiator. Use a pipe or dash as separator (e.g., "Product Name – Brand").'
+  },
+
+  'seo-meta-desc-missing': {
+    title: 'Add a meta description',
+    description: 'No meta description found. Meta descriptions appear in search snippets and directly influence click-through rates from organic search.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'titleMeta',
+    implementation: 'Add &lt;meta name="description" content="..."&gt; with 140–160 characters. Include the product name, key benefit, and a call to action (e.g., "Shop online"). Unique descriptions per page improve CTR vs. auto-generated ones.'
+  },
+
+  'seo-meta-desc-length': {
+    title: 'Optimise meta description length',
+    description: 'The meta description is outside the optimal 140–160 character range. Descriptions over 160 characters get truncated in search results.',
+    impact: 'low',
+    effort: 'low',
+    category: 'titleMeta',
+    implementation: 'Revise the meta description to 140–160 characters. Front-load the most compelling information. End with an action phrase like "Free shipping" or "Shop now" to improve CTR.'
+  },
+
+  'seo-product-name-title': {
+    title: 'Include product name in title tag',
+    description: 'The page title does not appear to contain the product name. Search engines use the title to understand page relevance for product queries.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'titleMeta',
+    implementation: 'Start the title tag with the exact product name as it appears in your Product schema and H1. This ensures consistency across all signals and improves relevance for branded and product queries.'
+  },
+
+  // Technical Foundations
+  'seo-noindex': {
+    title: 'Remove noindex directive',
+    description: 'CRITICAL: The page is blocked from search engine indexing. This prevents the page from appearing in organic search results.',
+    impact: 'high',
+    effort: 'low',
+    category: 'technicalFoundations',
+    implementation: 'Remove the &lt;meta name="robots" content="noindex"&gt; tag or update robots.txt to allow indexing. Verify that staging/development settings have not been pushed to production. After removing, submit the URL to Google Search Console for re-indexing.'
+  },
+
+  'seo-canonical': {
+    title: 'Fix canonical URL',
+    description: 'The canonical URL is missing or does not match the current page URL. This can split link equity across duplicate or near-duplicate pages.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'technicalFoundations',
+    implementation: 'Add &lt;link rel="canonical" href="https://your-site.com/products/product-slug"&gt; pointing to the definitive URL for this product. Ensure it matches the actual page URL (protocol, domain, path, no trailing slash inconsistency).'
+  },
+
+  'seo-product-schema': {
+    title: 'Add Product schema markup',
+    description: 'No Product schema found. Structured data enables rich results (price, rating, availability) in Google search and helps search engines understand product pages.',
+    impact: 'high',
+    effort: 'medium',
+    category: 'technicalFoundations',
+    implementation: 'Add JSON-LD Product schema to the page &lt;head&gt; with at minimum: @type, name, description, image, offers (with price and availability), and brand. Test with Google\'s Rich Results Test tool.'
+  },
+
+  'seo-breadcrumb-schema': {
+    title: 'Add BreadcrumbList schema',
+    description: 'No breadcrumb schema found. BreadcrumbList markup enables breadcrumb display in search results, which increases click-through rates and helps search engines understand site hierarchy.',
+    impact: 'low',
+    effort: 'low',
+    category: 'technicalFoundations',
+    implementation: 'Add a BreadcrumbList JSON-LD schema reflecting the navigation path (e.g., Home &gt; Category &gt; Subcategory &gt; Product). Use ListItem with @type, position, name, and item (URL) for each breadcrumb level.'
+  },
+
+  'seo-js-dependency': {
+    title: 'Reduce JavaScript rendering dependency',
+    description: 'The page relies heavily on JavaScript to render content. Search engines may not fully crawl JS-rendered content, causing key product information to be missed.',
+    impact: 'medium',
+    effort: 'high',
+    category: 'technicalFoundations',
+    implementation: 'Implement server-side rendering (SSR) or static site generation (SSG) for product pages. At minimum, ensure key content (title, description, price, schema) is present in the initial HTML response before JavaScript executes. Use Google Search Console\'s URL Inspection tool to see what Googlebot actually renders.'
+  },
+
+  // Content Signals
+  'seo-content-length': {
+    title: 'Increase product page content length',
+    description: 'The product description is too short. Longer, detailed descriptions provide more ranking signals and help answer the full range of customer queries.',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'contentSignals',
+    implementation: 'Aim for 300+ words of unique product content. Include: detailed description, key features in bullet points, specifications table, use cases, compatibility information, and FAQ. Avoid keyword stuffing — write naturally for shoppers.'
+  },
+
+  'seo-heading-structure': {
+    title: 'Improve heading structure',
+    description: 'Missing or multiple H1 tags, or heading hierarchy issues. A clear heading structure helps search engines understand page content and importance.',
+    impact: 'low',
+    effort: 'low',
+    category: 'contentSignals',
+    implementation: 'Use exactly one H1 tag with the product name. Use H2s for major sections (Features, Specifications, Reviews). Use H3s for subsections. Never skip heading levels (e.g., H1 to H3). Include target keywords naturally in H2 headings.'
+  },
+
+  'seo-image-alt': {
+    title: 'Add alt text to product images',
+    description: 'Product images are missing alt text. Alt text helps search engines understand image content and is required for image search visibility.',
+    impact: 'low',
+    effort: 'low',
+    category: 'contentSignals',
+    implementation: 'Add descriptive alt text to all product images. For the primary image: "[Product Name] – [Key Feature/Colour/Variant]". For gallery images: describe the specific view or feature shown. Avoid generic text like "product image" or repeating the same alt text for all images.'
+  },
+
+  'seo-readability': {
+    title: 'Improve content readability',
+    description: 'Content readability score is low. Difficult-to-read content increases bounce rate and reduces dwell time, both negative ranking signals.',
+    impact: 'low',
+    effort: 'medium',
+    category: 'contentSignals',
+    implementation: 'Use short sentences (aim for under 20 words each). Use bullet points and numbered lists for features and specs. Break long paragraphs into 2–3 sentence blocks. Use plain language — avoid overly technical jargon unless the audience expects it. Aim for a Flesch reading ease score of 60+.'
+  },
+
+  'seo-url-slug': {
+    title: 'Optimise URL slug',
+    description: 'The URL contains query parameters, numeric IDs, or lacks keyword-rich text. Clean, descriptive URLs improve CTR and provide ranking signals.',
+    impact: 'low',
+    effort: 'medium',
+    category: 'contentSignals',
+    implementation: 'Use short, keyword-rich URL slugs: /products/product-name-key-attribute. Avoid query strings (?id=123), hash fragments, and excessively long paths. Separate words with hyphens (not underscores). Implement 301 redirects if changing existing URLs to preserve link equity.'
+  },
+
+  // Navigation & Discovery
+  'seo-breadcrumb-nav': {
+    title: 'Add breadcrumb navigation',
+    description: 'No breadcrumb navigation found. Breadcrumbs improve internal linking, help search engines understand site structure, and reduce bounce rate.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'navigationDiscovery',
+    implementation: 'Add a breadcrumb trail above the product title: Home &gt; Category &gt; Subcategory &gt; Product Name. Each level should be a link. Pair with BreadcrumbList JSON-LD schema for rich results. Keep breadcrumbs consistent across all product pages.'
+  },
+
+  'seo-h1-alignment': {
+    title: 'Align H1 with product name and title tag',
+    description: 'The H1 heading does not match the product name or page title. Consistency across H1, title tag, and schema name strengthens relevance signals.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'navigationDiscovery',
+    implementation: 'Ensure the H1 heading exactly matches (or closely mirrors) the title tag and Product schema name. The H1 should be the product name. If you add brand or category to the title tag, keep the H1 clean with just the product name for readability.'
+  },
+
+  'seo-internal-links': {
+    title: 'Increase internal linking',
+    description: 'Few or no internal links found on the page. Internal links distribute link equity, help search engines discover pages, and keep shoppers engaged.',
+    impact: 'low',
+    effort: 'low',
+    category: 'navigationDiscovery',
+    implementation: 'Add links to: related products, the product category, cross-sell or upsell items, and buying guides or blog posts featuring this product. Ensure navigation links (header, footer) are present. Aim for 10+ internal links per product page including navigation.'
+  },
+
+  'seo-hreflang': {
+    title: 'Add hreflang tags for international targeting',
+    description: 'No hreflang tags found. For sites targeting multiple regions or languages, hreflang prevents duplicate content issues and serves the correct page to each audience.',
+    impact: 'low',
+    effort: 'medium',
+    category: 'navigationDiscovery',
+    implementation: 'If you have multiple language or regional versions of your site, add &lt;link rel="alternate" hreflang="en-CA" href="..."&gt; tags for each version. Include a self-referencing hreflang tag. Use ISO 639-1 language codes and ISO 3166-1 country codes. If monolingual, this tag is not required.'
+  }
+};
+
 /**
  * Get recommendation template by ID (searches both AI and PDP templates)
  * @param {string} id - Template ID
  * @returns {Object|null} Template or null
  */
 export function getRecommendationTemplate(id) {
-  return RECOMMENDATION_TEMPLATES[id] || PDP_RECOMMENDATION_TEMPLATES[id] || null;
+  return RECOMMENDATION_TEMPLATES[id] || PDP_RECOMMENDATION_TEMPLATES[id] || SEO_RECOMMENDATION_TEMPLATES[id] || null;
 }
 
 /**

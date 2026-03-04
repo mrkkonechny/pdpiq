@@ -13,7 +13,10 @@ import {
   PDP_CATEGORY_WEIGHTS,
   PDP_FACTOR_WEIGHTS,
   getPdpGradeDescription,
-  getPdpContextMultiplier
+  getPdpContextMultiplier,
+  SEO_CATEGORY_WEIGHTS,
+  SEO_FACTOR_WEIGHTS,
+  getSeoGradeDescription
 } from './weights.js';
 
 /**
@@ -1508,17 +1511,30 @@ export class ScoringEngine {
     });
     rawScore += paymentScore;
 
-    // Urgency/Scarcity Signals (15 pts)
+    // Urgency/Scarcity Signals (15 pts) — strong = full, soft = ~50%, none = 0
     const urgencyMultiplier = getPdpContextMultiplier(this.context, 'urgencyScarcitySignals');
-    let urgencyScore = data?.hasUrgency ? weights.urgencyScarcitySignals : 0;
+    let urgencyScore = 0;
+    let urgencyStatus = 'fail';
+    let urgencyDetails = 'No urgency or scarcity indicators';
+    if (data?.hasUrgency) {
+      if (data?.urgencyIsStrong) {
+        urgencyScore = weights.urgencyScarcitySignals;
+        urgencyStatus = 'pass';
+        urgencyDetails = 'Strong urgency or scarcity messaging found';
+      } else {
+        urgencyScore = Math.round(weights.urgencyScarcitySignals * 0.5);
+        urgencyStatus = 'warning';
+        urgencyDetails = 'Soft urgency signal detected (e.g. limited availability)';
+      }
+    }
     urgencyScore = Math.min(weights.urgencyScarcitySignals, Math.round(urgencyScore * urgencyMultiplier));
     factors.push({
       name: 'Urgency/Scarcity Signals',
-      status: data?.hasUrgency ? 'pass' : 'fail',
+      status: urgencyStatus,
       points: urgencyScore,
       maxPoints: weights.urgencyScarcitySignals,
       contextual: urgencyMultiplier !== 1.0,
-      details: data?.hasUrgency ? 'Urgency or scarcity messaging found' : 'No urgency or scarcity indicators'
+      details: urgencyDetails
     });
     rawScore += urgencyScore;
 
@@ -1916,6 +1932,528 @@ export class ScoringEngine {
       factors,
       weight: PDP_CATEGORY_WEIGHTS.reviewsSocialProof,
       categoryName: 'Reviews & Social Proof'
+    };
+  }
+
+  // ==========================================
+  // SEO QUALITY SCORING
+  // ==========================================
+
+  /**
+   * Calculate SEO Quality score from extracted data
+   * Context-neutral: no multipliers applied
+   * @param {Object} extractedData - Data from content script
+   * @returns {Object} Complete SEO Quality scoring result
+   */
+  calculateSeoQualityScore(extractedData) {
+    const categoryScores = {
+      titleMeta: this.scoreTitleMeta(extractedData),
+      technicalFoundations: this.scoreTechnicalFoundations(extractedData),
+      contentSignals: this.scoreContentSignals(extractedData),
+      navigationDiscovery: this.scoreNavigationDiscovery(extractedData)
+    };
+
+    const totalScore = Math.round(
+      categoryScores.titleMeta.score * SEO_CATEGORY_WEIGHTS.titleMeta +
+      categoryScores.technicalFoundations.score * SEO_CATEGORY_WEIGHTS.technicalFoundations +
+      categoryScores.contentSignals.score * SEO_CATEGORY_WEIGHTS.contentSignals +
+      categoryScores.navigationDiscovery.score * SEO_CATEGORY_WEIGHTS.navigationDiscovery
+    );
+
+    const grade = getGrade(totalScore);
+
+    return {
+      totalScore,
+      grade,
+      gradeDescription: getSeoGradeDescription(grade),
+      categoryScores,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Score Title & Meta category (25%)
+   */
+  scoreTitleMeta(extractedData) {
+    const factors = [];
+    let rawScore = 0;
+    const weights = SEO_FACTOR_WEIGHTS.titleMeta;
+    const seo = extractedData.seoSignals || {};
+    const title = seo.titleTag || {};
+    const meta = extractedData.metaTags || {};
+    const standard = meta.standard || {};
+
+    // Title Tag Present (20 pts)
+    const titlePresent = title.present === true;
+    const titlePresentScore = titlePresent ? weights.titleTagPresent : 0;
+    factors.push({
+      name: 'Title Tag Present',
+      status: titlePresent ? 'pass' : 'fail',
+      points: titlePresentScore,
+      maxPoints: weights.titleTagPresent,
+      details: titlePresent ? `"${(title.text || '').substring(0, 60)}${(title.text || '').length > 60 ? '…' : ''}"` : 'No title tag found'
+    });
+    rawScore += titlePresentScore;
+
+    // Title Length Optimal 50–60 chars (20 pts)
+    const titleLen = title.length || 0;
+    let titleLenScore = 0;
+    let titleLenStatus = 'fail';
+    let titleLenDetails = 'No title tag';
+    if (titlePresent) {
+      if (titleLen >= 50 && titleLen <= 60) {
+        titleLenScore = weights.titleLengthOptimal;
+        titleLenStatus = 'pass';
+        titleLenDetails = `${titleLen} chars (ideal 50–60)`;
+      } else if (titleLen >= 40 && titleLen <= 70) {
+        titleLenScore = Math.round(weights.titleLengthOptimal * 0.6);
+        titleLenStatus = 'warning';
+        titleLenDetails = `${titleLen} chars (aim for 50–60)`;
+      } else {
+        titleLenDetails = `${titleLen} chars (too ${titleLen < 40 ? 'short' : 'long'}, aim for 50–60)`;
+      }
+    }
+    factors.push({
+      name: 'Title Length Optimal',
+      status: titleLenStatus,
+      points: titleLenScore,
+      maxPoints: weights.titleLengthOptimal,
+      details: titleLenDetails
+    });
+    rawScore += titleLenScore;
+
+    // Meta Description Present (20 pts)
+    const metaDesc = standard.description || standard.metaDescription || '';
+    const metaPresent = metaDesc.length > 0;
+    const metaPresentScore = metaPresent ? weights.metaDescriptionPresent : 0;
+    factors.push({
+      name: 'Meta Description Present',
+      status: metaPresent ? 'pass' : 'fail',
+      points: metaPresentScore,
+      maxPoints: weights.metaDescriptionPresent,
+      details: metaPresent ? `"${metaDesc.substring(0, 60)}${metaDesc.length > 60 ? '…' : ''}"` : 'No meta description found'
+    });
+    rawScore += metaPresentScore;
+
+    // Meta Description Length Optimal 140–160 chars (20 pts)
+    const descLen = metaDesc.length;
+    let descLenScore = 0;
+    let descLenStatus = 'fail';
+    let descLenDetails = 'No meta description';
+    if (metaPresent) {
+      if (descLen >= 140 && descLen <= 160) {
+        descLenScore = weights.metaDescriptionLength;
+        descLenStatus = 'pass';
+        descLenDetails = `${descLen} chars (ideal 140–160)`;
+      } else if (descLen >= 100 && descLen <= 180) {
+        descLenScore = Math.round(weights.metaDescriptionLength * 0.6);
+        descLenStatus = 'warning';
+        descLenDetails = `${descLen} chars (aim for 140–160)`;
+      } else {
+        descLenDetails = `${descLen} chars (too ${descLen < 100 ? 'short' : 'long'}, aim for 140–160)`;
+      }
+    }
+    factors.push({
+      name: 'Meta Description Length',
+      status: descLenStatus,
+      points: descLenScore,
+      maxPoints: weights.metaDescriptionLength,
+      details: descLenDetails
+    });
+    rawScore += descLenScore;
+
+    // Product Name in Title (20 pts)
+    // Compare title text against H1 and product schema name
+    const h1Text = extractedData.contentStructure?.headings?.h1?.texts?.[0] || '';
+    const productName = extractedData.structuredData?.schemas?.product?.name || '';
+    const titleLower = (title.text || '').toLowerCase();
+    const h1Lower = h1Text.toLowerCase();
+    const productLower = productName.toLowerCase();
+
+    let productInTitle = false;
+    let productInTitleDetails = 'No product name reference found in title';
+    if (titlePresent) {
+      if (productLower && (titleLower.includes(productLower) || productLower.includes(titleLower.split('|')[0]?.trim()))) {
+        productInTitle = true;
+        productInTitleDetails = 'Product schema name found in title';
+      } else if (h1Lower && h1Lower.length > 3 && titleLower.includes(h1Lower.split(' ').slice(0, 3).join(' '))) {
+        productInTitle = true;
+        productInTitleDetails = 'H1 text found in title';
+      }
+    }
+    const productInTitleScore = productInTitle ? weights.productNameInTitle : 0;
+    factors.push({
+      name: 'Product Name in Title',
+      status: productInTitle ? 'pass' : titlePresent ? 'fail' : 'fail',
+      points: productInTitleScore,
+      maxPoints: weights.productNameInTitle,
+      details: productInTitleDetails
+    });
+    rawScore += productInTitleScore;
+
+    return {
+      score: rawScore,
+      maxScore: 100,
+      factors,
+      weight: SEO_CATEGORY_WEIGHTS.titleMeta,
+      categoryName: 'Title & Meta'
+    };
+  }
+
+  /**
+   * Score Technical Foundations category (25%)
+   */
+  scoreTechnicalFoundations(extractedData) {
+    const factors = [];
+    let rawScore = 0;
+    const weights = SEO_FACTOR_WEIGHTS.technicalFoundations;
+    const robots = extractedData.metaTags?.robots || {};
+    const canonical = extractedData.metaTags?.canonical || {};
+    const schemas = extractedData.structuredData?.schemas || {};
+    const js = extractedData.contentStructure?.jsDependency || {};
+
+    // Page Indexable (25 pts)
+    const isIndexable = !robots.noindex && !robots.isBlocked;
+    const indexableScore = isIndexable ? weights.pageIndexable : 0;
+    factors.push({
+      name: 'Page Indexable',
+      status: isIndexable ? 'pass' : 'fail',
+      points: indexableScore,
+      maxPoints: weights.pageIndexable,
+      critical: !isIndexable,
+      details: robots.noindex ? 'CRITICAL: noindex directive found' : robots.isBlocked ? 'CRITICAL: robots.txt blocks indexing' : 'Page is indexable'
+    });
+    rawScore += indexableScore;
+
+    // Canonical URL Valid (20 pts)
+    const canonicalIsValid = canonical.present && (canonical.matchesCurrentUrl || canonical.isProductCanonical);
+    let canonicalScore = 0;
+    let canonicalStatus = 'fail';
+    let canonicalDetails = 'No canonical URL found';
+    if (canonical.present) {
+      if (canonicalIsValid) {
+        canonicalScore = weights.canonicalValid;
+        canonicalStatus = 'pass';
+        canonicalDetails = 'Canonical URL is valid';
+      } else {
+        canonicalScore = 0;
+        canonicalStatus = 'fail';
+        canonicalDetails = 'Canonical URL does not match current page';
+      }
+    }
+    factors.push({
+      name: 'Canonical URL Valid',
+      status: canonicalStatus,
+      points: canonicalScore,
+      maxPoints: weights.canonicalValid,
+      details: canonicalDetails
+    });
+    rawScore += canonicalScore;
+
+    // Product Schema Present (20 pts)
+    const hasProductSchema = schemas.product !== null && schemas.product !== undefined;
+    const productSchemaScore = hasProductSchema ? weights.productSchemaPresent : 0;
+    factors.push({
+      name: 'Product Schema Present',
+      status: hasProductSchema ? 'pass' : 'fail',
+      points: productSchemaScore,
+      maxPoints: weights.productSchemaPresent,
+      details: hasProductSchema ? `Product schema found${schemas.product?.name ? ` (${schemas.product.name})` : ''}` : 'No Product schema found'
+    });
+    rawScore += productSchemaScore;
+
+    // Breadcrumb Schema Present (15 pts)
+    const hasBreadcrumbSchema = schemas.breadcrumb !== null && schemas.breadcrumb !== undefined;
+    const breadcrumbSchemaScore = hasBreadcrumbSchema ? weights.breadcrumbSchemaPresent : 0;
+    const breadcrumbCount = schemas.breadcrumb?.itemCount || 0;
+    factors.push({
+      name: 'Breadcrumb Schema Present',
+      status: hasBreadcrumbSchema ? 'pass' : 'fail',
+      points: breadcrumbSchemaScore,
+      maxPoints: weights.breadcrumbSchemaPresent,
+      details: hasBreadcrumbSchema ? `${breadcrumbCount} level${breadcrumbCount !== 1 ? 's' : ''} found` : 'No breadcrumb schema found'
+    });
+    rawScore += breadcrumbSchemaScore;
+
+    // Low JS Dependency (20 pts)
+    const jsLevel = js.dependencyLevel || 'low';
+    let jsScore = 0;
+    let jsStatus = 'fail';
+    if (jsLevel === 'low') {
+      jsScore = weights.lowJsDependency;
+      jsStatus = 'pass';
+    } else if (jsLevel === 'medium') {
+      jsScore = Math.round(weights.lowJsDependency * 0.5);
+      jsStatus = 'warning';
+    }
+    factors.push({
+      name: 'Low JS Dependency',
+      status: jsStatus,
+      points: jsScore,
+      maxPoints: weights.lowJsDependency,
+      details: `${jsLevel.charAt(0).toUpperCase() + jsLevel.slice(1)} JS dependency${js.frameworkDetected ? ` (${js.frameworkDetected})` : ''}`
+    });
+    rawScore += jsScore;
+
+    return {
+      score: rawScore,
+      maxScore: 100,
+      factors,
+      weight: SEO_CATEGORY_WEIGHTS.technicalFoundations,
+      categoryName: 'Technical Foundations'
+    };
+  }
+
+  /**
+   * Score Content Signals category (25%)
+   */
+  scoreContentSignals(extractedData) {
+    const factors = [];
+    let rawScore = 0;
+    const weights = SEO_FACTOR_WEIGHTS.contentSignals;
+    const desc = extractedData.contentQuality?.description || {};
+    const textMetrics = extractedData.contentQuality?.textMetrics || {};
+    const headings = extractedData.contentStructure?.headings || {};
+    const images = extractedData.contentStructure?.images || {};
+    const seo = extractedData.seoSignals || {};
+    const url = seo.urlStructure || {};
+
+    // Sufficient Content Length (25 pts) — use description word count or text length
+    const wordCount = desc.wordCount || textMetrics.wordCount || 0;
+    let contentLenScore = 0;
+    let contentLenStatus = 'fail';
+    let contentLenDetails = 'No product description found';
+    if (wordCount >= 300) {
+      contentLenScore = weights.sufficientContentLength;
+      contentLenStatus = 'pass';
+      contentLenDetails = `${wordCount} words`;
+    } else if (wordCount >= 150) {
+      contentLenScore = Math.round(weights.sufficientContentLength * 0.6);
+      contentLenStatus = 'warning';
+      contentLenDetails = `${wordCount} words (aim for 300+)`;
+    } else if (wordCount > 0) {
+      contentLenDetails = `${wordCount} words (too short, aim for 300+)`;
+    }
+    factors.push({
+      name: 'Sufficient Content Length',
+      status: contentLenStatus,
+      points: contentLenScore,
+      maxPoints: weights.sufficientContentLength,
+      details: contentLenDetails
+    });
+    rawScore += contentLenScore;
+
+    // Heading Structure (20 pts) — H1 present + valid hierarchy
+    const h1Present = (headings.h1?.count || 0) === 1;
+    const hierarchyValid = headings.hierarchyValid !== false;
+    let headingScore = 0;
+    let headingStatus = 'fail';
+    let headingDetails = 'No H1 heading found';
+    if (h1Present && hierarchyValid) {
+      headingScore = weights.headingStructure;
+      headingStatus = 'pass';
+      headingDetails = 'H1 present with valid hierarchy';
+    } else if (h1Present) {
+      headingScore = Math.round(weights.headingStructure * 0.6);
+      headingStatus = 'warning';
+      headingDetails = 'H1 present but heading hierarchy has issues';
+    } else if (headings.h1?.count > 1) {
+      headingScore = Math.round(weights.headingStructure * 0.4);
+      headingStatus = 'warning';
+      headingDetails = `${headings.h1.count} H1 tags found (should be 1)`;
+    }
+    factors.push({
+      name: 'Heading Structure',
+      status: headingStatus,
+      points: headingScore,
+      maxPoints: weights.headingStructure,
+      details: headingDetails
+    });
+    rawScore += headingScore;
+
+    // Image Alt Coverage (20 pts)
+    const altCoverage = images.altCoverage || 0;
+    const altScore = Math.round(altCoverage * weights.imageAltCoverage);
+    factors.push({
+      name: 'Image Alt Coverage',
+      status: altCoverage >= 0.9 ? 'pass' : altCoverage >= 0.5 ? 'warning' : 'fail',
+      points: altScore,
+      maxPoints: weights.imageAltCoverage,
+      details: `${Math.round(altCoverage * 100)}% of images have alt text`
+    });
+    rawScore += altScore;
+
+    // Content Readability (20 pts)
+    const readabilityRaw = textMetrics.readabilityScore ?? null;
+    let readabilityScore = 0;
+    let readabilityStatus = 'fail';
+    let readabilityDetails = 'Unable to assess readability';
+    if (readabilityRaw !== null) {
+      readabilityScore = Math.round((readabilityRaw / 100) * weights.contentReadability);
+      readabilityStatus = readabilityRaw >= 60 ? 'pass' : readabilityRaw >= 40 ? 'warning' : 'fail';
+      readabilityDetails = `Readability score: ${readabilityRaw}/100`;
+    }
+    factors.push({
+      name: 'Content Readability',
+      status: readabilityStatus,
+      points: readabilityScore,
+      maxPoints: weights.contentReadability,
+      details: readabilityDetails
+    });
+    rawScore += readabilityScore;
+
+    // URL Slug Quality (15 pts)
+    const isClean = url.isClean !== false;
+    const hasKeywords = url.hasKeywords !== false;
+    let urlScore = 0;
+    let urlStatus = 'fail';
+    let urlDetails = 'URL quality unknown';
+    if (isClean && hasKeywords) {
+      urlScore = weights.urlSlugQuality;
+      urlStatus = 'pass';
+      urlDetails = `Clean URL with keywords: ${url.path || ''}`;
+    } else if (isClean || hasKeywords) {
+      urlScore = Math.round(weights.urlSlugQuality * 0.6);
+      urlStatus = 'warning';
+      urlDetails = isClean ? 'Clean URL but no keyword in slug' : 'Has keywords but URL contains query strings or numeric IDs';
+    } else {
+      urlDetails = 'URL has query strings or lacks keyword-rich slug';
+    }
+    factors.push({
+      name: 'URL Slug Quality',
+      status: urlStatus,
+      points: urlScore,
+      maxPoints: weights.urlSlugQuality,
+      details: urlDetails
+    });
+    rawScore += urlScore;
+
+    return {
+      score: rawScore,
+      maxScore: 100,
+      factors,
+      weight: SEO_CATEGORY_WEIGHTS.contentSignals,
+      categoryName: 'Content Signals'
+    };
+  }
+
+  /**
+   * Score Navigation & Discovery category (25%)
+   */
+  scoreNavigationDiscovery(extractedData) {
+    const factors = [];
+    let rawScore = 0;
+    const weights = SEO_FACTOR_WEIGHTS.navigationDiscovery;
+    const structure = extractedData.contentStructure || {};
+    const schemas = extractedData.structuredData?.schemas || {};
+    const headings = structure.headings || {};
+    const meta = extractedData.metaTags || {};
+    const seo = extractedData.seoSignals || {};
+
+    // Breadcrumb Navigation (30 pts) — DOM breadcrumbs OR breadcrumb schema
+    const hasDomBreadcrumbs = structure.breadcrumbs?.present === true || structure.breadcrumbs?.count > 0;
+    const hasBreadcrumbSchema = schemas.breadcrumb !== null && schemas.breadcrumb !== undefined;
+    const hasBreadcrumbs = hasDomBreadcrumbs || hasBreadcrumbSchema;
+    const breadcrumbNavScore = hasBreadcrumbs ? weights.breadcrumbNavigation : 0;
+    const breadcrumbNavDetails = hasBreadcrumbs
+      ? (hasBreadcrumbSchema ? 'Breadcrumb schema present' : 'DOM breadcrumb navigation found')
+      : 'No breadcrumb navigation found';
+    factors.push({
+      name: 'Breadcrumb Navigation',
+      status: hasBreadcrumbs ? 'pass' : 'fail',
+      points: breadcrumbNavScore,
+      maxPoints: weights.breadcrumbNavigation,
+      details: breadcrumbNavDetails
+    });
+    rawScore += breadcrumbNavScore;
+
+    // H1–Product Name Alignment (25 pts)
+    const h1Texts = headings.h1?.texts || [];
+    const h1Text = h1Texts[0] || '';
+    const productName = schemas.product?.name || '';
+    const ogTitle = meta.openGraph?.title || '';
+    const titleText = seo.titleTag?.text || '';
+
+    let h1Aligned = false;
+    let h1AlignedDetails = 'H1 not found or not aligned';
+    if (h1Text) {
+      const h1Lower = h1Text.toLowerCase();
+      const productLower = productName.toLowerCase();
+      const ogLower = ogTitle.toLowerCase();
+      const titleLower = titleText.toLowerCase();
+      if (productLower && (h1Lower.includes(productLower) || productLower.includes(h1Lower))) {
+        h1Aligned = true;
+        h1AlignedDetails = 'H1 aligned with Product schema name';
+      } else if (ogLower && (h1Lower.includes(ogLower) || ogLower.includes(h1Lower))) {
+        h1Aligned = true;
+        h1AlignedDetails = 'H1 aligned with og:title';
+      } else if (titleLower && (titleLower.includes(h1Lower) || h1Lower.includes(titleLower.split('|')[0]?.trim()))) {
+        h1Aligned = true;
+        h1AlignedDetails = 'H1 aligned with page title';
+      } else {
+        h1AlignedDetails = 'H1 does not match product name, og:title, or page title';
+      }
+    }
+    const h1AlignedScore = h1Aligned ? weights.h1ProductNameAlignment : 0;
+    factors.push({
+      name: 'H1–Product Name Alignment',
+      status: h1Aligned ? 'pass' : h1Text ? 'fail' : 'fail',
+      points: h1AlignedScore,
+      maxPoints: weights.h1ProductNameAlignment,
+      details: h1AlignedDetails
+    });
+    rawScore += h1AlignedScore;
+
+    // Internal Link Presence (25 pts)
+    const internalCount = seo.internalLinks?.count || 0;
+    let internalScore = 0;
+    let internalStatus = 'fail';
+    let internalDetails = 'No internal links found';
+    if (internalCount >= 10) {
+      internalScore = weights.internalLinkPresence;
+      internalStatus = 'pass';
+      internalDetails = `${internalCount} internal links found`;
+    } else if (internalCount >= 3) {
+      internalScore = Math.round(weights.internalLinkPresence * 0.5);
+      internalStatus = 'warning';
+      internalDetails = `${internalCount} internal links (aim for 10+)`;
+    } else if (internalCount > 0) {
+      internalDetails = `${internalCount} internal link${internalCount !== 1 ? 's' : ''} (too few)`;
+    }
+    factors.push({
+      name: 'Internal Link Presence',
+      status: internalStatus,
+      points: internalScore,
+      maxPoints: weights.internalLinkPresence,
+      details: internalDetails
+    });
+    rawScore += internalScore;
+
+    // Hreflang Configuration (20 pts) — informational for bilingual sites
+    const hreflang = meta.hreflang || {};
+    const hasHreflang = hreflang.present === true && (hreflang.count || 0) > 0;
+    // Hreflang is optional for monolingual sites — award full points if present, half if absent
+    // (monolingual sites shouldn't be penalised)
+    const hreflangScore = hasHreflang ? weights.hreflangConfiguration : Math.round(weights.hreflangConfiguration * 0.5);
+    const hreflangStatus = hasHreflang ? 'pass' : 'warning';
+    const hreflangDetails = hasHreflang
+      ? `${hreflang.count} hreflang tag${hreflang.count !== 1 ? 's' : ''} (${(hreflang.languages || []).map(l => l.lang).join(', ')})`
+      : 'No hreflang tags (optional for monolingual sites)';
+    factors.push({
+      name: 'Hreflang Configuration',
+      status: hreflangStatus,
+      points: hreflangScore,
+      maxPoints: weights.hreflangConfiguration,
+      details: hreflangDetails
+    });
+    rawScore += hreflangScore;
+
+    return {
+      score: rawScore,
+      maxScore: 100,
+      factors,
+      weight: SEO_CATEGORY_WEIGHTS.navigationDiscovery,
+      categoryName: 'Navigation & Discovery'
     };
   }
 }

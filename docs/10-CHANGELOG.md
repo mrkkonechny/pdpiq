@@ -1,8 +1,30 @@
 # Changelog
 
-> **PDS Document 10** | Last Updated: 2026-03-02
+> **PDS Document 10** | Last Updated: 2026-03-03
 
 All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/). Most recent version at the top.
+
+## [Unreleased]
+
+### Added
+- **SEO Quality** scoring dimension: 4 categories (Title & Meta, Technical Foundations, Content Signals, Navigation & Discovery), 19 factors, context-neutral scoring (DEC-0024)
+  - Title & Meta (25%): title tag presence, title length optimal (50–60 chars), meta description presence, meta description length (140–160 chars), product name in title
+  - Technical Foundations (25%): page indexable, canonical URL valid, product schema present, breadcrumb schema present, low JS dependency
+  - Content Signals (25%): sufficient content length (300+ words), heading structure, image alt coverage, content readability, URL slug quality
+  - Navigation & Discovery (25%): breadcrumb navigation (DOM or schema), H1–product name alignment, internal link presence (10+), hreflang configuration
+- `SeoQualityRecommendationEngine` with 19 recommendation templates across all 4 SEO categories
+- SEO tab (4th) in bottom navigation with magnifying glass icon
+- SEO grade badge (3rd) in history list entries alongside AI Readiness and PDP Quality badges
+- SEO Quality section in HTML report export
+- `seoScoring` and `seoRecommendations` keys in JSON export
+- `seoScore`, `seoGrade`, `seoCategoryScores` fields in history storage entries (backward-compatible)
+- `extractSeoSignals()` in content script: title tag, URL structure, internal link count
+
+### Fixed
+- Features List extraction scoring 0/10 on custom-themed WooCommerce/Tailwind sites — added WooCommerce Tier 1 selectors, new Tier 2.5 heuristic-based product content area scan (structural list detection in `getMainContentArea()`), and expanded Tier 3 benefit verb pattern with 18 additional starting words (BUG-0020)
+- `hasUrgency` false negative for soft scarcity phrases — split into strong (15 pts, pass) and soft (8 pts, warning) urgency tiers; "limited availability", "available while", "at this price", "limited edition", "back in stock" now score partial points (BUG-0019)
+
+---
 
 ## [2.0.1] — 2026-03-02
 

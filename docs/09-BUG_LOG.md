@@ -1,6 +1,6 @@
 # Bug Log
 
-> **PDS Document 09** | Last Updated: 2026-03-02
+> **PDS Document 09** | Last Updated: 2026-03-03 (BUG-0020)
 
 Track all bugs encountered during development. Most recent entries at the top within each section.
 
@@ -26,6 +26,28 @@ Track all bugs encountered during development. Most recent entries at the top wi
 _No active bugs._
 
 ## Resolved Bugs
+
+### BUG-0020 — Features List extraction scores 0/10 on custom-themed WooCommerce/Tailwind sites
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-03
+- **Date Resolved:** 2026-03-03
+- **Found In:** `src/content/content-script.js` → `extractFeatures()`, `extractFeatureLikeItems()`
+- **Root Cause:** Three-tier extraction failure: (1) Tier 1 CSS selectors had no WooCommerce-specific classes and couldn't match Tailwind utility classes; (2) Tier 2 heading-keyword scan failed because headings like "Monotube Dampers Built for Precision" don't contain generic keywords like "feature" or "benefit"; (3) Tier 3 `extractFeatureLikeItems()` filtered out items because they didn't start with a narrow list of benefit verbs. This affected any site using utility-first CSS (Tailwind), page builders (Oxygen, Bricks, Elementor), or custom WooCommerce themes.
+- **Fix:** (1) Added WooCommerce selectors to Tier 1 (`.woocommerce-product-details__short-description`, `.woocommerce-Tabs-panel--description`, `#tab-description`). (2) Added new Tier 2.5: scans `getMainContentArea()` for `<ul>/<ol>` elements with structural feature-list heuristics (3+ qualifying items 15–500 chars, avg ≥25 chars, ≤50% link-wrapped, not inside nav/header/footer/sidebar/cart). (3) Expanded `extractFeatureLikeItems()` benefit pattern with 18 additional starting words.
+- **Related:** DEC-0023
+- **Notes:** Reproduced on https://unpluggedperformance.com/product/model-3-coilover-kit/ — 9 clear feature bullet points scored 0/10. The Tier 2.5 heuristic-based scan is the key fix for the growing population of custom-themed sites.
+
+### BUG-0019 — `hasUrgency` false negative for soft scarcity phrases (e.g. "limited availability")
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-02
+- **Date Resolved:** 2026-03-02
+- **Found In:** `src/content/content-script.js` → `extractPurchaseExperience()`, `src/scoring/scoring-engine.js` → `scorePurchaseExperience()`
+- **Root Cause:** Urgency regex only covered explicit stock/time phrases (`limited time`, `low stock`, etc.). Softer availability signals like "limited availability at this price" did not match, returning 0/15 pts.
+- **Fix:** Split into `strongUrgencyPatterns` (full 15 pts, pass) and `softUrgencyPatterns` (8 pts, warning). Extractor now returns both `hasUrgency` and `urgencyIsStrong`. Scoring engine applies tiered points based on signal strength.
+- **Related:** —
+- **Notes:** Reproduced on finditparts.com — "Limited availability at this price!" was present on page but scored 0/15.
 
 ### BUG-0002 — PDP recommendation engine generates false "missing" recommendations for passing factors
 - **Status:** Fixed

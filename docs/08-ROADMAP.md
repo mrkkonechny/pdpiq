@@ -1,6 +1,6 @@
 # Roadmap
 
-> **PDS Document 08** | Last Updated: 2026-03-01
+> **PDS Document 08** | Last Updated: 2026-03-04
 
 Strategic feature plan and working backlog. Combines the "what's planned" view with the "what's in the queue" view. Most recent entries at the top within each section.
 
@@ -457,6 +457,27 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** —
 
 ## Completed
+
+### ROAD-0033 — SEO Quality scoring dimension
+- **Status:** Done
+- **Type:** Feature
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** v2.1.0 — Triple Scoring
+- **Date Added:** 2026-03-04
+- **Date Completed:** 2026-03-04
+- **Requested By:** Product
+- **Scope:** Large (multi-day)
+- **Description:** Add SEO Quality as a third context-neutral scoring dimension with 4 categories (Title & Meta, Technical Foundations, Content Signals, Navigation & Discovery), 19 factors, and a 4th bottom nav tab. Reuses data from existing extraction pass; adds `extractSeoSignals()` for 3 new lightweight signals (title tag, URL structure, internal link count). Includes `SeoQualityRecommendationEngine`, SEO section in HTML report, 3rd grade badge in history, and backward-compatible storage.
+- **Acceptance Criteria:**
+  - [x] 4 tabs in bottom nav: AI Visibility, PDP Quality, SEO, History
+  - [x] SEO tab renders grade, score, 4 category cards, and recommendations
+  - [x] Factor expand button shows recommendation tip
+  - [x] History entries show 3rd SEO grade badge
+  - [x] HTML report includes SEO Quality section
+  - [x] JSON export includes `seoScoreResult` and `seoRecommendations`
+  - [x] Old history entries without `seoScore` show "N/A" gracefully
+- **Dependencies:** ROAD-0027, ROAD-0032
+- **Related:** DEC-0024
 
 ### ROAD-0032 — PDP Quality tab export buttons + expandable element detection
 - **Status:** Done

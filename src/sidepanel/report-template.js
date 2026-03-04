@@ -297,6 +297,145 @@ function buildPdpSection(pdpResult, pdpRecs, contextLabel) {
 }
 
 /**
+ * Build the SEO Quality section of the report (returns empty string if no data).
+ * @param {Object} [seoResult] - SEO score result
+ * @param {Array} [seoRecs] - SEO recommendations
+ * @returns {string} HTML string
+ */
+function buildSeoSection(seoResult, seoRecs) {
+  if (!seoResult) return '';
+
+  const { totalScore, grade, gradeDescription, categoryScores } = seoResult;
+  const gradeColors = { A: '#22c55e', B: '#84cc16', C: '#eab308', D: '#f97316', F: '#ef4444' };
+  const gradeColor = gradeColors[grade] || '#ef4444';
+
+  const seoCategoryOrder = [
+    'titleMeta',
+    'technicalFoundations',
+    'contentSignals',
+    'navigationDiscovery'
+  ];
+
+  const seoBars = seoCategoryOrder
+    .filter(k => categoryScores[k])
+    .map(k => categoryBar(categoryScores[k].categoryName, categoryScores[k].score, categoryScores[k].weight))
+    .join('');
+
+  const seoDetails = seoCategoryOrder
+    .filter(k => categoryScores[k])
+    .map(k => {
+      const cat = categoryScores[k];
+      const score = Math.round(cat.score);
+      const color = score >= 80 ? '#22c55e' : score >= 60 ? '#eab308' : '#ef4444';
+      return `
+        <div style="margin-bottom:28px;page-break-inside:avoid">
+          <h3 style="font-size:14px;font-weight:700;color:#111827;margin:0 0 4px;padding-bottom:6px;border-bottom:2px solid #e5e7eb">
+            ${esc(cat.categoryName)}
+            <span style="float:right;color:${color}">${score}/100</span>
+          </h3>
+          <div style="font-size:11px;color:#9ca3af;margin-bottom:10px">${factorCountSummary(cat.factors || [])}</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:#f9fafb">
+                <th style="padding:6px 8px;text-align:left;color:#6b7280;font-weight:600">Factor</th>
+                <th style="padding:6px 8px;text-align:center;color:#6b7280;font-weight:600">Status</th>
+                <th style="padding:6px 8px;text-align:right;color:#6b7280;font-weight:600">Score</th>
+                <th style="padding:6px 8px;text-align:left;color:#6b7280;font-weight:600">Details</th>
+              </tr>
+            </thead>
+            <tbody>${factorRows(cat.factors || [])}</tbody>
+          </table>
+        </div>`;
+    }).join('');
+
+  // SEO recommendations grouped by priority
+  const allSeoRecs = (seoRecs || []).slice(0, 20);
+  const seoQuickWins = allSeoRecs.filter(r => (r.impact === 'high' || r.impact === 'medium') && r.effort === 'low');
+  const seoMedPriority = allSeoRecs.filter(r => !((r.impact === 'high' || r.impact === 'medium') && r.effort === 'low') && r.priority <= 3);
+  const seoNiceToHave = allSeoRecs.filter(r => !((r.impact === 'high' || r.impact === 'medium') && r.effort === 'low') && r.priority > 3);
+
+  function seoRecCard(rec, i) {
+    return `
+    <div style="margin-bottom:14px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:8px;page-break-inside:avoid">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">
+        <span style="font-size:13px;font-weight:700;color:#111827">${i + 1}. ${esc(rec.title)}</span>
+        <div style="display:flex;gap:4px;flex-shrink:0">${impactBadge(rec.impact)}${effortBadge(rec.effort)}</div>
+      </div>
+      <p style="font-size:12px;color:#4b5563;margin:0 0 8px">${esc(rec.description)}</p>
+      ${rec.implementation ? `<div style="font-size:11px;color:#6b7280;background:#f9fafb;padding:8px 10px;border-radius:6px;border-left:3px solid #d1d5db">${rec.implementation}</div>` : ''}
+    </div>`;
+  }
+
+  let seoCounter = 0;
+  const seoRecSections = [];
+  if (seoQuickWins.length > 0) {
+    seoRecSections.push(`<h3 style="font-size:13px;font-weight:700;color:#059669;margin:16px 0 8px">Quick Wins</h3>`);
+    seoRecSections.push(seoQuickWins.map(r => seoRecCard(r, ++seoCounter)).join(''));
+  }
+  if (seoMedPriority.length > 0) {
+    seoRecSections.push(`<h3 style="font-size:13px;font-weight:700;color:#d97706;margin:16px 0 8px">Medium Priority</h3>`);
+    seoRecSections.push(seoMedPriority.map(r => seoRecCard(r, ++seoCounter)).join(''));
+  }
+  if (seoNiceToHave.length > 0) {
+    seoRecSections.push(`<h3 style="font-size:13px;font-weight:700;color:#6b7280;margin:16px 0 8px">Nice to Have</h3>`);
+    seoRecSections.push(seoNiceToHave.map(r => seoRecCard(r, ++seoCounter)).join(''));
+  }
+
+  const seoTotalFactors = seoCategoryOrder.reduce((sum, k) => sum + (categoryScores[k]?.factors?.length || 0), 0);
+  const seoFailingFactors = seoCategoryOrder.reduce((sum, k) => sum + (categoryScores[k]?.factors?.filter(f => f.status === 'fail').length || 0), 0);
+  const seoWarningFactors = seoCategoryOrder.reduce((sum, k) => sum + (categoryScores[k]?.factors?.filter(f => f.status === 'warning').length || 0), 0);
+  const seoPassingFactors = seoTotalFactors - seoFailingFactors - seoWarningFactors;
+  const seoCriticalRecs = allSeoRecs.filter(r => r.impact === 'high');
+
+  return `
+  <!-- SEO Quality Section Separator -->
+  <div style="margin:40px 0;border-top:3px solid #e5e7eb;padding-top:40px">
+
+  <!-- SEO Quality Score Hero -->
+  <div style="font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:1px;color:#6b7280;margin-bottom:12px">SEO Quality Score</div>
+  <div class="score-hero" style="display:flex;align-items:center;gap:24px;margin-bottom:24px;padding:24px;background:#f9fafb;border-radius:12px;border:1px solid #e5e7eb">
+    <div style="position:relative;flex-shrink:0">
+      ${scoreGaugeSvg(totalScore, grade)}
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <div style="font-size:28px;font-weight:800;color:${gradeColor};line-height:1">${esc(grade)}</div>
+        <div style="font-size:13px;font-weight:700;color:#374151">${esc(totalScore)}/100</div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:20px;font-weight:700;color:#111827;margin-bottom:6px">SEO Quality: ${esc(totalScore)}/100 (Grade ${esc(grade)})</div>
+      <div style="font-size:13px;color:#6b7280;margin-bottom:8px">${esc(gradeDescription)}</div>
+      <div style="font-size:12px;color:#9ca3af">Context-neutral · ${allSeoRecs.length} recommendations</div>
+    </div>
+  </div>
+
+  <!-- SEO Executive Summary -->
+  <div style="margin-bottom:36px;padding:16px 18px;background:#f0fdf4;border-radius:10px;border:1px solid #86efac">
+    <h2 style="font-size:14px;font-weight:700;color:#14532d;margin:0 0 10px">SEO Quality Summary</h2>
+    <div style="font-size:12px;color:#166534;line-height:1.6">
+      <p style="margin:0 0 6px">This page scores <strong>${totalScore}/100</strong> across ${seoTotalFactors} SEO quality factors: <strong style="color:#22c55e">${seoPassingFactors} pass</strong>, <strong style="color:#d97706">${seoWarningFactors} warning</strong>, <strong style="color:#ef4444">${seoFailingFactors} fail</strong>.</p>
+      ${seoCriticalRecs.length > 0 ? `<p style="margin:0"><strong>${seoCriticalRecs.length} high-impact issue${seoCriticalRecs.length > 1 ? 's' : ''}</strong> to address first: ${seoCriticalRecs.slice(0, 3).map(r => esc(r.title)).join(', ')}${seoCriticalRecs.length > 3 ? ', ...' : ''}.</p>` : '<p style="margin:0">No high-impact SEO issues found.</p>'}
+    </div>
+  </div>
+
+  <!-- SEO Category Breakdown -->
+  <h2 style="font-size:16px;font-weight:700;color:#111827;margin:0 0 16px">SEO Category Breakdown</h2>
+  <div style="margin-bottom:36px">${seoBars}</div>
+
+  <!-- SEO Factor Detail -->
+  <h2 style="font-size:16px;font-weight:700;color:#111827;margin:0 0 16px">SEO Factor Detail</h2>
+  <div style="margin-bottom:36px">${seoDetails}</div>
+
+  <!-- SEO Recommendations -->
+  <h2 style="font-size:16px;font-weight:700;color:#111827;margin:0 0 16px">
+    SEO Recommendations
+    <span style="font-size:12px;font-weight:400;color:#6b7280;margin-left:8px">${allSeoRecs.length} total · showing top ${Math.min(20, allSeoRecs.length)}</span>
+  </h2>
+  <div style="margin-bottom:40px">${seoRecSections.join('') || '<p style="color:#6b7280;font-size:13px">No recommendations — excellent SEO foundation!</p>'}</div>
+
+  </div>`;
+}
+
+/**
  * Generate a complete self-contained HTML report document.
  * @param {Object} result - scoreResult from ScoringEngine.calculateScore()
  * @param {Object} pageInfo - page metadata (url, title, domain)
@@ -304,9 +443,11 @@ function buildPdpSection(pdpResult, pdpRecs, contextLabel) {
  * @param {string} context - analysis context (want/need/hybrid)
  * @param {Object} [pdpResult] - pdpScoreResult from ScoringEngine.calculatePdpQualityScore()
  * @param {Array} [pdpRecommendations] - sorted PDP recommendation array
+ * @param {Object} [seoResult] - seoScoreResult from ScoringEngine.calculateSeoQualityScore()
+ * @param {Array} [seoRecommendations] - sorted SEO recommendation array
  * @returns {string} Complete HTML document string
  */
-export function generateHtmlReport(result, pageInfo, recommendations, context, pdpResult, pdpRecommendations) {
+export function generateHtmlReport(result, pageInfo, recommendations, context, pdpResult, pdpRecommendations, seoResult, seoRecommendations) {
   const { totalScore, grade, gradeDescription, categoryScores } = result;
   const gradeColors = { A: '#22c55e', B: '#84cc16', C: '#eab308', D: '#f97316', F: '#ef4444' };
   const gradeColor = gradeColors[grade] || '#ef4444';
@@ -526,6 +667,8 @@ export function generateHtmlReport(result, pageInfo, recommendations, context, p
 
   ${buildPdpSection(pdpResult, pdpRecommendations, contextLabel)}
 
+  ${buildSeoSection(seoResult, seoRecommendations)}
+
   <!-- Footer -->
   <div style="padding-top:20px;border-top:1px solid #e5e7eb">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -538,7 +681,7 @@ export function generateHtmlReport(result, pageInfo, recommendations, context, p
     </div>
     <div style="font-size:10px;color:#c4c8cf;line-height:1.5">
       <p style="margin:0 0 4px">Scores are based on publicly visible page content at the time of analysis. AI citation behaviour varies by model and may change over time. This report is for informational purposes and does not guarantee specific outcomes.</p>
-      <p style="margin:0">pdpIQ analyses ${totalFactors} AI readiness factors across 6 categories${pdpResult ? ' and 30 PDP quality factors across 5 categories' : ''}. All analysis runs locally in your browser — no page data is sent to external servers.</p>
+      <p style="margin:0">pdpIQ analyses ${totalFactors} AI readiness factors across 6 categories${pdpResult ? ', 30 PDP quality factors across 5 categories' : ''}${seoResult ? ', and 19 SEO quality factors across 4 categories' : ''}. All analysis runs locally in your browser — no page data is sent to external servers.</p>
     </div>
   </div>
 

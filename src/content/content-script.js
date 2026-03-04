@@ -96,6 +96,7 @@ function performFullExtraction() {
       trustSignals: extractTrustSignals(),
       aiDiscoverability: extractAIDiscoverabilitySignals(),
       pdpQuality: extractPdpQualitySignals(),
+      seoSignals: extractSeoSignals(),
       pageInfo: {
         url: window.location.href,
         title: document.title,
@@ -1005,6 +1006,9 @@ function extractFeatures() {
     // Canadian Tire, other major retailers
     '.product-highlights', '.product-info__highlights', '.pdp-highlights',
     '[class*="aboutProduct"]', '[class*="about-product"]',
+    // WooCommerce selectors
+    '.woocommerce-product-details__short-description',
+    '.woocommerce-Tabs-panel--description', '#tab-description',
     // Attribute-based fallbacks
     '[class*="feature"]', '[class*="benefit"]', '[class*="highlight"]'
   ];
@@ -1043,6 +1047,48 @@ function extractFeatures() {
         }
       }
     });
+  }
+
+  // Fallback: Scan product content area for structurally feature-like lists
+  if (features.length === 0) {
+    const contentArea = getMainContentArea();
+    const lists = contentArea.querySelectorAll('ul, ol');
+    let bestList = null;
+    let bestCount = 0;
+
+    lists.forEach(list => {
+      // Skip lists inside nav, header, footer, sidebar, cart drawers
+      if (list.closest('nav, header, footer, [role="navigation"], aside, .sidebar, .cart-drawer, .mini-cart')) return;
+
+      const directLis = Array.from(list.children).filter(c => c.tagName === 'LI');
+      // Qualifying items: 15-500 char text length
+      const qualifying = directLis.filter(li => {
+        const len = li.textContent.trim().replace(/\s+/g, ' ').length;
+        return len >= 15 && len <= 500;
+      });
+
+      if (qualifying.length < 3) return;
+
+      // Average text length must be >= 25 chars (filters terse nav items)
+      const avgLen = qualifying.reduce((sum, li) => sum + li.textContent.trim().replace(/\s+/g, ' ').length, 0) / qualifying.length;
+      if (avgLen < 25) return;
+
+      // <=50% of qualifying items should be link-wrapped (filters nav menus)
+      const linkWrapped = qualifying.filter(li => {
+        const anchor = li.querySelector('a');
+        return anchor && anchor.textContent.trim().length >= li.textContent.trim().length * 0.8;
+      }).length;
+      if (linkWrapped > qualifying.length * 0.5) return;
+
+      if (qualifying.length > bestCount) {
+        bestCount = qualifying.length;
+        bestList = list;
+      }
+    });
+
+    if (bestList) {
+      extractFeaturesFromContainer(bestList, features);
+    }
   }
 
   // Fallback: Look for feature-like lists in description area (items with dash/em-dash pattern, not colon pattern)
@@ -1116,7 +1162,7 @@ function extractFeatureLikeItems(container, features) {
     }
 
     // Feature pattern: starts with action verb or benefit language
-    const benefitPattern = /^(enjoy|experience|get|includes?|provides?|offers?|delivers?|ensures?|features?|designed|built|made|perfect|ideal|great|easy|quick|fast|reliable|durable|powerful|efficient)/i;
+    const benefitPattern = /^(enjoy|experience|get|includes?|provides?|offers?|delivers?|ensures?|features?|designed|built|made|perfect|ideal|great|easy|quick|fast|reliable|durable|powerful|efficient|compatible|adjustable|available|supports?|works|fits|comes|equipped|tested|certified|rated|approved|optimized|engineered|lightweight|heavy-duty|premium|professional)/i;
     if (benefitPattern.test(text)) {
       if (!features.some(f => f.text === text)) {
         features.push({ text });
@@ -2647,13 +2693,15 @@ function extractPurchaseExperience() {
     }
   }
 
-  // Urgency/Scarcity Signals
-  let hasUrgency = false;
-  const urgencyPatterns = /\b(only \d+ left|low stock|limited (?:time|edition|quantity|supply|stock)|selling fast|almost gone|hurry|while (?:supplies|stocks?) last|ends? (?:soon|today|tonight)|countdown|flash sale|last chance|few remaining|back in stock)\b/i;
-  hasUrgency = urgencyPatterns.test(lower);
+  // Urgency/Scarcity Signals — tiered: strong = full points, soft = partial points
+  const strongUrgencyPatterns = /\b(only \d+ left|low stock|limited (?:time|quantity|supply|stock)|selling fast|almost gone|hurry|while (?:supplies|stocks?) last|ends? (?:soon|today|tonight)|countdown|flash sale|last chance|few remaining)\b/i;
+  const softUrgencyPatterns = /\b(limited availability|limited edition|available while|at this price|in limited supply|limited run|back in stock)\b/i;
+  let urgencyIsStrong = strongUrgencyPatterns.test(lower);
+  let hasUrgency = urgencyIsStrong || softUrgencyPatterns.test(lower);
   if (!hasUrgency) {
-    // Check for countdown timers
-    hasUrgency = document.querySelector('[class*="countdown"], [class*="timer"], [data-countdown]') !== null;
+    // Check for countdown timers — strong signal
+    urgencyIsStrong = document.querySelector('[class*="countdown"], [class*="timer"], [data-countdown]') !== null;
+    hasUrgency = urgencyIsStrong;
   }
 
   return {
@@ -2665,7 +2713,8 @@ function extractPurchaseExperience() {
     hasDiscount,
     discountText,
     hasPaymentIndicators,
-    hasUrgency
+    hasUrgency,
+    urgencyIsStrong
   };
 }
 
@@ -3216,6 +3265,53 @@ function extractReviewsSocialProof() {
     reviewCount,
     meetsThreshold: reviewCount >= 50
   };
+}
+
+// ==========================================
+// SEO SIGNALS EXTRACTION
+// ==========================================
+
+/**
+ * Extract SEO-specific signals not covered by existing extractors
+ * Returns: titleTag, urlStructure, internalLinks
+ */
+function extractSeoSignals() {
+  // Title tag
+  const titleText = document.title || '';
+  const titleTag = {
+    text: titleText,
+    length: titleText.length,
+    present: titleText.length > 0
+  };
+
+  // URL structure
+  const { pathname, search, hostname } = window.location;
+  const segments = pathname.split('/').filter(s => s.length > 0);
+  const slug = segments[segments.length - 1] || '';
+  // "Clean" = no query string, no numeric-only final segment, reasonable length
+  const isClean = search === '' && !/^\d+$/.test(slug) && pathname.length <= 100;
+  // hasKeywords: slug contains real word characters (not just IDs)
+  const hasKeywords = /[a-z]{3,}/i.test(slug.replace(/[^a-z0-9-]/gi, ''));
+  const urlStructure = {
+    path: pathname,
+    depth: segments.length,
+    length: pathname.length,
+    isClean,
+    hasKeywords
+  };
+
+  // Internal links: count <a href> pointing to the same origin
+  const origin = window.location.origin;
+  let internalLinkCount = 0;
+  document.querySelectorAll('a[href]').forEach(a => {
+    try {
+      const resolved = new URL(a.getAttribute('href'), origin);
+      if (resolved.origin === origin) internalLinkCount++;
+    } catch { /* ignore invalid hrefs */ }
+  });
+  const internalLinks = { count: internalLinkCount };
+
+  return { titleTag, urlStructure, internalLinks };
 }
 
 // Log that content script is loaded
