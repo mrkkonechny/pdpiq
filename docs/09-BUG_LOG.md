@@ -25,6 +25,18 @@ Track all bugs encountered during development. Most recent entries at the top wi
 
 _No active bugs._
 
+## Resolved Bugs (2026-03-05, batch 7 — shipping extraction)
+
+### BUG-0049 — `hasShippingInfo` false negative when page only shows pickup fulfillment
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-05
+- **Date Resolved:** 2026-03-05
+- **Found In:** `src/content/content-script.js` → `extractTrustConfidence()`
+- **Root Cause:** Shipping extraction covered shipping/delivery keywords across all four tiers (CSS selectors, `<details>` accordions, accordion buttons, text regex) but had no coverage for pickup-related fulfillment language. Local retailers, spas, and services offering in-store or curbside pickup with no shipping option always scored `hasShippingInfo: false`, causing a false "Add Shipping Information" recommendation.
+- **Fix:** Added `pick.?up` to the accordion/details keyword regex; expanded the text regex to match `available/ready/free for (in-store) pick-up`, `curbside pick-up`, `local pick-up`, and `store pick-up` patterns.
+- **Notes:** Reported against total-wrapture-medi-spa.myshopify.com which shows "available for pickup" as its only fulfillment option.
+
 ## Resolved Bugs (2026-03-05, batch 6 — iterator destructuring, review extraction, breadcrumb nesting, H1 handling)
 
 ### BUG-0048 — `seo-internal-links` recommendation never fires on warning state (3–9 links)

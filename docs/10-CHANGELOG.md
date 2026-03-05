@@ -6,6 +6,9 @@ All notable changes to this project. Format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+### Fixed
+- `hasShippingInfo` false negative on pages offering only in-store or curbside pickup — shipping extraction had no coverage for pickup language; added `pick.?up` to accordion keyword detection and expanded text regex to match `available/ready/free for (in-store) pick-up`, `curbside pick-up`, `local pick-up`, and `store pick-up` (BUG-0049)
+
 ---
 
 ## [2.2.0] — 2026-03-05

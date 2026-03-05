@@ -2956,7 +2956,7 @@ function extractTrustConfidence() {
   }
   // Check expandable/accordion elements for shipping info
   if (!hasShippingInfo) {
-    const shippingKeywords = /shipping|delivery|dispatch/i;
+    const shippingKeywords = /shipping|delivery|dispatch|pick.?up/i;
     const detailsEls = document.querySelectorAll('details');
     for (const det of detailsEls) {
       const summary = det.querySelector('summary');
@@ -2985,7 +2985,7 @@ function extractTrustConfidence() {
     }
   }
   if (!hasShippingInfo) {
-    const shipMatch = lower.match(/(free shipping|ships? (?:in|within|next)|delivery (?:in|within|by)|estimated delivery|standard shipping|express shipping|\$\d+(?:\.\d{2})?\s*shipping|\d[\s-]?\d?\s*(?:business )?day(?:s)?\s*(?:shipping|delivery))/i);
+    const shipMatch = lower.match(/(free shipping|ships? (?:in|within|next)|delivery (?:in|within|by)|estimated delivery|standard shipping|express shipping|\$\d+(?:\.\d{2})?\s*shipping|\d[\s-]?\d?\s*(?:business )?day(?:s)?\s*(?:shipping|delivery)|(?:available|ready|free)?\s*(?:for\s+)?(?:in.?store\s+)?pick.?up|curbside\s+pick.?up|local\s+pick.?up|store\s+pick.?up)/i);
     if (shipMatch) {
       hasShippingInfo = true;
       shippingText = shipMatch[1].trim().substring(0, 60);
