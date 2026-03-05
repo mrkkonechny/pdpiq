@@ -1,6 +1,6 @@
 # Bug Log
 
-> **PDS Document 09** | Last Updated: 2026-03-03 (BUG-0020)
+> **PDS Document 09** | Last Updated: 2026-03-05 (BUG-0048)
 
 Track all bugs encountered during development. Most recent entries at the top within each section.
 
@@ -25,7 +25,281 @@ Track all bugs encountered during development. Most recent entries at the top wi
 
 _No active bugs._
 
-## Resolved Bugs
+## Resolved Bugs (2026-03-05, batch 6 — iterator destructuring, review extraction, breadcrumb nesting, H1 handling)
+
+### BUG-0048 — `seo-internal-links` recommendation never fires on warning state (3–9 links)
+- **Status:** Fixed
+- **Severity:** Low
+- **Date Found:** 2026-03-05
+- **Date Resolved:** 2026-03-05
+- **Found In:** `src/recommendations/recommendation-engine.js` → `checkNavigationDiscoveryIssues()`
+- **Root Cause:** Rec engine fired `seo-internal-links` only when `internalLinks.count < 3`, but the scorer issues a warning for 3–9 links and only passes at 10+. Pages with 3–9 links got a warning score penalty but never received a recommendation.
+- **Fix:** Changed threshold from `< 3` to `< 10` to match the scorer's pass threshold.
+
+### BUG-0047 — Review Count factor `points` exceeds `maxPoints` in UI when context multiplier applies
+- **Status:** Fixed
+- **Severity:** Low
+- **Date Found:** 2026-03-05
+- **Date Resolved:** 2026-03-05
+- **Found In:** `src/scoring/scoring-engine.js` → `scoreAuthorityTrust()`
+- **Root Cause:** `maxPoints` was hard-coded to `weights.reviewCount` (base weight), but `points` could be boosted up to 1.5× by context multipliers — showing impossible scores like 24/22 in Want context.
+- **Fix:** Pre-computed `reviewCountEffectiveMax = Math.min(weights.reviewCount * 1.5, Math.round(weights.reviewCount * this.multipliers.reviewCount))` and used it for both `points` cap and `maxPoints` display.
+
+### BUG-0046 — `analyzeHeadings()` counts empty `<h1>` DOM nodes — false "Multiple H1s" penalty
+- **Status:** Fixed
+- **Severity:** Low
+- **Date Found:** 2026-03-05
+- **Date Resolved:** 2026-03-05
+- **Found In:** `src/content/content-script.js` → `analyzeHeadings()`
+- **Root Cause:** `querySelectorAll('h1').length` counted all H1 elements including empty render placeholders emitted by BigCommerce and other platforms. A page with one empty H1 and one real H1 got flagged for "Multiple H1s".
+- **Fix:** For H1 only, count is computed from `texts.filter(t => t.length > 0).length` to exclude empty placeholders.
+
+### BUG-0045 — `scoreEntityConsistency()` uses `h1Texts[0]` — same empty-first-H1 bug as BUG-0040
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-05
+- **Date Resolved:** 2026-03-05
+- **Found In:** `src/scoring/scoring-engine.js` → `scoreEntityConsistency()`, line 1146
+- **Root Cause:** BUG-0040's fix (use `find()` for first non-empty H1) was applied to `scoreNavigationDiscovery()` and the title scorer but missed `scoreEntityConsistency()`. Pages with an empty first H1 (BigCommerce) had H1 excluded from entity consistency check, causing false warning state.
+- **Fix:** Changed `h1Text = texts[0]` to `h1Text = texts.find(t => t.trim().length > 0) || ''`.
+
+### BUG-0044 — `extractReviewSignals()` drops review dates and body text from typeless JSON-LD blocks
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-05
+- **Date Resolved:** 2026-03-05
+- **Found In:** `src/content/content-script.js` → `extractReviewSignals()`
+- **Root Cause:** The second pass in `extractReviewSignals()` required `itemType === 'product' || 'productgroup'` to process a `review[]` array. BigCommerce emits review data in a typeless block (no `@type`), so `itemType = ""` and the branch was never taken. BUG-0038's fix added typeless-block handling for `aggregateRating` but not for `review[]` arrays.
+- **Fix:** Added a third pass after the main `getParsedJsonLd()` loop to scan typeless blocks for `review[]` arrays and extract dates/body text into `mostRecentDate` and `reviewLengths`. Only activates when no review data was collected in earlier passes.
+- **Notes:** On Speed Addicts BigCommerce page, Review Recency was 0/12 (fail) and Review Depth was 0/10 (fail) despite 165 reviews with dates and bodies present in the JSON-LD.
+
+### BUG-0043 — `BreadcrumbList` nested inside `ItemPage` JSON-LD `@graph` never extracted
+- **Status:** Fixed
+- **Severity:** Critical
+- **Date Found:** 2026-03-05
+- **Date Resolved:** 2026-03-05
+- **Found In:** `src/content/content-script.js` → `categorizeSchemas()`
+- **Root Cause:** BigCommerce emits breadcrumb data as `{ "@type": "ItemPage", "breadcrumb": { "@type": "BreadcrumbList", ... } }` in the `@graph`. `categorizeSchemas()` only extracted top-level `BreadcrumbList` items; `ItemPage` was not handled and its nested `breadcrumb` property was ignored.
+- **Fix:** Added a second pass (before the existing aggregateRating pass) that checks for `ItemPage` items with a nested `breadcrumb.@type === 'BreadcrumbList'` and extracts it as `schemas.breadcrumb`.
+- **Notes:** Caused both AI Readiness Breadcrumb Schema factor and SEO Technical Foundations Breadcrumb Schema factor to false-fail. SEO score lost 15 points; two false recommendations fired.
+
+### BUG-0042 — PDP `reviewCount: 37729` false positive from DOM aria-label bare-number fallback
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-05
+- **Date Resolved:** 2026-03-05
+- **Found In:** `src/content/content-script.js` → `extractReviewsSocialProof()` review count block
+- **Root Cause:** DOM extraction tried schema as a fallback only when DOM returned 0. The bare-number regex `raw.match(/(\d[\d,]*)/)` (third-tier fallback) matched a large unrelated number from an aria-label element (e.g. a part number or inventory count), yielding 37729 instead of the correct 165 from schema.
+- **Fix:** Reversed priority: schema extraction runs first (including typeless-block fallback for BigCommerce), DOM extraction only runs when schema provides no count. Removed bare-number regex fallback from DOM tier — only adjacent patterns (`\d+ review`, `review: \d+`) are used.
+
+### BUG-0041 — `extractBrandSignals()` and `extractAwardsFromSchema()` use wrong loop variable
+- **Status:** Fixed
+- **Severity:** Critical
+- **Date Found:** 2026-03-05
+- **Date Resolved:** 2026-03-05
+- **Found In:** `src/content/content-script.js` → `extractBrandSignals()` (line 1983), `extractAwardsFromSchema()` (line 2316)
+- **Root Cause:** `iterateSchemaItems()` yields `{ type, item }` wrapper objects. Both functions used `for (const item of iterateSchemaItems())` without destructuring, so `item` held the wrapper object. `item['@type']` was `undefined` on the wrapper (the actual type is in `wrapper.type`), so `type === 'product'` was never true. All schema brand and award data was silently dropped; the DOM fallback masked the issue in most cases.
+- **Fix:** Changed both loops to `for (const { type, item } of iterateSchemaItems())` and removed the now-redundant `const type = (Array.isArray(item['@type']) ...)` line.
+- **Notes:** Brand Clarity was always "missing" when brand came from JSON-LD schema (not DOM microdata), losing 12 points in Authority & Trust. Schema awards were dead code — only DOM awards worked.
+
+## Resolved Bugs (2026-03-05, batch 5 — schema extraction and recommendation engine)
+
+### BUG-0040 — H1–Product Name Alignment always fails when first H1 is empty
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-05
+- **Date Resolved:** 2026-03-05
+- **Found In:** `src/scoring/scoring-engine.js` → `scoreNavigationDiscovery()`
+- **Root Cause:** `h1Text = h1Texts[0] || ''` takes the first captured H1 text verbatim. BigCommerce (Speed Addicts) emits an empty `<h1>` as the first heading in the DOM (likely a render placeholder), followed by the real product name H1. `h1Text` was `""`, causing `if (h1Text)` to short-circuit to fail without ever comparing the actual product name H1.
+- **Fix:** Changed to `h1Texts.find(t => t.trim().length > 0) || ''` so the first non-empty H1 is used.
+- **Related:** —
+- **Notes:** The scorer's title comparison already uses `.includes()` substring matching, so `| Brand` and `- Brand` suffixes in the title tag do not cause false failures — the product name being contained in the title is sufficient to pass.
+
+### BUG-0039 — SEO "Add breadcrumb navigation" recommendation fires even when DOM breadcrumbs are present
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-05
+- **Date Resolved:** 2026-03-05
+- **Found In:** `src/recommendations/recommendation-engine.js` → `checkNavigationDiscoveryIssues()`
+- **Root Cause:** `hasDomBreadcrumbs` read `structure.breadcrumbs?.present` (i.e. `contentStructure.breadcrumbs`) — a path that doesn't exist. DOM breadcrumb data is stored at `seoSignals.domBreadcrumbs.present` (`this.seoData.domBreadcrumbs?.present` in context). `hasDomBreadcrumbs` was always `false`, so the recommendation fired on every page regardless of whether breadcrumbs were present. The SEO scorer reads the correct path and scores the factor accurately — only the recommendation engine was wrong.
+- **Fix:** Changed `hasDomBreadcrumbs` to read `this.seoData.domBreadcrumbs?.present === true`, matching the path used by `scoreNavigationDiscovery()`.
+- **Related:** BUG-0028 (same breadcrumb extraction work that added `domBreadcrumbs`)
+- **Notes:** Confirmed via Speed Addicts PDP — scorer showed "Breadcrumb Navigation: pass (30/30)" while recommendation engine simultaneously emitted `seo-breadcrumb-nav`.
+
+## Resolved Bugs (2026-03-05, batch 5 — schema extraction)
+
+### BUG-0038 — `aggregateRating` dropped when emitted in a typeless JSON-LD block — false "make reviews prominent" recommendation
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-05
+- **Date Resolved:** 2026-03-05
+- **Found In:** `src/content/content-script.js` → `categorizeSchemas()`, `extractReviewsSocialProof()`
+- **Root Cause:** BigCommerce (Speed Addicts) emits `aggregateRating` in a second JSON-LD script block that has an `@id` referencing the product but no `@type` field. Both `categorizeSchemas()` and `iterateSchemaItems()` skip items with no `@type` on the first line of their item loops — so the rating block is silently ignored. Result: `schemas.aggregateRating: null`, `hasProminentReviews: false`, and a false "Make reviews more prominent" recommendation despite 165 reviews and stars visibly displayed in the hero area.
+- **Fix:** Added a second pass in `categorizeSchemas()` that scans for untyped items containing `aggregateRating` after the main typed loop completes. Also added a matching fallback in `extractReviewsSocialProof()`'s schema check that scans untyped JSON-LD blocks directly via `getParsedJsonLd()`. Both fixes are guarded to only activate when `aggregateRating` has not already been found.
+- **Related:** —
+- **Notes:** Confirmed via Speed Addicts KYT TT-Revo PDP export. Pattern likely affects other BigCommerce stores. `reviewCount: 37729` in PDP extraction was a separate false positive from page body text (unrelated to this bug).
+
+## Resolved Bugs (2026-03-04, batch 4 — JS dependency detection)
+
+### BUG-0037 — `assessJSDependency()` misses Next.js, Gatsby, Angular, Remix, and styled-components apps — SPA warning never shown
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/content/content-script.js` → `assessJSDependency()`
+- **Root Cause:** Framework detection only checked for React 16 (`#root`, `[data-reactroot]`) and Vue (`[data-v-app]`). Modern apps using Next.js App Router, Gatsby, Angular, Remix, or styled-components produce none of those markers. Critically, `mainInJs` only searched `closest('#root, #app, [data-reactroot]')`, missing `#__next` (Next.js root). Arc'teryx (Next.js + styled-components) scored `dependencyLevel: "low"`, `score: 100`, no SPA warning — despite dynamic on-click loading that our extractor can't capture.
+- **Fix:** Added detection for Next.js (`#__next`, `script[src*="/_next/"]`), Gatsby (`#___gatsby`), Angular (`[ng-version]`), Remix (script/link patterns), Vue/Nuxt (`#__nuxt`), and styled-components (`style[data-styled]`). Added `#__next` and `#___gatsby` to the `mainInJs` closest selector. `frameworkDetected` now returns a descriptive string for all supported frameworks.
+- **Related:** BUG-0035, BUG-0036
+- **Notes:** Arc'teryx Alpha Jacket PDP — Next.js App Router + styled-components. `<main>` lives inside `#__next`, so after fix `mainInJs = true`, `dependencyLevel = "high"`, SPA warning banner shown.
+
+## Resolved Bugs (2026-03-04, batch 3 — content extraction gaps)
+
+### BUG-0036 — Feature extraction misses H2+paragraph layout (Arc'teryx-style callouts)
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/content/content-script.js` → `extractFeatures()`
+- **Root Cause:** All existing feature extraction paths look for `<ul>/<ol>` lists or headings containing "feature"/"benefit"/"highlight" keywords. Sites like Arc'teryx represent features as H2 heading + sibling `<p>` sections (e.g. "GORE-TEX PRO ePE", "Adjustable StormHood™") — no list elements, no keyword-matching heading text. Result: 0 features found despite rich feature content on the page.
+- **Fix:** Added a fifth fallback to `extractFeatures()` that scans H2 elements within the product content area, finds H2s paired with a substantive sibling/child `<p>` (>30 chars), and assembles them as feature entries. Uses `textContent` (not `innerText`) so CSS-hidden feature content is also captured. Skip patterns filter out review/cart/account headings.
+- **Related:** BUG-0035
+- **Notes:** Confirmed via Arc'teryx Alpha Jacket PDP export — 9 H2s on page, 4 were product feature callouts ("GORE-TEX PRO ePE", "Adjustable StormHood™", "WaterTight™ zippers", "Dynamic seam placement"), all scoring as 0 features.
+
+### BUG-0035 — Description extraction misses CSS-hidden "Read More" content, falls back to 9-word schema string
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/content/content-script.js` → `analyzeDescription()`
+- **Root Cause:** `analyzeDescription()` uses `el.innerText` to evaluate matched DOM elements. `innerText` returns an empty string for any element with `display:none`, which is the typical CSS pattern for collapsible "Read More" sections. When all selector candidates had short `innerText`, the function nulled each and ultimately fell back to the Product schema description (9 words on Arc'teryx). The actual on-page description was present in the DOM but CSS-hidden.
+- **Fix:** During the selector loop, track the first element whose `textContent` is >50 chars even when its `innerText` is short (CSS-hidden candidate). If no visible element is found, promote the CSS-hidden candidate. When reading text, prefer `innerText` if long enough, otherwise fall back to `textContent` on the same element.
+- **Related:** BUG-0036
+- **Notes:** Confirmed via Arc'teryx Alpha Jacket PDP — `description.wordCount: 9, source: "schema"` despite a full product description visible on the page after "Read More" expansion. `textMetrics.totalWords: 2559` showing ample page content.
+
+## Resolved Bugs (2026-03-04, batch 2 — scoring/extraction pipeline QA)
+
+### BUG-0023 — `scoreProtocolMeta()` reads removed `robots.isBlocked` property — noindex pages silently pass
+- **Status:** Fixed
+- **Severity:** Critical
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/scoring/scoring-engine.js` — `scoreProtocolMeta()`
+- **Root Cause:** `isBlocked` was removed from the extractor in v2.1.1 but the AI Readiness scorer still read `data?.robots?.isBlocked`, which is always `undefined`. So pages with `<meta name="robots" content="noindex">` always scored full points on this factor.
+- **Fix:** Changed to `data?.robots?.noindex === true`, matching the SEO scorer and the recommendation engine.
+
+### BUG-0024 — Review recency recommendation reads stale nested path, fires on every product with reviews
+- **Status:** Fixed
+- **Severity:** Critical
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/recommendations/recommendation-engine.js` — `checkAuthorityTrustIssues()`
+- **Root Cause:** Recommendation engine read `reviews.recency.hasRecentReview` (nested, singular) but extractor returns flat `reviews.hasRecentReviews`. `reviews.recency` was always `{}`, so `!recency.hasRecentReview` was always `true` → `review-recency-low` fired on every product with reviews. Also `recency.averageLength` was always `undefined` → `review-depth-low` never fired.
+- **Fix:** Read `reviews.hasRecentReviews === false` (null = no dates found → skip) and `reviews.averageReviewLength` directly.
+
+### BUG-0025 — `description-quality-low` rec never fires — reads `desc.qualityScore` never produced by extractor
+- **Status:** Fixed
+- **Severity:** Critical
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/recommendations/recommendation-engine.js` — `checkContentQualityIssues()`
+- **Root Cause:** `desc.qualityScore !== undefined` is always false — `analyzeDescription()` never returns `qualityScore`. The underlying signals are `hasBenefitStatements`, `hasEmotionalLanguage`, `hasTechnicalTerms`.
+- **Fix:** Changed to check all three underlying signals being falsy with sufficient word count.
+
+### BUG-0026 — 7 category scorers missing `Math.min(100, rawScore)` cap — context multipliers can push total above 100
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/scoring/scoring-engine.js` — `scoreStructuredData`, `scoreProtocolMeta`, and all 5 PDP category scorers
+- **Fix:** Added `Math.min(100, rawScore)` to all 7 missing return statements.
+
+### BUG-0027 — `schemas.product` null check `!== null` crashes when extraction returns `undefined`
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/scoring/scoring-engine.js:88` — `scoreStructuredData()`
+- **Fix:** Changed `product !== null` to `product != null` (loose inequality handles both null and undefined).
+
+### BUG-0028 — SEO breadcrumb DOM detection reads non-existent `contentStructure.breadcrumbs` key
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/scoring/scoring-engine.js:2371` — `scoreNavigationDiscovery()`
+- **Root Cause:** `extractContentStructure()` doesn't produce a `breadcrumbs` key; `structure.breadcrumbs` was always `undefined`, so DOM breadcrumbs were never detected.
+- **Fix:** Added `domBreadcrumbs: { present }` to `extractSeoSignals()` return; scorer now reads `seo.domBreadcrumbs?.present`.
+
+### BUG-0029 — `extractAwardsFromSchema()` doesn't handle top-level JSON-LD arrays; misses schema awards on affected sites
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/content/content-script.js` — `extractAwardsFromSchema()`
+- **Fix:** Changed `data['@graph'] || [data]` to `data['@graph'] || (Array.isArray(data) ? data : [data])`.
+
+### BUG-0030 — `extractAnswerFormatContent` double-counts signals: useCaseMatches is a superset of bestForMatches
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/content/content-script.js` — `extractAnswerFormatContent()`
+- **Root Cause:** `useCaseMatches` shared all 5 verbs with `bestForMatches` plus added `suitable|recommended`. A single "best for outdoor grilling" sentence contributed 2 of 4 signals. Inflated Answer-Format Content scores.
+- **Fix:** `useCaseMatches` now uses exclusively `suitable|recommended` verbs; non-overlapping with `bestForMatches`.
+
+### BUG-0031 — SEO meta description rec only fires outside 100–180 char range; 161–180 chars gets warning score but no recommendation
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/recommendations/recommendation-engine.js` — `checkTitleMetaIssues()`
+- **Fix:** Changed trigger from `< 100 || > 180` to `< 140 || > 160` to align with the scorer's optimal range.
+
+### BUG-0032 — `multiple-h1` inline tip shows `h1-missing` advice when actual issue is duplicate H1s
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/scoring/weights.js` — `FACTOR_RECOMMENDATIONS`; `src/scoring/scoring-engine.js` — `scoreContentStructure()`
+- **Fix:** Factor name changed to `'H1 Heading (Multiple)'` when `h1.count > 1`; added mapping to `'multiple-h1'` template in `FACTOR_RECOMMENDATIONS`.
+
+### BUG-0033 — `extractBrandSignals()` and `extractAwardsFromSchema()` bypass JSON-LD cache, re-parsing scripts on every run
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/content/content-script.js` — both functions
+- **Fix:** Refactored to use `iterateSchemaItems()` (the cached path) instead of re-querying `document.querySelectorAll('script[type="application/ld+json"]')`.
+
+### BUG-0034 — `meetsThreshold` property in `extractReviewsSocialProof()` return is dead code
+- **Status:** Fixed
+- **Severity:** Low
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/content/content-script.js` — `extractReviewsSocialProof()`
+- **Fix:** Removed `meetsThreshold: reviewCount >= 50` from return object.
+
+## Resolved Bugs (2026-03-04)
+
+### BUG-0021 — `schemas.product.name` undefined when multiple JSON-LD ProductGroup blocks present
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/content/content-script.js` — `categorizeSchemas()`
+- **Root Cause:** When a page emits two JSON-LD `ProductGroup` blocks (e.g. Shopify variant pages), the second (often minimal) block unconditionally overwrites `schemas.product`, setting `name: undefined` and losing all data from the first block.
+- **Fix:** Changed `schemas.product = { ... }` to merge with `existingProduct` — each field falls back to the existing value if the new item's value is falsy.
+- **Notes:** Confirmed on cleanflow.net — two `ProductGroup` blocks where block 1 had full product name, block 2 was a minimal duplicate with no name.
+
+### BUG-0022 — SEO "Product Name in Title" false negative when title uses brand+model prefix separated by punctuation
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-04
+- **Date Resolved:** 2026-03-04
+- **Found In:** `src/scoring/scoring-engine.js` — `scoreTitleMeta()`
+- **Root Cause:** Two checks, both too strict: (1) full string containment fails when schema name is verbose but title is a concise marketing variant; (2) H1 fallback used first 3 words ("multiquip st2040t trash") but title has em dash after the model number ("multiquip st2040t –"), so "trash" doesn't appear at position 3.
+- **Fix:** Added 2-word brand+model prefix check (minimum 8 chars) for schema name; changed H1 fallback from 3 words to 2 words with same 8-char guard.
+- **Notes:** Confirmed on cleanflow.net — title "Multiquip ST2040T – 2 Inch Electric Submersible Trash Pump" correctly passes with "multiquip st2040t" (18 chars) found in title.
 
 ### BUG-0020 — Features List extraction scores 0/10 on custom-themed WooCommerce/Tailwind sites
 - **Status:** Fixed

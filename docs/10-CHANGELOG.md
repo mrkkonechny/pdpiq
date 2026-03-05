@@ -1,10 +1,55 @@
 # Changelog
 
-> **PDS Document 10** | Last Updated: 2026-03-04
+> **PDS Document 10** | Last Updated: 2026-03-05
 
 All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/). Most recent version at the top.
 
 ## [Unreleased]
+
+---
+
+## [2.2.0] — 2026-03-05
+
+### Added
+- SEO recommendations for page title, meta description, H1, and heading structure now display the extracted on-page value in a styled block within the recommendation card — merchants can see the exact current text and character count without viewing source; title length and meta description length recs also show the target character range (50–60 and 140–160 respectively)
+- New `seo-image-title-not-alt` SEO recommendation fires when images use a `title` attribute without a corresponding `alt` attribute — explains that `title` is a hover tooltip not read by search engines or screen readers, and guides the merchant to add proper `alt` text; replaces the generic `seo-image-alt` rec when this specific pattern is detected; `analyzeImages()` now tracks `withTitleButNoAlt` count
+
+### Fixed
+- `extractBrandSignals()` and `extractAwardsFromSchema()` used `for (const item of iterateSchemaItems())` without destructuring — `item` held the `{ type, item }` wrapper so `item['@type']` was always `undefined`; brand was always "missing" from schema (12 pts lost in Authority & Trust) and schema awards were dead code (BUG-0041)
+- PDP `reviewCount` DOM extraction returned 37729 (false positive) on BigCommerce pages — bare-number aria-label regex matched a part number; changed to schema-first extraction with typeless-block fallback; DOM tier only runs when schema provides no count, and bare-number regex removed (BUG-0042)
+- `BreadcrumbList` nested inside `ItemPage` JSON-LD `@graph` was never extracted — BigCommerce emits `{ "@type": "ItemPage", "breadcrumb": { "@type": "BreadcrumbList", ... } }`; `categorizeSchemas()` only handled top-level BreadcrumbList; added second pass to inspect ItemPage breadcrumb property (BUG-0043)
+- `extractReviewSignals()` dropped review dates and body text from typeless JSON-LD blocks (BigCommerce) — second pass required `itemType === 'product'` which was never true for untyped blocks; added third pass scanning typeless blocks for `review[]` arrays (BUG-0044)
+- `scoreEntityConsistency()` used `h1Texts[0]` (same empty-first-H1 bug as BUG-0040) — empty BigCommerce placeholder H1 caused H1 to be excluded from entity consistency check; changed to `find()` for first non-empty H1 (BUG-0045)
+- `analyzeHeadings()` counted empty `<h1>` DOM nodes — platforms like BigCommerce emit empty H1 render placeholders; pages with one empty + one real H1 got a false "Multiple H1s" penalty; H1 count now filters empty text nodes (BUG-0046)
+- Review Count factor `points` could exceed `maxPoints` in UI when context multiplier applied (e.g. 24/22 in Want context) — `maxPoints` was hard-coded to base weight but `points` used a 1.5× cap; `maxPoints` now reflects effective maximum including multiplier (BUG-0047)
+- `seo-internal-links` recommendation never fired for pages with 3–9 internal links — rec threshold was `< 3` but scorer warns at 3–9 and only passes at 10+; threshold corrected to `< 10` (BUG-0048)
+- H1–Product Name Alignment always failed when the first H1 in the DOM was empty (BigCommerce render placeholder) — scorer took `h1Texts[0]` blindly; changed to `find()` for the first non-empty H1 (BUG-0040)
+- SEO "Add breadcrumb navigation" recommendation fired on every page regardless of breadcrumb presence — `checkNavigationDiscoveryIssues()` read `contentStructure.breadcrumbs?.present` (non-existent path) instead of `seoSignals.domBreadcrumbs?.present`; scorer was correct, only the rec engine was wrong (BUG-0039)
+- `aggregateRating` dropped when emitted in a typeless JSON-LD block (BigCommerce pattern: separate block with `@id` but no `@type`) — caused false "Make reviews more prominent" recommendation despite stars and count being visible in the hero; added second pass in `categorizeSchemas()` and untyped-block fallback in `extractReviewsSocialProof()` (BUG-0038)
+
+---
+
+## [2.1.2] — 2026-03-04
+
+### Fixed
+- `assessJSDependency()` missed Next.js, Gatsby, Angular, Remix, and styled-components apps — these pages scored `dependencyLevel: "low"` with no SPA warning despite dynamic content loading; added detection for all five frameworks plus `#__next`/`#___gatsby` to the `mainInJs` container check (BUG-0037)
+- JS-rendered page warning now appears on PDP Quality and SEO tabs (previously AI Visibility only); warning text updated to explain that interactively-loaded content (e.g. Read More, accordions) is not captured; warning now triggers at `medium` dependency level in addition to `high` (BUG-0037)
+- Description extraction fell back to short schema string when on-page description was present but CSS-hidden (`display:none`) behind a "Read More" button — selector loop now tracks CSS-hidden candidates and promotes them when no visible element is found; reads `textContent` instead of `innerText` for hidden elements (BUG-0035)
+- Feature extraction returned 0 features on sites using H2+paragraph layout for feature callouts (e.g. Arc'teryx) — added H2+paragraph fallback that detects heading/description pairs in the product content area; uses `textContent` so CSS-hidden feature content is also captured (BUG-0036)
+- `schemas.product.name` lost when a page emits multiple `ProductGroup` JSON-LD blocks — `categorizeSchemas()` now merges subsequent blocks instead of overwriting, preserving name/brand/image from whichever block provided them (BUG-0021)
+- SEO "Product Name in Title" false negative when schema name is verbose and title is a concise marketing variant — added 2-word brand+model prefix check (≥8 chars) for schema name; changed H1 fallback from first-3-words to first-2-words with same length guard (BUG-0022)
+- `scoreProtocolMeta()` read removed `robots.isBlocked` property (deleted in v2.1.1), causing noindex pages to silently score full AI Readiness points on the Robots factor — now reads `robots.noindex === true` (BUG-0023)
+- Review recency recommendation fired on every product with reviews due to wrong property path (`reviews.recency.hasRecentReview` → `reviews.hasRecentReviews`); review depth recommendation never fired (`recency.averageLength` → `reviews.averageReviewLength`) (BUG-0024)
+- `description-quality-low` recommendation never fired — read `desc.qualityScore` which is never produced by the extractor; now checks `hasBenefitStatements`, `hasEmotionalLanguage`, `hasTechnicalTerms` directly (BUG-0025)
+- 7 category scorers (`scoreStructuredData`, `scoreProtocolMeta`, and all 5 PDP scorers) missing `Math.min(100, rawScore)` cap — context multipliers could push category totals above 100 (BUG-0026)
+- `schemas.product` null check `!== null` would treat `undefined` (extraction error) as present, causing crashes on downstream property access — changed to loose `!= null` (BUG-0027)
+- SEO Breadcrumb Navigation factor read non-existent `contentStructure.breadcrumbs` key — DOM breadcrumbs were never detected; added `domBreadcrumbs` to `extractSeoSignals()` and updated scorer to read it (BUG-0028)
+- `extractAwardsFromSchema()` used `data['@graph'] || [data]` — didn't handle top-level JSON-LD array format, wrapping the whole array as a single item and missing all awards (BUG-0029)
+- `extractAnswerFormatContent()` double-counted signals: `useCaseMatches` shared 5 verbs with `bestForMatches`, so a single "best for X" sentence contributed 2 of 4 signals — `useCaseMatches` now uses exclusively `suitable|recommended` verbs (BUG-0030)
+- SEO meta description recommendation only fired outside 100–180 chars; descriptions of 161–180 chars received a warning score with no advice — trigger aligned to scorer's optimal 140–160 range (BUG-0031)
+- `H1 Heading` inline tip showed "add an H1" advice when the actual issue was duplicate H1s — factor name is now `'H1 Heading (Multiple)'` when `h1.count > 1`, mapped to the `multiple-h1` template (BUG-0032)
+- `extractBrandSignals()` and `extractAwardsFromSchema()` bypassed the JSON-LD cache, re-parsing all `<script type="application/ld+json">` tags on every analysis — refactored to use `iterateSchemaItems()` (BUG-0033)
+- `meetsThreshold` property in `extractReviewsSocialProof()` return was dead code (never read by any consumer) — removed (BUG-0034)
 
 ---
 

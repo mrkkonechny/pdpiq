@@ -1006,6 +1006,15 @@ export const SEO_RECOMMENDATION_TEMPLATES = {
     implementation: 'Add descriptive alt text to all product images. For the primary image: "[Product Name] – [Key Feature/Colour/Variant]". For gallery images: describe the specific view or feature shown. Avoid generic text like "product image" or repeating the same alt text for all images.'
   },
 
+  'seo-image-title-not-alt': {
+    title: 'Replace image title attributes with alt text',
+    description: 'Some images use a title attribute instead of alt text. The title attribute is a tooltip shown on hover — it is not read by search engines or screen readers as image content. Alt text is required for image SEO and accessibility.',
+    impact: 'low',
+    effort: 'low',
+    category: 'contentSignals',
+    implementation: 'Add an alt attribute to each image. Copy the title text as a starting point, then refine it: for the primary image use "[Product Name] – [Key Feature/Colour/Variant]"; for gallery images describe the specific view shown. The title attribute can remain for tooltip purposes but does not replace alt.'
+  },
+
   'seo-readability': {
     title: 'Improve content readability',
     description: 'Content readability score is low. Difficult-to-read content increases bounce rate and reduces dwell time, both negative ranking signals.',

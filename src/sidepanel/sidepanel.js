@@ -586,6 +586,9 @@ class SidePanelApp {
     document.getElementById('pdpGradeDescription').textContent =
       getPdpGradeDescription(this.pdpScoreResult.grade);
 
+    // Show JS-dependency warning when content scores may be understated
+    document.getElementById('pdpJsDependencyWarning').classList.toggle('hidden', !this.scoreResult?.jsDependent);
+
     // Render PDP category cards
     this.renderPdpCategories();
 
@@ -704,6 +707,9 @@ class SidePanelApp {
     document.getElementById('seoGradeDescription').textContent =
       getSeoGradeDescription(this.seoScoreResult.grade);
 
+    // Show JS-dependency warning when content scores may be understated
+    document.getElementById('seoJsDependencyWarning').classList.toggle('hidden', !this.scoreResult?.jsDependent);
+
     this.renderSeoCategories();
     this.renderSeoRecommendations();
   }
@@ -793,6 +799,12 @@ class SidePanelApp {
           </span>
         </div>
         <p class="rec-description">${escapeHtml(rec.description)}</p>
+        ${rec.currentValue != null ? `
+        <div class="rec-current">
+          <span class="rec-current-label">Current:</span>
+          <span class="rec-current-value">${escapeHtml(rec.currentValue)}</span>
+          ${rec.charCount != null ? `<span class="rec-current-meta">${rec.charCount} chars${rec.charTarget ? ` &middot; target: ${escapeHtml(rec.charTarget)}` : ''}</span>` : ''}
+        </div>` : ''}
         ${rec.implementation ? `<p class="rec-implementation">${escapeHtml(rec.implementation)}</p>` : ''}
       `;
 

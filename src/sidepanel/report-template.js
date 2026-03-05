@@ -448,7 +448,7 @@ function buildSeoSection(seoResult, seoRecs) {
  * @returns {string} Complete HTML document string
  */
 export function generateHtmlReport(result, pageInfo, recommendations, context, pdpResult, pdpRecommendations, seoResult, seoRecommendations) {
-  const { totalScore, grade, gradeDescription, categoryScores } = result;
+  const { totalScore, grade, gradeDescription, categoryScores, jsDependent } = result;
   const gradeColors = { A: '#22c55e', B: '#84cc16', C: '#eab308', D: '#f97316', F: '#ef4444' };
   const gradeColor = gradeColors[grade] || '#ef4444';
   const reportId = generateReportId();
@@ -608,6 +608,12 @@ export function generateHtmlReport(result, pageInfo, recommendations, context, p
     <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:4px;word-break:break-all">${esc(pageInfo?.title || 'Product Page')}</div>
     <div style="font-size:11px;color:#6b7280;word-break:break-all">${esc(pageInfo?.url || '')}</div>
   </div>
+
+  ${jsDependent ? `
+  <!-- JS-Rendered Page Warning -->
+  <div style="margin-bottom:20px;padding:10px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:12px;color:#92400e">
+    <strong>JS-rendered page</strong> — content behind interactions (e.g. Read More, accordions) is not captured and scores may be understated.
+  </div>` : ''}
 
   <!-- AI Readiness Score Hero -->
   <div style="font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:1px;color:#6b7280;margin-bottom:12px">AI Readiness Score</div>

@@ -61,7 +61,7 @@ export class ScoringEngine {
 
     const grade = getGrade(totalScore);
     // Flag JS-rendered pages so the UI can warn that scores may be understated
-    const jsDependent = extractedData.contentStructure?.jsDependency?.dependencyLevel === 'high';
+    const jsDependent = ['high', 'medium'].includes(extractedData.contentStructure?.jsDependency?.dependencyLevel);
 
     return {
       totalScore,
@@ -85,7 +85,7 @@ export class ScoringEngine {
 
     // Product Schema (30 points) - Critical, graduated scoring
     const product = data?.schemas?.product;
-    const hasProduct = product !== null;
+    const hasProduct = product != null; // handles both null (no schema found) and undefined (extraction error)
     let productScore = 0;
     let productDetails = 'Missing Product schema markup';
 
@@ -223,7 +223,7 @@ export class ScoringEngine {
     rawScore += imageSchemaScore;
 
     return {
-      score: rawScore,
+      score: Math.min(100, rawScore),
       maxScore,
       factors,
       weight: CATEGORY_WEIGHTS.structuredData,
@@ -402,7 +402,8 @@ export class ScoringEngine {
     rawScore += metaDescScore;
 
     // Robots allows indexing (5 points) - Critical if blocked
-    const isBlocked = data?.robots?.isBlocked;
+    // Note: isBlocked was removed from extractor in v2.1.1; read robots.noindex directly
+    const isBlocked = data?.robots?.noindex === true;
     const robotsScore = isBlocked ? 0 : weights.robotsAllowsIndex;
     factors.push({
       name: 'Robots Allows Indexing',
@@ -415,7 +416,7 @@ export class ScoringEngine {
     rawScore += robotsScore;
 
     return {
-      score: rawScore,
+      score: Math.min(100, rawScore),
       maxScore,
       factors,
       weight: CATEGORY_WEIGHTS.protocolMeta,
@@ -695,7 +696,7 @@ export class ScoringEngine {
     const hasH1 = headings.hasH1;
     const h1Score = hasSingleH1 ? weights.h1Presence : (hasH1 ? weights.h1Presence * 0.5 : 0);
     factors.push({
-      name: 'H1 Heading',
+      name: hasSingleH1 ? 'H1 Heading' : hasH1 ? 'H1 Heading (Multiple)' : 'H1 Heading',
       status: hasSingleH1 ? 'pass' : hasH1 ? 'warning' : 'fail',
       points: h1Score,
       maxPoints: weights.h1Presence,
@@ -866,11 +867,12 @@ export class ScoringEngine {
     // Review Count (25 points) - Contextual
     let reviewCountScore = reviews.countScore ? Math.round((reviews.countScore / 100) * weights.reviewCount) : 0;
     reviewCountScore = Math.round(reviewCountScore * this.multipliers.reviewCount);
+    const reviewCountEffectiveMax = Math.round(Math.min(weights.reviewCount * 1.5, weights.reviewCount * this.multipliers.reviewCount));
     factors.push({
       name: 'Review Count',
       status: reviews.count >= 25 ? 'pass' : reviews.count >= 5 ? 'warning' : 'fail',
-      points: Math.min(weights.reviewCount * 1.5, reviewCountScore),
-      maxPoints: weights.reviewCount,
+      points: Math.min(reviewCountEffectiveMax, reviewCountScore),
+      maxPoints: reviewCountEffectiveMax,
       contextual: true,
       details: reviews.count > 0 ? `${reviews.count} reviews` : 'No reviews found'
     });
@@ -1141,8 +1143,9 @@ export class ScoringEngine {
     const locations = [];
     const pointsPerLocation = maxPoints / 4;
 
-    // 1. H1 text
-    const h1Text = extractedData.contentStructure?.headings?.h1?.texts?.[0];
+    // 1. H1 text — use first non-empty H1 (some platforms emit empty placeholder H1s)
+    const h1Texts = extractedData.contentStructure?.headings?.h1?.texts || [];
+    const h1Text = h1Texts.find(t => t.trim().length > 0) || '';
     if (h1Text) {
       const h1Lower = h1Text.toLowerCase().trim();
       if (h1Lower === nameLower || h1Lower.includes(nameLower) || nameLower.includes(h1Lower)) {
@@ -1539,7 +1542,7 @@ export class ScoringEngine {
     rawScore += urgencyScore;
 
     return {
-      score: rawScore,
+      score: Math.min(100, rawScore),
       maxScore: 100,
       factors,
       weight: PDP_CATEGORY_WEIGHTS.purchaseExperience,
@@ -1630,7 +1633,7 @@ export class ScoringEngine {
     rawScore += guaranteeScore;
 
     return {
-      score: rawScore,
+      score: Math.min(100, rawScore),
       maxScore: 100,
       factors,
       weight: PDP_CATEGORY_WEIGHTS.trustConfidence,
@@ -1734,7 +1737,7 @@ export class ScoringEngine {
     rawScore += qualityScore;
 
     return {
-      score: rawScore,
+      score: Math.min(100, rawScore),
       maxScore: 100,
       factors,
       weight: PDP_CATEGORY_WEIGHTS.visualPresentation,
@@ -1826,7 +1829,7 @@ export class ScoringEngine {
     rawScore += boxScore;
 
     return {
-      score: rawScore,
+      score: Math.min(100, rawScore),
       maxScore: 100,
       factors,
       weight: PDP_CATEGORY_WEIGHTS.contentCompleteness,
@@ -1927,7 +1930,7 @@ export class ScoringEngine {
     rawScore += countScore;
 
     return {
-      score: rawScore,
+      score: Math.min(100, rawScore),
       maxScore: 100,
       factors,
       weight: PDP_CATEGORY_WEIGHTS.reviewsSocialProof,
@@ -2074,12 +2077,26 @@ export class ScoringEngine {
     let productInTitle = false;
     let productInTitleDetails = 'No product name reference found in title';
     if (titlePresent) {
+      // Full string match or containment
       if (productLower && (titleLower.includes(productLower) || productLower.includes(titleLower.split('|')[0]?.trim()))) {
         productInTitle = true;
         productInTitleDetails = 'Product schema name found in title';
-      } else if (h1Lower && h1Lower.length > 3 && titleLower.includes(h1Lower.split(' ').slice(0, 3).join(' '))) {
-        productInTitle = true;
-        productInTitleDetails = 'H1 text found in title';
+      } else if (productLower) {
+        // Brand + model prefix check (first 2 words of schema name, e.g. "Multiquip ST2040T")
+        const productPrefix = productLower.split(/\s+/).slice(0, 2).join(' ');
+        if (productPrefix.length >= 8 && titleLower.includes(productPrefix)) {
+          productInTitle = true;
+          productInTitleDetails = 'Product schema name found in title';
+        }
+      }
+      // H1 fallback: use first 2 words (brand + model) — 3 words is too strict when
+      // punctuation (em dash, pipe) separates brand/model from the rest of the title
+      if (!productInTitle && h1Lower) {
+        const h1Prefix = h1Lower.split(' ').slice(0, 2).join(' ');
+        if (h1Prefix.length >= 8 && titleLower.includes(h1Prefix)) {
+          productInTitle = true;
+          productInTitleDetails = 'H1 text found in title';
+        }
       }
     }
     const productInTitleScore = productInTitle ? weights.productNameInTitle : 0;
@@ -2353,7 +2370,7 @@ export class ScoringEngine {
     const seo = extractedData.seoSignals || {};
 
     // Breadcrumb Navigation (30 pts) — DOM breadcrumbs OR breadcrumb schema
-    const hasDomBreadcrumbs = structure.breadcrumbs?.present === true || structure.breadcrumbs?.count > 0;
+    const hasDomBreadcrumbs = seo.domBreadcrumbs?.present === true;
     const hasBreadcrumbSchema = schemas.breadcrumb !== null && schemas.breadcrumb !== undefined;
     const hasBreadcrumbs = hasDomBreadcrumbs || hasBreadcrumbSchema;
     const breadcrumbNavScore = hasBreadcrumbs ? weights.breadcrumbNavigation : 0;
@@ -2371,7 +2388,7 @@ export class ScoringEngine {
 
     // H1–Product Name Alignment (25 pts)
     const h1Texts = headings.h1?.texts || [];
-    const h1Text = h1Texts[0] || '';
+    const h1Text = h1Texts.find(t => t.trim().length > 0) || '';
     const productName = schemas.product?.name || '';
     const ogTitle = meta.openGraph?.title || '';
     const titleText = seo.titleTag?.text || '';

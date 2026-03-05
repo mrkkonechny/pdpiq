@@ -240,8 +240,9 @@ export class RecommendationEngine {
       }
     }
 
-    // Description quality low
-    if (desc.wordCount >= 100 && desc.qualityScore !== undefined && desc.qualityScore < 50) {
+    // Description quality low — qualityScore is not produced by the extractor;
+    // check the underlying signals it computes from instead
+    if (desc.wordCount >= 100 && !desc.hasBenefitStatements && !desc.hasEmotionalLanguage && !desc.hasTechnicalTerms) {
       recs.push(this.createRecommendation('description-quality-low'));
     }
 
@@ -390,15 +391,15 @@ export class RecommendationEngine {
       }
     }
 
-    // Review recency
+    // Review recency — reads flat extractor properties (not nested .recency sub-object)
     if (reviews.hasReviews && reviews.count > 0) {
-      const recency = reviews.recency || {};
-      if (!recency.hasRecentReview) {
+      // Only fire when recency is positively known to be stale (null = no dates found = skip)
+      if (reviews.hasRecentReviews === false) {
         recs.push(this.createRecommendation('review-recency-low'));
       }
 
       // Review depth
-      if (recency.averageLength !== undefined && recency.averageLength < 100) {
+      if (reviews.averageReviewLength !== undefined && reviews.averageReviewLength < 100) {
         recs.push(this.createRecommendation('review-depth-low'));
       }
     }
@@ -849,7 +850,7 @@ export class SeoQualityRecommendationEngine {
     } else {
       const len = title.length || 0;
       if (len < 50 || len > 60) {
-        recs.push(this.createRecommendation('seo-title-length'));
+        recs.push({ ...this.createRecommendation('seo-title-length'), currentValue: title.text, charCount: len, charTarget: '50–60' });
       }
     }
 
@@ -857,8 +858,10 @@ export class SeoQualityRecommendationEngine {
       recs.push(this.createRecommendation('seo-meta-desc-missing'));
     } else {
       const len = metaDesc.length;
-      if (len < 100 || len > 180) {
-        recs.push(this.createRecommendation('seo-meta-desc-length'));
+      // Scorer awards full points at 140–160, partial at 100–180. Fire rec for any
+      // result outside the optimal 140–160 range so merchants always get advice.
+      if (len < 140 || len > 160) {
+        recs.push({ ...this.createRecommendation('seo-meta-desc-length'), currentValue: metaDesc, charCount: len, charTarget: '140–160' });
       }
     }
 
@@ -866,7 +869,7 @@ export class SeoQualityRecommendationEngine {
     const titleMetaFactors = this.scoreResult.categoryScores?.titleMeta?.factors || [];
     for (const factor of titleMetaFactors) {
       if (factor.name === 'Product Name in Title' && factor.status === 'fail') {
-        recs.push(this.createRecommendation('seo-product-name-title'));
+        recs.push({ ...this.createRecommendation('seo-product-name-title'), currentValue: title.text, charCount: title.length || 0 });
       }
     }
 
@@ -925,11 +928,17 @@ export class SeoQualityRecommendationEngine {
     const h1Count = headings.h1?.count || 0;
     const hierarchyValid = headings.hierarchyValid !== false;
     if (h1Count !== 1 || !hierarchyValid) {
-      recs.push(this.createRecommendation('seo-heading-structure'));
+      const h1Texts = (headings.h1?.texts || []).filter(t => t.trim().length > 0);
+      const h1Preview = h1Texts.length > 0 ? h1Texts.join(' / ') : null;
+      recs.push({ ...this.createRecommendation('seo-heading-structure'), ...(h1Preview ? { currentValue: h1Preview } : {}) });
     }
 
     if ((images.altCoverage || 0) < 0.9) {
-      recs.push(this.createRecommendation('seo-image-alt'));
+      if ((images.withTitleButNoAlt || 0) > 0) {
+        recs.push(this.createRecommendation('seo-image-title-not-alt'));
+      } else {
+        recs.push(this.createRecommendation('seo-image-alt'));
+      }
     }
 
     const readability = textMetrics.readabilityScore ?? null;
@@ -955,7 +964,7 @@ export class SeoQualityRecommendationEngine {
     const hreflang = this.extractedData.metaTags?.hreflang || {};
     const internalLinks = this.seoData.internalLinks || {};
 
-    const hasDomBreadcrumbs = structure.breadcrumbs?.present === true || structure.breadcrumbs?.count > 0;
+    const hasDomBreadcrumbs = this.seoData.domBreadcrumbs?.present === true;
     const hasBreadcrumbSchema = !!schemas.breadcrumb;
     if (!hasDomBreadcrumbs && !hasBreadcrumbSchema) {
       recs.push(this.createRecommendation('seo-breadcrumb-nav'));
@@ -963,13 +972,14 @@ export class SeoQualityRecommendationEngine {
 
     // H1 alignment — check via score result
     const navFactors = this.scoreResult.categoryScores?.navigationDiscovery?.factors || [];
+    const h1TextsNav = (headings.h1?.texts || []).filter(t => t.trim().length > 0);
     for (const factor of navFactors) {
       if (factor.name === 'H1–Product Name Alignment' && factor.status === 'fail') {
-        recs.push(this.createRecommendation('seo-h1-alignment'));
+        recs.push({ ...this.createRecommendation('seo-h1-alignment'), ...(h1TextsNav.length > 0 ? { currentValue: h1TextsNav[0] } : {}) });
       }
     }
 
-    if ((internalLinks.count || 0) < 3) {
+    if ((internalLinks.count || 0) < 10) {
       recs.push(this.createRecommendation('seo-internal-links'));
     }
 

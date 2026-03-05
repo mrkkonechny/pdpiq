@@ -416,6 +416,7 @@ export const FACTOR_RECOMMENDATIONS = {
 
   // Content Structure
   'H1 Heading': 'h1-missing',
+  'H1 Heading (Multiple)': 'multiple-h1',
   'Heading Hierarchy': 'heading-hierarchy-broken',
   'Semantic HTML': 'semantic-html-missing',
   'Content-to-Chrome Ratio': 'content-ratio-low',

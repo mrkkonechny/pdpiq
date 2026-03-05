@@ -247,17 +247,20 @@ function categorizeSchemas(data, schemas) {
           }
         }
       }
+      // Merge with any existing schemas.product so that a second (incomplete) block
+      // for the same product does not clobber data (e.g. name, brand) set by the first.
+      const existingProduct = schemas.product || {};
       schemas.product = {
-        name: item.name,
-        description: item.description,
-        image: extractImageUrl(item.image),
-        sku: item.sku || item.productGroupID,
-        gtin,
-        mpn,
-        brand: brandName,
-        hasOffer: !!item.offers || !!(item.hasVariant && item.hasVariant.length > 0),
-        hasRating: !!item.aggregateRating,
-        isProductGroup: type === 'productgroup'
+        name: item.name || existingProduct.name,
+        description: item.description || existingProduct.description,
+        image: extractImageUrl(item.image) || existingProduct.image,
+        sku: item.sku || item.productGroupID || existingProduct.sku,
+        gtin: gtin || existingProduct.gtin,
+        mpn: mpn || existingProduct.mpn,
+        brand: brandName || existingProduct.brand,
+        hasOffer: existingProduct.hasOffer || !!item.offers || !!(item.hasVariant && item.hasVariant.length > 0),
+        hasRating: existingProduct.hasRating || !!item.aggregateRating,
+        isProductGroup: existingProduct.isProductGroup || type === 'productgroup'
       };
       // Extract offers - check direct offers first, then hasVariant for ProductGroup
       let offersSource = item.offers;
@@ -350,6 +353,44 @@ function categorizeSchemas(data, schemas) {
       schemas.organization = { name: item.name, logo: extractImageUrl(item.logo), url: item.url };
     }
   });
+
+  // Second pass: pick up BreadcrumbList nested inside ItemPage (e.g. BigCommerce @graph pattern)
+  if (!schemas.breadcrumb) {
+    for (const item of items) {
+      if (!item) continue;
+      const t = (Array.isArray(item['@type']) ? item['@type'][0] : item['@type'] || '').toLowerCase();
+      if (t === 'itempage' && item.breadcrumb) {
+        const bc = item.breadcrumb;
+        const bcType = (Array.isArray(bc['@type']) ? bc['@type'][0] : bc['@type'] || '').toLowerCase();
+        if (bcType === 'breadcrumblist' && bc.itemListElement) {
+          schemas.breadcrumb = {
+            itemCount: bc.itemListElement.length,
+            items: bc.itemListElement.map(el => ({ position: el.position, name: el.name || (el.item && el.item.name) || null }))
+          };
+          break;
+        }
+      }
+    }
+  }
+
+  // Third pass: pick up aggregateRating from untyped blocks that have no @type but contain
+  // rating data linked to the product via @id (e.g. Speed Addicts BigCommerce pattern).
+  if (!schemas.aggregateRating) {
+    for (const item of items) {
+      if (!item || item['@type'] || !item.aggregateRating) continue;
+      const ratingData = item.aggregateRating;
+      const rv = parseFloat(ratingData.ratingValue);
+      if (!isNaN(rv)) {
+        schemas.aggregateRating = {
+          ratingValue: rv,
+          reviewCount: parseInt(ratingData.reviewCount, 10) || parseInt(ratingData.ratingCount, 10) || null,
+          bestRating: parseFloat(ratingData.bestRating) || 5
+        };
+        if (schemas.product) schemas.product.hasRating = true;
+        break;
+      }
+    }
+  }
 }
 
 function extractImageUrl(image) {
@@ -764,17 +805,29 @@ function analyzeDescription(content) {
     '[id*="product-description"]', '[id*="ProductDescription"]'
   ];
   let el = null;
+  let cssHiddenEl = null; // DOM match where content is CSS-hidden (display:none etc.)
   for (const sel of selectors) {
     try {
-      el = document.querySelector(sel);
-      if (el && el.innerText.length > 50) break;
-      el = null;
+      const candidate = document.querySelector(sel);
+      if (!candidate) continue;
+      if (candidate.innerText.trim().length > 50) {
+        el = candidate;
+        break;
+      }
+      // Content present in DOM but hidden via CSS — keep as fallback
+      if (!cssHiddenEl && candidate.textContent.trim().length > 50) {
+        cssHiddenEl = candidate;
+      }
     } catch (e) {
       // Invalid selector, skip
     }
   }
 
-  let text = el?.innerText || '';
+  // Promote CSS-hidden element when no visible match found
+  if (!el && cssHiddenEl) el = cssHiddenEl;
+
+  // Prefer innerText (respects CSS rendering); fall back to textContent for hidden elements
+  let text = el ? (el.innerText.trim().length > 50 ? el.innerText.trim() : el.textContent.trim()) : '';
   let source = el ? 'dom' : null;
 
   // Fallback: Extract description from JSON-LD structured data if no DOM element found
@@ -1112,6 +1165,45 @@ function extractFeatures() {
         // Invalid selector, skip
       }
     }
+  }
+
+  // Fallback: Detect H2+paragraph feature sections (e.g. Arc'teryx technology callouts)
+  // Uses textContent so CSS-hidden content (display:none) is also captured.
+  if (features.length === 0) {
+    const contentArea = getMainContentArea();
+    const skipPatterns = /review|rating|customer|shipping|return|policy|cart|checkout|account|sign in|login|newsletter|subscribe/i;
+    contentArea.querySelectorAll('h2').forEach(h2 => {
+      if (h2.closest('nav, header, footer, [role="navigation"], aside')) return;
+      const headingText = h2.textContent.trim();
+      if (!headingText || headingText.length < 3 || headingText.length > 80 || skipPatterns.test(headingText)) return;
+
+      // Find first sibling paragraph with substantive text
+      let sibling = h2.nextElementSibling;
+      let descText = '';
+      while (sibling && !['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(sibling.tagName)) {
+        if (sibling.tagName === 'P' || sibling.tagName === 'DIV') {
+          const t = sibling.textContent.trim();
+          if (t.length > 30) { descText = t; break; }
+        }
+        sibling = sibling.nextElementSibling;
+      }
+
+      // Also check within parent container (e.g. <section><h2>…</h2><p>…</p></section>)
+      if (!descText) {
+        const parent = h2.closest('section, [class*="feature"], [class*="callout"], [class*="benefit"]');
+        if (parent && parent !== contentArea) {
+          const p = parent.querySelector('p');
+          if (p) descText = p.textContent.trim();
+        }
+      }
+
+      if (descText.length > 30) {
+        const featureText = `${headingText}: ${descText.slice(0, 300)}`;
+        if (!features.some(f => f.text === featureText)) {
+          features.push({ text: featureText });
+        }
+      }
+    });
   }
 
   let source = features.length > 0 ? (features[0].source || 'dom') : null;
@@ -1502,7 +1594,10 @@ function analyzeHeadings() {
   const headings = {};
   for (let i = 1; i <= 6; i++) {
     const elements = document.querySelectorAll(`h${i}`);
-    headings[`h${i}`] = { count: elements.length, texts: Array.from(elements).map(el => el.textContent.trim()).slice(0, 5) };
+    const texts = Array.from(elements).map(el => el.textContent.trim()).slice(0, 5);
+    // For H1, count only non-empty elements to avoid false "Multiple H1s" from render placeholders
+    const count = i === 1 ? texts.filter(t => t.length > 0).length : elements.length;
+    headings[`h${i}`] = { count, texts };
   }
 
   const issues = [];
@@ -1647,9 +1742,13 @@ function analyzeImages() {
     }
   }
 
+  // Images that have a title attribute but no alt — common misunderstanding that title substitutes for alt
+  const withTitleButNoAlt = Array.from(images).filter(img => (!img.alt || img.alt.length < 5) && img.title && img.title.trim().length >= 5);
+
   return {
     totalCount: images.length,
     withMeaningfulAlt: withAlt.length,
+    withTitleButNoAlt: withTitleButNoAlt.length,
     altCoverage: images.length > 0 ? withAlt.length / images.length : 1,
     primaryImage: primary ? { src: primary.src, alt: primary.alt, hasAlt: !!primary.alt } : null,
     ogImagePresent: !!ogImage,
@@ -1659,15 +1758,53 @@ function analyzeImages() {
 }
 
 function assessJSDependency() {
+  // React 16 / Create React App
   const hasReact = document.querySelector('#root, [data-reactroot]') !== null;
-  const hasVue = document.querySelector('[data-v-app], [data-v-]') !== null;
-  const mainInJs = document.querySelector('main, article')?.closest('#root, #app, [data-reactroot]');
+  // Vue / Nuxt
+  const hasVue = document.querySelector('[data-v-app], [data-v-]') !== null ||
+                 document.getElementById('__nuxt') !== null;
+  // Next.js — Pages Router uses #__next + __NEXT_DATA__; App Router uses #__next + /_next/ scripts
+  const hasNextJs = document.getElementById('__next') !== null ||
+                    document.querySelector('script[src*="/_next/"]') !== null;
+  // Gatsby
+  const hasGatsby = document.getElementById('___gatsby') !== null ||
+                    document.getElementById('gatsby-focus-wrapper') !== null;
+  // Angular
+  const hasAngular = document.querySelector('[ng-version]') !== null;
+  // styled-components — strong signal of a React/CSR app even when framework root is absent
+  const hasStyledComponents = document.querySelector('style[data-styled]') !== null;
+  // Remix
+  const hasRemix = document.querySelector('script[src*="/_remix/"], link[href*="/_remix/"]') !== null;
+
+  const anyFramework = hasReact || hasVue || hasNextJs || hasGatsby || hasAngular || hasRemix || hasStyledComponents;
+
+  let frameworkDetected = null;
+  if (hasNextJs) frameworkDetected = 'Next.js';
+  else if (hasGatsby) frameworkDetected = 'Gatsby';
+  else if (hasReact) frameworkDetected = 'React';
+  else if (hasVue) frameworkDetected = 'Vue';
+  else if (hasAngular) frameworkDetected = 'Angular';
+  else if (hasRemix) frameworkDetected = 'Remix';
+  else if (hasStyledComponents) frameworkDetected = 'React (styled-components)';
+
+  // Check if main content lives inside a JS-managed root container
+  const jsRoots = '#root, #app, #__next, #___gatsby, [data-reactroot]';
+  const mainInJs = document.querySelector('main, [role="main"], article')?.closest(jsRoots);
+
+  let dependencyLevel;
+  if (mainInJs) {
+    dependencyLevel = 'high';
+  } else if (anyFramework) {
+    dependencyLevel = 'medium';
+  } else {
+    dependencyLevel = 'low';
+  }
 
   return {
-    frameworkDetected: hasReact ? 'React' : hasVue ? 'Vue' : null,
+    frameworkDetected,
     mainContentInJsContainer: !!mainInJs,
-    dependencyLevel: mainInJs ? 'high' : (hasReact || hasVue) ? 'medium' : 'low',
-    score: mainInJs ? 40 : (hasReact || hasVue) ? 60 : 100
+    dependencyLevel,
+    score: dependencyLevel === 'high' ? 40 : dependencyLevel === 'medium' ? 60 : 100
   };
 }
 
@@ -1770,6 +1907,30 @@ function extractReviewSignals() {
       });
   });
 
+  // Third pass: pick up review dates/body from typeless JSON-LD blocks (e.g. BigCommerce)
+  // These blocks have no @type but may contain a review[] array linked via @id
+  if (reviewLengths.length === 0 && !mostRecentDate) {
+    for (const { valid, data } of getParsedJsonLd()) {
+      if (!valid) continue;
+      const blockItems = data['@graph'] ? data['@graph'] : Array.isArray(data) ? data : [data];
+      for (const it of blockItems) {
+        if (!it || it['@type'] || !it.review) continue;
+        const reviewList = Array.isArray(it.review) ? it.review : [it.review];
+        reviewList.forEach(r => {
+          if (r && r.datePublished) {
+            const date = new Date(r.datePublished);
+            if (!isNaN(date.getTime()) && (!mostRecentDate || date > mostRecentDate)) {
+              mostRecentDate = date;
+            }
+          }
+          if (r && r.reviewBody) {
+            reviewLengths.push(r.reviewBody.length);
+          }
+        });
+      }
+    }
+  }
+
   // Fallback to DOM for rating
   if (!rating) {
     const ratingEl = document.querySelector('[itemprop="ratingValue"], .rating-value, .average-rating');
@@ -1869,26 +2030,19 @@ function extractReviewSignals() {
 function extractBrandSignals() {
   let brandName = null;
 
-  document.querySelectorAll('script[type="application/ld+json"]').forEach(script => {
-    try {
-      const data = JSON.parse(script.textContent);
-      // Handle top-level array, @graph, and single-object formats
-      const items = Array.isArray(data) ? data : data['@graph'] ? data['@graph'] : [data];
-      items.forEach(item => {
-        if (!item) return;
-        const type = (Array.isArray(item['@type']) ? item['@type'][0] : item['@type'] || '').toLowerCase();
-        // Check Product/ProductGroup brand and manufacturer
-        if (!brandName && (type === 'product' || type === 'productgroup')) {
-          if (item.brand) brandName = extractBrandName(item.brand);
-          if (!brandName && item.manufacturer) brandName = extractBrandName(item.manufacturer);
-        }
-        // Fallback: check standalone Organization or Brand schemas
-        if (!brandName && (type === 'organization' || type === 'brand')) {
-          brandName = item.name || null;
-        }
-      });
-    } catch (e) {}
-  });
+  for (const { type, item } of iterateSchemaItems()) {
+    if (!item) continue;
+    // Check Product/ProductGroup brand and manufacturer
+    if (!brandName && (type === 'product' || type === 'productgroup')) {
+      if (item.brand) brandName = extractBrandName(item.brand);
+      if (!brandName && item.manufacturer) brandName = extractBrandName(item.manufacturer);
+    }
+    // Fallback: check standalone Organization or Brand schemas
+    if (!brandName && (type === 'organization' || type === 'brand')) {
+      brandName = item.name || null;
+    }
+    if (brandName) break;
+  }
 
   if (!brandName) {
     const brandEl = document.querySelector('[itemprop="brand"]');
@@ -2208,46 +2362,37 @@ function extractAwards() {
 function extractAwardsFromSchema() {
   const awards = [];
 
-  document.querySelectorAll('script[type="application/ld+json"]').forEach(script => {
-    try {
-      const data = JSON.parse(script.textContent.trim());
-      const items = data['@graph'] || [data];
-      items.forEach(item => {
-        if (!item) return;
-        const type = (Array.isArray(item['@type']) ? item['@type'][0] : item['@type'] || '').toLowerCase();
+  for (const { type, item } of iterateSchemaItems()) {
+    if (!item) continue;
 
-        if (type === 'product' || type === 'productgroup') {
-          // Check award field (schema.org spec)
-          if (item.award) {
-            const awardList = Array.isArray(item.award) ? item.award : [item.award];
-            awardList.forEach(award => {
-              if (typeof award === 'string' && award.length > 0) {
-                awards.push({ name: award, matched: award, source: 'schema' });
-              }
+    if (type === 'product' || type === 'productgroup') {
+      // Check award field (schema.org spec)
+      if (item.award) {
+        const awardList = Array.isArray(item.award) ? item.award : [item.award];
+        awardList.forEach(award => {
+          if (typeof award === 'string' && award.length > 0) {
+            awards.push({ name: award, matched: award, source: 'schema' });
+          }
+        });
+      }
+
+      // Check additionalProperty for award keywords
+      if (item.additionalProperty && Array.isArray(item.additionalProperty)) {
+        item.additionalProperty.forEach(prop => {
+          const name = (prop.name || '').toLowerCase();
+          const value = String(prop.value || '');
+
+          if (/award|recognition|accolade/i.test(name)) {
+            awards.push({
+              name: value || prop.name,
+              matched: value || prop.name,
+              source: 'schema'
             });
           }
-
-          // Check additionalProperty for award keywords
-          if (item.additionalProperty && Array.isArray(item.additionalProperty)) {
-            item.additionalProperty.forEach(prop => {
-              const name = (prop.name || '').toLowerCase();
-              const value = String(prop.value || '');
-
-              if (/award|recognition|accolade/i.test(name)) {
-                awards.push({
-                  name: value || prop.name,
-                  matched: value || prop.name,
-                  source: 'schema'
-                });
-              }
-            });
-          }
-        }
-      });
-    } catch (e) {
-      // Invalid JSON, skip
+        });
+      }
     }
-  });
+  }
 
   return awards;
 }
@@ -2313,8 +2458,9 @@ function extractAnswerFormatContent() {
   // Check for "how to" patterns near product context (exclude size/ordering pages)
   const hasHowTo = /\bhow\s+to\s+(?!(?:measure|size|fit|order|buy|care|return|shop|checkout|wash|clean)\b)/i.test(bodyText);
 
-  // Count use case descriptions ("great for outdoor", "perfect for small spaces", etc.)
-  const useCaseMatches = bodyText.match(/\b(?:best|ideal|perfect|great|designed|suitable|recommended)\s+for\s+[a-z][a-z\s]{3,30}/gi) || [];
+  // Count use case descriptions using EXCLUSIVE verbs (suitable/recommended) to avoid
+  // double-counting with bestForMatches which already captures best/ideal/perfect/great/designed
+  const useCaseMatches = bodyText.match(/\b(?:suitable|recommended)\s+for\s+[a-z][a-z\s]{3,30}/gi) || [];
   const useCaseCount = useCaseMatches.length;
 
   return {
@@ -3189,6 +3335,22 @@ function extractReviewsSocialProof() {
       }
     }
   }
+  // Also check untyped JSON-LD blocks containing aggregateRating directly
+  // (e.g. Speed Addicts / BigCommerce: separate block with @id but no @type)
+  if (!hasProminentReviews) {
+    for (const { valid, data } of getParsedJsonLd()) {
+      if (!valid) continue;
+      const blockItems = data['@graph'] ? data['@graph'] : Array.isArray(data) ? data : [data];
+      for (const item of blockItems) {
+        if (item && !item['@type'] && item.aggregateRating) {
+          const count = parseInt(item.aggregateRating.reviewCount, 10) ||
+                        parseInt(item.aggregateRating.ratingCount, 10) || 0;
+          if (count > 0) { hasProminentReviews = true; break; }
+        }
+      }
+      if (hasProminentReviews) break;
+    }
+  }
 
   // Star Rating Visual (visual star display, not just numbers)
   const hasStarVisual = document.querySelector(
@@ -3226,35 +3388,49 @@ function extractReviewsSocialProof() {
   }
 
   // Review Count Threshold (50+ for PDP Quality, higher bar than AI Readiness's 25)
+  // Try schema first (most reliable) to avoid DOM false positives from aria-labels with part numbers
   let reviewCount = 0;
-  const countEl = document.querySelector(
-    '[itemprop="reviewCount"], .review-count, .reviews-count, ' +
-    '[class*="review-count"], [class*="rating-count"], [class*="reviews-count"], ' +
-    '[data-testid*="review-count" i], [data-testid*="rating-count" i], ' +
-    // Exclude heading elements — aria-label on section headings can contain part numbers
-    '[aria-label*="reviews" i]:not(h1):not(h2):not(h3):not(h4):not([role="heading"]), ' +
-    // Amazon-specific
-    '#acrCustomerReviewText, [data-hook="total-review-count"]'
-  );
-  if (countEl) {
-    const raw = countEl.getAttribute('aria-label') || countEl.content || countEl.textContent;
-    // Require the number to be adjacent to review/rating context — prevents matching
-    // part numbers that happen to appear in aria-label text (e.g. "P27-1069 Customer Reviews")
-    const match = raw.match(/(\d[\d,]*)\s*(?:review|rating)/i)
-               || raw.match(/(?:review|rating)s?\s*[:(]?\s*\(?(\d[\d,]*)/i)
-               || (!/[A-Z]\d+[-–]\d+/i.test(raw) && raw.match(/(\d[\d,]*)/));
-    if (match) reviewCount = parseInt((match[1] || match[2] || '0').replace(/,/g, ''), 10);
+  for (const { item } of iterateSchemaItems(['product', 'productgroup'])) {
+    if (item.aggregateRating) {
+      const rating = item.aggregateRating['@id'] ? null : item.aggregateRating;
+      if (rating) {
+        reviewCount = parseInt(rating.reviewCount, 10) || parseInt(rating.ratingCount, 10) || 0;
+        if (reviewCount > 0) break;
+      }
+    }
   }
-  // Schema fallback
+  // Schema fallback: check typeless JSON-LD blocks (e.g. BigCommerce)
   if (reviewCount === 0) {
-    for (const { item } of iterateSchemaItems(['product', 'productgroup'])) {
-      if (item.aggregateRating) {
-        const rating = item.aggregateRating['@id'] ? null : item.aggregateRating;
-        if (rating) {
-          reviewCount = parseInt(rating.reviewCount, 10) || parseInt(rating.ratingCount, 10) || 0;
-          if (reviewCount > 0) break;
+    for (const { valid, data } of getParsedJsonLd()) {
+      if (!valid) continue;
+      const blockItems = data['@graph'] ? data['@graph'] : Array.isArray(data) ? data : [data];
+      for (const it of blockItems) {
+        if (it && !it['@type'] && it.aggregateRating) {
+          const c = parseInt(it.aggregateRating.reviewCount, 10) || parseInt(it.aggregateRating.ratingCount, 10) || 0;
+          if (c > 0) { reviewCount = c; break; }
         }
       }
+      if (reviewCount > 0) break;
+    }
+  }
+  // DOM fallback — only used when schema provides no count
+  if (reviewCount === 0) {
+    const countEl = document.querySelector(
+      '[itemprop="reviewCount"], .review-count, .reviews-count, ' +
+      '[class*="review-count"], [class*="rating-count"], [class*="reviews-count"], ' +
+      '[data-testid*="review-count" i], [data-testid*="rating-count" i], ' +
+      // Exclude heading elements — aria-label on section headings can contain part numbers
+      '[aria-label*="reviews" i]:not(h1):not(h2):not(h3):not(h4):not([role="heading"]), ' +
+      // Amazon-specific
+      '#acrCustomerReviewText, [data-hook="total-review-count"]'
+    );
+    if (countEl) {
+      const raw = countEl.getAttribute('aria-label') || countEl.content || countEl.textContent;
+      // Require the number to be adjacent to review/rating context — prevents matching
+      // part numbers that happen to appear in aria-label text (e.g. "P27-1069 Customer Reviews")
+      const match = raw.match(/(\d[\d,]*)\s*(?:review|rating)/i)
+                 || raw.match(/(?:review|rating)s?\s*[:(]?\s*\(?(\d[\d,]*)/i);
+      if (match) reviewCount = parseInt((match[1] || match[2] || '0').replace(/,/g, ''), 10);
     }
   }
 
@@ -3264,8 +3440,7 @@ function extractReviewsSocialProof() {
     hasReviewSorting,
     hasMediaReviews,
     hasSocialProof,
-    reviewCount,
-    meetsThreshold: reviewCount >= 50
+    reviewCount
   };
 }
 
@@ -3319,7 +3494,15 @@ function extractSeoSignals() {
   }
   const internalLinks = { count: internalLinkCount };
 
-  return { titleTag, urlStructure, internalLinks };
+  // DOM breadcrumb navigation — used by SEO Navigation & Discovery scorer.
+  // contentStructure does not expose a breadcrumbs key, so detect here.
+  const breadcrumbEl = document.querySelector(
+    'nav[aria-label*="breadcrumb" i], [class*="breadcrumb"], [id*="breadcrumb"], ' +
+    '[itemtype*="BreadcrumbList"], ol[class*="breadcrumb"], ul[class*="breadcrumb"]'
+  );
+  const domBreadcrumbs = { present: !!breadcrumbEl };
+
+  return { titleTag, urlStructure, internalLinks, domBreadcrumbs };
 }
 
 // Log that content script is loaded
