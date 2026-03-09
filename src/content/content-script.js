@@ -3315,7 +3315,29 @@ function extractReviewsSocialProof() {
   const bodyText = document.body.innerText;
   const lower = bodyText.toLowerCase();
 
+  // Detect known third-party JS review platforms (widgets that render after page load)
+  const JS_REVIEW_PLATFORMS = [
+    { name: 'Klaviyo',      selector: '.klaviyo-star-rating-widget, [class*="klaviyo"][class*="review"], [class*="klaviyo"][class*="rating"]' },
+    { name: 'Okendo',       selector: '.okeReviews-reviewSummary, [data-oke-reviews-widget], .oke-w' },
+    { name: 'Judge.me',     selector: '.jdgm-widget, .jdgm-preview-badge, [class*="jdgm-"]' },
+    { name: 'Yotpo',        selector: '.yotpo-widget-instance, .yotpo-main-widget, .yotpo-reviews-carousel' },
+    { name: 'Loox',         selector: '#loox, .loox-rating, [id*="loox-"]' },
+    { name: 'Stamped',      selector: '#stamped-main-widget, .stamped-main-widget, [data-widget-type="stamped"]' },
+    { name: 'Trustpilot',   selector: '.trustpilot-widget' },
+    { name: 'Reviews.io',   selector: '.reviewsio-rating-widget, [data-reviews-io-widget]' },
+    { name: 'Bazaarvoice',  selector: '.bv_main_container, [data-bv-show]' },
+    { name: 'PowerReviews', selector: '.pr-review-display, [data-pr-component]' },
+  ];
+  let reviewPlatform = null;
+  for (const { name, selector } of JS_REVIEW_PLATFORMS) {
+    try {
+      if (document.querySelector(selector)) { reviewPlatform = name; break; }
+    } catch (e) { /* skip invalid selector */ }
+  }
+
   // Review Display Prominence (star rating visible in hero area)
+  // Require the matched element to have actual content — empty placeholder divs from
+  // JS review platforms (e.g. Klaviyo) must not generate a false positive.
   let hasProminentReviews = false;
   const heroSelectors = [
     '.product-info', '.product-hero', '.product-summary', '.product__info',
@@ -3335,7 +3357,7 @@ function extractReviewsSocialProof() {
           // Amazon-specific
           '[class*="a-icon-star"], [data-hook="average-star-rating"], [data-hook="rating-out-of-text"]'
         );
-        if (ratingEl) {
+        if (ratingEl && (ratingEl.children.length > 0 || ratingEl.textContent.trim().length > 0)) {
           hasProminentReviews = true;
           break;
         }
@@ -3374,11 +3396,13 @@ function extractReviewsSocialProof() {
   }
 
   // Star Rating Visual (visual star display, not just numbers)
-  const hasStarVisual = document.querySelector(
+  // Require content so empty JS-platform placeholder divs don't generate false positives.
+  const starEl = document.querySelector(
     '[class*="star-rating"], [class*="stars"], svg[class*="star"], ' +
     '[class*="rating-star"], .star-icon, [class*="star-filled"], ' +
     'img[alt*="star" i], [aria-label*="star" i], [aria-label*="rating" i]'
-  ) !== null;
+  );
+  const hasStarVisual = starEl !== null && (starEl.children.length > 0 || starEl.textContent.trim().length > 0);
 
   // Review Sorting/Filtering
   const hasReviewSorting = document.querySelector(
@@ -3474,7 +3498,8 @@ function extractReviewsSocialProof() {
     hasReviewSorting,
     hasMediaReviews,
     hasSocialProof,
-    reviewCount
+    reviewCount,
+    reviewPlatform
   };
 }
 

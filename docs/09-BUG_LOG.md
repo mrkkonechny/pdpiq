@@ -25,6 +25,18 @@ Track all bugs encountered during development. Most recent entries at the top wi
 
 _No active bugs._
 
+## Resolved Bugs (2026-03-09, batch 9 — JS review platform detection)
+
+### BUG-0051 — Empty JS review platform placeholders cause false positives on hasProminentReviews and hasStarVisual
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-09
+- **Date Resolved:** 2026-03-09
+- **Found In:** `src/content/content-script.js` → `extractReviewsSocialProof()`
+- **Root Cause:** `hasProminentReviews` matched any element with "rating" or "star-rating" in its class, including empty JS review platform placeholder divs (e.g. `<div class="klaviyo-star-rating-widget" data-id="189534"></div>`). Same for `hasStarVisual` via `[class*="star-rating"]`. These empty divs gave passing scores and suppressed the "add reviews" recommendation even though no review data was extractable.
+- **Fix:** Added `children.length > 0 || textContent.trim().length > 0` guard to both checks. Added detection of 10 known JS review platforms (Klaviyo, Okendo, Judge.me, Yotpo, Loox, Stamped, Trustpilot, Reviews.io, Bazaarvoice, PowerReviews) surfaced as `reviewPlatform` field on the return object. New `review-platform-no-schema` recommendation fires when a platform is detected with no `aggregateRating` schema output, with the platform name injected into the description.
+- **Notes:** Root-cause investigation for unpluggedperformance.com (Klaviyo). BUG-0050 (WooCommerce selector improvements) remains valid for sites without third-party platforms.
+
 ## Resolved Bugs (2026-03-09, batch 8 — WooCommerce review extraction)
 
 ### BUG-0050 — Review rating and count not detected on modern WooCommerce sites

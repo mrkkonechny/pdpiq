@@ -335,6 +335,15 @@ export const RECOMMENDATION_TEMPLATES = {
     implementation: 'Implement a review collection system. Display reviews with structured data markup.'
   },
 
+  'review-platform-no-schema': {
+    title: 'Configure your review platform to output structured data',
+    description: 'A third-party review platform is detected on this page but it is not outputting aggregateRating structured data. Search engines and AI systems read review counts and ratings from JSON-LD schema — not from JavaScript-rendered widgets. Without it, your reviews are invisible to Google and LLMs regardless of how many you have.',
+    impact: 'high',
+    effort: 'low',
+    category: 'authorityTrust',
+    implementation: 'Enable the structured data / schema markup option in your review platform settings. Most platforms (Klaviyo, Judge.me, Yotpo, Okendo, Stamped, Loox) support this natively — look for "Rich Snippets", "SEO Schema", or "Google Schema" in the platform dashboard. Once enabled, re-run this analysis to confirm aggregateRating appears in the AI Readiness score.'
+  },
+
   'reviews-low-count': {
     title: 'Increase review count',
     description: 'More reviews increase confidence when LLMs recommend products.',

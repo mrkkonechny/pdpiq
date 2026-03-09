@@ -343,9 +343,20 @@ export class RecommendationEngine {
     const brand = this.extractedData.trustSignals?.brand || {};
     const certs = this.extractedData.trustSignals?.certifications || {};
 
+    // Third-party JS review platform detected with no schema output — takes priority
+    // over generic reviews-missing rec since the cause and fix are different
+    const reviewPlatform = this.extractedData.pdpQuality?.reviewsSocialProof?.reviewPlatform;
+    const hasAggregateRating = !!this.extractedData.structuredData?.schemas?.aggregateRating;
+    if (reviewPlatform && !hasAggregateRating) {
+      recs.push({
+        ...this.createRecommendation('review-platform-no-schema'),
+        description: `${reviewPlatform} is detected as your review platform but is not outputting aggregateRating structured data. Search engines and AI systems read review counts and ratings from JSON-LD schema — not from JavaScript-rendered widgets. Without it, your reviews are invisible to Google and LLMs regardless of how many you have.`
+      });
+    }
+
     // No reviews
     if (!reviews.hasReviews || reviews.count === 0) {
-      recs.push(this.createRecommendation('reviews-missing'));
+      if (!reviewPlatform) recs.push(this.createRecommendation('reviews-missing'));
     } else if (reviews.count < 10) {
       // Low review count - contextual importance
       const multiplier = getContextMultiplier(this.context, 'reviewCount');
