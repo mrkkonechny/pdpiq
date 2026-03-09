@@ -1936,11 +1936,32 @@ function extractReviewSignals() {
     const ratingEl = document.querySelector('[itemprop="ratingValue"], .rating-value, .average-rating');
     if (ratingEl) rating = parseFloat(ratingEl.content || ratingEl.getAttribute('data-rating') || ratingEl.textContent);
   }
+  // Modern WooCommerce uses aria-label="Rated X.XX out of 5" on .star-rating instead of itemprop
+  if (!rating) {
+    const ariaRatingEl = document.querySelector('.star-rating[aria-label], [class*="star-rating"][aria-label]');
+    if (ariaRatingEl) {
+      const ariaLabel = ariaRatingEl.getAttribute('aria-label') || '';
+      const m = ariaLabel.match(/rated?\s*([\d.]+)\s*out\s*of/i);
+      if (m) rating = parseFloat(m[1]);
+    }
+  }
   if (!count) {
-    const countEl = document.querySelector('[itemprop="reviewCount"], .review-count, .reviews-count');
+    const countEl = document.querySelector(
+      '[itemprop="reviewCount"], .review-count, .reviews-count, ' +
+      // Modern WooCommerce: <span class="count"> inside .woocommerce-review-link
+      '.woocommerce-product-rating .count, .woocommerce-review-link .count'
+    );
     if (countEl) {
       const match = (countEl.content || countEl.textContent).match(/(\d[\d,]*)/);
       if (match) count = parseInt(match[1].replace(/,/g, ''), 10);
+    }
+  }
+  // Last resort: parse WooCommerce review link text e.g. "(1 customer review)"
+  if (!count) {
+    const reviewLink = document.querySelector('.woocommerce-review-link');
+    if (reviewLink) {
+      const m = reviewLink.textContent.match(/(\d[\d,]*)\s*customer\s*review/i);
+      if (m) count = parseInt(m[1].replace(/,/g, ''), 10);
     }
   }
 
@@ -3419,6 +3440,8 @@ function extractReviewsSocialProof() {
       '[itemprop="reviewCount"], .review-count, .reviews-count, ' +
       '[class*="review-count"], [class*="rating-count"], [class*="reviews-count"], ' +
       '[data-testid*="review-count" i], [data-testid*="rating-count" i], ' +
+      // Modern WooCommerce: <span class="count"> inside .woocommerce-review-link
+      '.woocommerce-product-rating .count, .woocommerce-review-link .count, ' +
       // Exclude heading elements — aria-label on section headings can contain part numbers
       '[aria-label*="reviews" i]:not(h1):not(h2):not(h3):not(h4):not([role="heading"]), ' +
       // Amazon-specific
@@ -3429,8 +3452,19 @@ function extractReviewsSocialProof() {
       // Require the number to be adjacent to review/rating context — prevents matching
       // part numbers that happen to appear in aria-label text (e.g. "P27-1069 Customer Reviews")
       const match = raw.match(/(\d[\d,]*)\s*(?:review|rating)/i)
-                 || raw.match(/(?:review|rating)s?\s*[:(]?\s*\(?(\d[\d,]*)/i);
+                 || raw.match(/(?:review|rating)s?\s*[:(]?\s*\(?(\d[\d,]*)/i)
+                 // WooCommerce .count span contains just the bare number — accept it
+                 // only when the element is specifically the WooCommerce count span
+                 || (countEl.closest('.woocommerce-product-rating, .woocommerce-review-link') && raw.match(/^(\d[\d,]*)$/));
       if (match) reviewCount = parseInt((match[1] || match[2] || '0').replace(/,/g, ''), 10);
+    }
+  }
+  // Last resort: parse WooCommerce review link text e.g. "(1 customer review)"
+  if (reviewCount === 0) {
+    const reviewLink = document.querySelector('.woocommerce-review-link');
+    if (reviewLink) {
+      const m = reviewLink.textContent.match(/(\d[\d,]*)\s*customer\s*review/i);
+      if (m) reviewCount = parseInt(m[1].replace(/,/g, ''), 10);
     }
   }
 

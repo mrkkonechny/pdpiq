@@ -7,6 +7,7 @@ All notable changes to this project. Format follows [Keep a Changelog](https://k
 ## [Unreleased]
 
 ### Fixed
+- Review rating and count not detected on modern WooCommerce sites — WooCommerce v7+ replaced `itemprop="ratingValue"` microdata with `aria-label="Rated X.XX out of 5"` on `.star-rating` and uses a bare `<span class="count">` inside `.woocommerce-review-link` for the count; WooCommerce also does not emit `aggregateRating` in JSON-LD without a SEO plugin; added aria-label parsing, WooCommerce count selectors, and review link text parsing to DOM fallbacks in both `extractReviewSignals()` (AI Readiness) and `extractReviewsSocialProof()` (PDP Quality) (BUG-0050)
 - `hasShippingInfo` false negative on pages offering only in-store or curbside pickup — shipping extraction had no coverage for pickup language; added `pick.?up` to accordion keyword detection and expanded text regex to match `available/ready/free for (in-store) pick-up`, `curbside pick-up`, `local pick-up`, and `store pick-up` (BUG-0049)
 
 ---

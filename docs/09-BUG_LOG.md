@@ -25,6 +25,18 @@ Track all bugs encountered during development. Most recent entries at the top wi
 
 _No active bugs._
 
+## Resolved Bugs (2026-03-09, batch 8 — WooCommerce review extraction)
+
+### BUG-0050 — Review rating and count not detected on modern WooCommerce sites
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-09
+- **Date Resolved:** 2026-03-09
+- **Found In:** `src/content/content-script.js` → `extractReviewSignals()`, `extractReviewsSocialProof()`
+- **Root Cause:** Three compounding gaps: (1) WooCommerce does not emit `aggregateRating` in JSON-LD by default — it requires a third-party SEO plugin (Yoast, Rank Math). (2) Modern WooCommerce (v7+) removed `itemprop="ratingValue"` / `itemprop="reviewCount"` microdata and replaced with `aria-label="Rated X.XX out of 5"` on the `.star-rating` element and a bare-number `<span class="count">` inside `.woocommerce-review-link`. (3) DOM fallbacks in both extractors only covered the old `itemprop` selectors, leaving no coverage for the modern pattern.
+- **Fix:** `extractReviewSignals()`: added aria-label parsing for `.star-rating[aria-label]` elements; added `.woocommerce-product-rating .count` and `.woocommerce-review-link .count` selectors; added last-resort text parse of ".woocommerce-review-link" for "(N customer review)" pattern. `extractReviewsSocialProof()`: added same WooCommerce count selectors and last-resort text parse to the reviewCount DOM fallback tier.
+- **Notes:** Reported against unpluggedperformance.com (WooCommerce). `hasProminentReviews: true` and `hasStarVisual: true` were correctly detected by PDP extractor (via `[class*="rating"]`), confirming the star widget was in the DOM — but rating value and count were both 0 in AI Readiness and PDP Quality scores.
+
 ## Resolved Bugs (2026-03-05, batch 7 — shipping extraction)
 
 ### BUG-0049 — `hasShippingInfo` false negative when page only shows pickup fulfillment
