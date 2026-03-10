@@ -308,6 +308,16 @@ function categorizeSchemas(data, schemas) {
           }
         });
       }
+      // Extract reviews nested in Product/ProductGroup
+      if (item.review && schemas.reviews.length === 0) {
+        const reviewList = Array.isArray(item.review) ? item.review : [item.review];
+        schemas.reviews = reviewList.slice(0, 5).map(r => ({
+          rating: parseFloat(r.reviewRating?.ratingValue) || null,
+          datePublished: r.datePublished || null,
+          body: r.reviewBody ? r.reviewBody.substring(0, 200) : null,
+          source: 'product-nested'
+        })).filter(r => r.rating !== null || r.body !== null);
+      }
       // Extract nested brand/organization schemas
       if (!schemas.brand && item.brand) {
         const brandObj = Array.isArray(item.brand) ? item.brand[0] : item.brand;
@@ -351,6 +361,17 @@ function categorizeSchemas(data, schemas) {
     }
     if (type === 'organization') {
       schemas.organization = { name: item.name, logo: extractImageUrl(item.logo), url: item.url };
+    }
+    if (type === 'review') {
+      const entry = {
+        rating: parseFloat(item.reviewRating?.ratingValue) || null,
+        datePublished: item.datePublished || null,
+        body: item.reviewBody ? item.reviewBody.substring(0, 200) : null,
+        source: 'json-ld'
+      };
+      if ((entry.rating !== null || entry.body !== null) && schemas.reviews.length < 5) {
+        schemas.reviews.push(entry);
+      }
     }
   });
 
@@ -830,8 +851,10 @@ function analyzeDescription(content) {
   let text = el ? (el.innerText.trim().length > 50 ? el.innerText.trim() : el.textContent.trim()) : '';
   let source = el ? 'dom' : null;
 
-  // Fallback: Extract description from JSON-LD structured data if no DOM element found
-  if (!el || text.length < 50) {
+  // Fallback: Extract description from JSON-LD structured data when no DOM element found
+  // or DOM text is shorter than 20 words (schema typically has the full product description)
+  const domWordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+  if (!el || domWordCount < 20) {
     const schemaDescription = extractDescriptionFromSchema();
     if (schemaDescription && schemaDescription.length > text.length) {
       text = schemaDescription;
@@ -1222,9 +1245,27 @@ function extractFeatures() {
 function extractFeaturesFromContainer(container, features) {
   // Skip containers that are part of navigation/header/footer
   if (container.closest('nav, header, footer, [role="navigation"]')) return;
+
+  // Skip containers that appear to be return/refund/policy sections
+  // by checking nearby headings or the container's own class/id
+  const policyPattern = /return|refund|exchange|shipping|policy|warranty.*(policy|terms)|terms.*(service|use|sale)/i;
+  const containerId = (container.id || '') + ' ' + (container.className || '');
+  if (policyPattern.test(containerId)) return;
+  // Check the heading immediately preceding or enclosing this container
+  const prevHeading = container.previousElementSibling;
+  if (prevHeading && /^H[1-6]$/.test(prevHeading.tagName) && policyPattern.test(prevHeading.textContent)) return;
+  const closestSection = container.closest('section, [class*="policy"], [class*="return"], [id*="policy"], [id*="return"]');
+  if (closestSection && closestSection !== container) {
+    const closestId = (closestSection.id || '') + ' ' + (closestSection.className || '');
+    if (policyPattern.test(closestId)) return;
+  }
+
+  const liPolicyPattern = /\b(return|refund|exchange|shipped|shipping|delivery)\b.{0,40}(day|free|policy|within|guarantee|process)/i;
   container.querySelectorAll('li').forEach(li => {
     const text = li.textContent.trim().replace(/\s+/g, ' ');
     if (text.length > 15 && text.length < 500) {
+      // Skip individual list items that look like return/shipping policy lines
+      if (liPolicyPattern.test(text)) return;
       // Avoid duplicates
       if (!features.some(f => f.text === text)) {
         features.push({ text });
@@ -1875,6 +1916,15 @@ function extractReviewSignals() {
             count = parseInt(item.reviewCount, 10) || parseInt(item.ratingCount, 10) || null;
           }
         }
+        // Handle typeless objects that look like AggregateRating (have ratingValue but no @type)
+        // e.g. Costco pattern: standalone JSON-LD block with ratingValue but no @type
+        if (!itemType && item.ratingValue && rating === null) {
+          const rv = parseFloat(item.ratingValue);
+          if (!isNaN(rv) && rv >= 0 && rv <= 5) {
+            rating = rv;
+            count = parseInt(item.reviewCount, 10) || parseInt(item.ratingCount, 10) || null;
+          }
+        }
         if ((itemType === 'product' || itemType === 'productgroup') && item.review) {
           const reviewList = Array.isArray(item.review) ? item.review : [item.review];
           reviewList.forEach(r => {
@@ -2070,9 +2120,14 @@ function extractBrandSignals() {
     brandName = brandEl?.content || brandEl?.textContent?.trim();
   }
 
+  // Normalize brand name by stripping legal entity suffixes (e.g. "Unplugged Performance INC" → "Unplugged Performance")
+  const normalizedBrand = brandName
+    ? brandName.replace(/\s+(?:inc\.?|llc\.?|ltd\.?|corp\.?|co\.?|limited|incorporated|international)$/i, '').trim()
+    : null;
+
   const h1 = document.querySelector('h1');
-  const inH1 = h1 && brandName && h1.textContent.toLowerCase().includes(brandName.toLowerCase());
-  const inTitle = brandName && document.title.toLowerCase().includes(brandName.toLowerCase());
+  const inH1 = h1 && normalizedBrand && h1.textContent.toLowerCase().includes(normalizedBrand.toLowerCase());
+  const inTitle = normalizedBrand && document.title.toLowerCase().includes(normalizedBrand.toLowerCase());
 
   return {
     name: brandName,
@@ -2084,7 +2139,8 @@ function extractBrandSignals() {
 }
 
 function extractCertifications() {
-  const text = document.body.innerText;
+  // Use scoped product content text to avoid false positives from nav/footer/sidebar
+  const text = getProductContentText(null);
   const lower = text.toLowerCase();
   const certs = [];
   let source = 'dom';
@@ -2705,11 +2761,11 @@ function extractPurchaseExperience() {
         const text = el.textContent.trim();
         if (/[\$£€¥₹]|USD|CAD|GBP|EUR|\d+[.,]\d{2}/.test(text)) {
           priceVisible = true;
-          // Strip common label prefixes so the actual price value is captured
-          priceText = text
-            .replace(/^(regular price|sale price|now|was|from|price)[:\s]*/i, '')
-            .trim()
-            .substring(0, 30);
+          // Extract just the price value (currency symbol + number) to avoid capturing SKUs or labels
+          const priceMatch = text.match(/[\$£€¥₹]\s*[\d,]+\.?\d*|[\d,]+\.?\d*\s*(?:USD|CAD|GBP|EUR)/);
+          priceText = priceMatch
+            ? priceMatch[0].trim()
+            : text.replace(/^(regular price|sale price|now|was|from|price)[:\s]*/i, '').trim().substring(0, 30);
           break;
         }
       }
@@ -2957,6 +3013,20 @@ function extractTrustConfidence() {
       returnPolicyText = returnMatch[1].trim().substring(0, 60);
     }
   }
+  // Schema fallback: check Offer.hasMerchantReturnPolicy (e.g. Walmart, enterprise retailers)
+  if (!hasReturnPolicy) {
+    for (const { item } of iterateSchemaItems(['product', 'productgroup'])) {
+      const offers = item.offers ? (Array.isArray(item.offers) ? item.offers : [item.offers]) : [];
+      for (const o of offers) {
+        if (o.hasMerchantReturnPolicy) {
+          hasReturnPolicy = true;
+          returnPolicyText = 'Return policy in product schema';
+          break;
+        }
+      }
+      if (hasReturnPolicy) break;
+    }
+  }
 
   // Shipping Information
   let hasShippingInfo = false;
@@ -2968,10 +3038,14 @@ function extractTrustConfidence() {
   for (const sel of shippingSelectors) {
     try {
       const el = document.querySelector(sel);
-      if (el && el.textContent.trim().length > 5) {
-        hasShippingInfo = true;
-        shippingText = el.textContent.trim().substring(0, 60);
-        break;
+      if (el) {
+        // Use innerText to exclude CSS from <style> child elements; cap length to skip large containers
+        const text = (el.innerText || el.textContent || '').trim();
+        if (text.length > 5 && text.length < 600) {
+          hasShippingInfo = true;
+          shippingText = text.substring(0, 60);
+          break;
+        }
       }
     } catch (e) { /* skip */ }
   }
@@ -3019,6 +3093,8 @@ function extractTrustConfidence() {
     '[class*="trust-badge"]', '[class*="trust_badge"]', '[class*="trustbadge"]',
     '[class*="security-badge"]', '[class*="security-seal"]', '[class*="trust-seal"]',
     '[class*="trust-icon"]', '.trust-seals',
+    '[class*="guaranteed-safe-checkout"]', '[class*="safe-checkout"]',
+    '[class*="checkout-badge"]', '[class*="payment-badge"]',
     'img[alt*="secure" i]', 'img[alt*="trust" i]', 'img[alt*="verified" i]',
     'img[alt*="norton" i]', 'img[alt*="mcafee" i]', 'img[alt*="ssl" i]',
     'img[alt*="bbb" i]', 'img[alt*="guarantee" i]',
@@ -3036,7 +3112,7 @@ function extractTrustConfidence() {
     } catch (e) { /* skip */ }
   }
   if (!hasTrustBadges) {
-    hasTrustBadges = /\b(ssl secured?|norton secured?|mcafee secure|verified by|trusted (?:shop|store|seller)|bbb accredited|money[\s-]?back guarantee)\b/i.test(lower);
+    hasTrustBadges = /\b(ssl secured?|norton secured?|mcafee secure|verified by|trusted (?:shop|store|seller)|bbb accredited|money[\s-]?back guarantee|guaranteed safe checkout|safe checkout guarantee)\b/i.test(lower);
   }
 
   // Secure Checkout Signals
@@ -3547,7 +3623,6 @@ function extractSeoSignals() {
       const resolved = new URL(a.getAttribute('href'), origin);
       if (resolved.origin === origin) {
         internalLinkCount++;
-        if (internalLinkCount >= 10) break; // Early exit — threshold met
       }
     } catch { /* ignore invalid hrefs */ }
   }

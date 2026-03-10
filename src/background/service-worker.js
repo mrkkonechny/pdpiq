@@ -230,6 +230,20 @@ async function verifyImageFormat(url) {
       }
     }
 
+    // CDN WebP parameter check: some CDNs (Imgix, Fastly, Cloudinary) serve WebP
+    // to WebP-capable clients even when our HEAD request (no Accept: image/webp) gets JPEG.
+    // If the URL contains WebP delivery params, flag as potentially serving WebP to LLMs.
+    if (isValidFormat && !isWebP) {
+      const urlLower = url.toLowerCase();
+      const hasCdnWebpParam = /[?&](auto=webp|fm=webp|f=webp|format=webp|f_webp)(&|$)/.test(urlLower) ||
+                              /[?&]auto=[^&]*webp/.test(urlLower);
+      if (hasCdnWebpParam) {
+        format = 'webp';
+        isWebP = true;
+        isValidFormat = false;
+      }
+    }
+
     return {
       url,
       accessible: true,
@@ -267,15 +281,15 @@ async function verifyImageFormat(url) {
     let isWebP = false;
     let isValidFormat = false;
 
-    if (urlLower.match(/\.jpe?g(\?|$)/)) {
+    if (urlLower.match(/\.webp(\?|$)/) || /[?&](auto=webp|fm=webp|f=webp|format=webp|f_webp)(&|$)/.test(urlLower) || /[?&]auto=[^&]*webp/.test(urlLower)) {
+      format = 'webp';
+      isWebP = true;
+    } else if (urlLower.match(/\.jpe?g(\?|$)/)) {
       format = 'jpeg';
       isValidFormat = true;
     } else if (urlLower.match(/\.png(\?|$)/)) {
       format = 'png';
       isValidFormat = true;
-    } else if (urlLower.match(/\.webp(\?|$)/)) {
-      format = 'webp';
-      isWebP = true;
     } else if (urlLower.match(/\.gif(\?|$)/)) {
       format = 'gif';
       isValidFormat = true;

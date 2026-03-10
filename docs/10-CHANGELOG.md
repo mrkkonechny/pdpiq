@@ -1,12 +1,28 @@
 # Changelog
 
-> **PDS Document 10** | Last Updated: 2026-03-05
+> **PDS Document 10** | Last Updated: 2026-03-09
 
 All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/). Most recent version at the top.
 
 ## [Unreleased]
 
+---
+
+## [2.2.1] — 2026-03-10
+
 ### Fixed
+- SEO internal link count hard-capped at 10 across all sites — an early-exit `break` in `extractSeoSignals()` fired once the scoring threshold was met, causing all sites with 10+ links to report exactly `10`; removed the break so the true count is always reported (BUG-0054)
+- og:image CDN WebP delivery parameter not detected — CDNs (Imgix, Fastly, Cloudinary) use `auto=webp`, `fm=webp`, `format=webp` query params to serve WebP to capable clients; our HEAD request (no `Accept: image/webp`) received JPEG but LLMs with WebP support would get WebP; `verifyImageFormat()` and the URL fallback path now check for CDN WebP parameters and flag as `isWebP=true` when found (BUG-0055)
+- Return policy bullet points extracted as product features on Shopify pages (FXR Racing) — `extractFeaturesFromContainer()` did not filter policy sections; added context guards that skip containers whose id/class matches `return|refund|policy`, containers inside `[class*="policy"]` sections, and individual `<li>` items matching return/shipping policy sentence patterns (BUG-0056)
+- Description schema fallback threshold too tight — schema fallback only triggered at < 50 chars, preventing promotion of full schema descriptions when DOM had a short excerpt; changed to a word-count threshold (< 20 words) to trigger schema promotion more reliably (BUG-0057)
+- Typeless JSON-LD AggregateRating silently dropped in `extractReviewSignals()` — second pass checked `itemType === 'aggregaterating'` and missed untyped blocks with `ratingValue`; added handler for typeless objects with a valid (0–5) `ratingValue` (BUG-0058)
+- `schemas.reviews` always empty for JSON-LD Review schemas — `categorizeSchemas()` only populated `schemas.reviews` from microdata; standalone JSON-LD `Review` type items and `Product.review[]` arrays were never extracted; added JSON-LD `Review` handler and `Product.review` extraction (max 5) to the first pass (BUG-0059)
+- Certification regex ran on full `document.body.innerText` — false positives from footer text, seller policy pages, and cross-site banners; `extractCertifications()` now uses `getProductContentText()` to scope extraction to main product content (BUG-0060)
+- Brand `inTitle`/`inH1` false negative when schema brand name includes legal suffix — schema may store "Unplugged Performance INC" while title/H1 says "Unplugged Performance"; `extractBrandSignals()` now strips trailing legal suffixes (INC, LLC, LTD, Corp, Limited, etc.) before the string-contains check (BUG-0061)
+- `hasReturnPolicy: false` despite `Offer.hasMerchantReturnPolicy` in product schema — enterprise retailers declare return policy via JSON-LD `Offer.hasMerchantReturnPolicy` without repeating it in DOM text; added schema fallback to `extractTrustConfidence()` that checks all Offer objects for this property (BUG-0062)
+- Price text captured SKU instead of price value on BigCommerce — `[class*="price"]` matched a container div whose text begins with the product model/SKU; switched to extracting just the currency+number portion via regex from the element text (BUG-0063)
+- `shippingText` captured raw CSS instead of shipping info on WooCommerce pages — `[class*="shipping"]` matched the product wrapper div (class `shipping-taxable`) which contains an inline `<style>` element; `textContent` includes style tag contents; switched to `innerText` (which excludes `<style>` content) and added a 600-char length guard to skip large containers (BUG-0053)
+- `hasTrustBadges` false negative on WooCommerce pages using a "Guaranteed Safe Checkout" section — selectors and text regex only covered third-party seal names (Norton, McAfee, etc.); added `[class*="guaranteed-safe-checkout"]`, `[class*="safe-checkout"]`, `[class*="checkout-badge"]`, `[class*="payment-badge"]` selectors and added `guaranteed safe checkout` to the text regex (BUG-0052)
 - Empty JS review platform placeholder divs caused false positives on `hasProminentReviews` and `hasStarVisual` — e.g. `<div class="klaviyo-star-rating-widget">` (empty) matched `[class*="rating"]` and `[class*="star-rating"]`, giving passing scores with no extractable data; both checks now require the matched element to have children or text content; added detection of 10 known JS review platforms (Klaviyo, Okendo, Judge.me, Yotpo, Loox, Stamped, Trustpilot, Reviews.io, Bazaarvoice, PowerReviews) returned as `reviewPlatform`; new `review-platform-no-schema` AI Readiness recommendation fires when a platform is detected without `aggregateRating` schema output, with the platform name in the description (BUG-0051)
 - Review rating and count not detected on modern WooCommerce sites — WooCommerce v7+ replaced `itemprop="ratingValue"` microdata with `aria-label="Rated X.XX out of 5"` on `.star-rating` and uses a bare `<span class="count">` inside `.woocommerce-review-link` for the count; WooCommerce also does not emit `aggregateRating` in JSON-LD without a SEO plugin; added aria-label parsing, WooCommerce count selectors, and review link text parsing to DOM fallbacks in both `extractReviewSignals()` (AI Readiness) and `extractReviewsSocialProof()` (PDP Quality) (BUG-0050)
 - `hasShippingInfo` false negative on pages offering only in-store or curbside pickup — shipping extraction had no coverage for pickup language; added `pick.?up` to accordion keyword detection and expanded text regex to match `available/ready/free for (in-store) pick-up`, `curbside pick-up`, `local pick-up`, and `store pick-up` (BUG-0049)

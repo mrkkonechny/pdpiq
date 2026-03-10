@@ -1,6 +1,6 @@
 # Bug Log
 
-> **PDS Document 09** | Last Updated: 2026-03-05 (BUG-0048)
+> **PDS Document 09** | Last Updated: 2026-03-09 (BUG-0063)
 
 Track all bugs encountered during development. Most recent entries at the top within each section.
 
@@ -24,6 +24,120 @@ Track all bugs encountered during development. Most recent entries at the top wi
 ## Active Bugs
 
 _No active bugs._
+
+## Resolved Bugs (2026-03-09, batch 11 — multi-platform extraction QA review)
+
+### BUG-0063 — Price text captures SKU instead of price on BigCommerce (SpeedAddicts)
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-09
+- **Date Resolved:** 2026-03-09
+- **Found In:** `src/content/content-script.js` → `extractPurchaseExperience()`
+- **Root Cause:** `[class*="price"]` matched a BigCommerce container div whose `textContent` begins with the product SKU/model number. The validation regex matched a price value elsewhere in the element text, but `priceText` was set from the full element text (starting with the SKU).
+- **Fix:** After finding a price element, use regex to extract just the currency+number portion (`$\d+.xx` pattern) as `priceText` instead of the raw element text.
+
+### BUG-0062 — hasReturnPolicy false despite MerchantReturnPolicy in product schema
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-09
+- **Date Resolved:** 2026-03-09
+- **Found In:** `src/content/content-script.js` → `extractTrustConfidence()`
+- **Root Cause:** `hasReturnPolicy` extraction only checked DOM selectors, accordion/details elements, and body text regex. Enterprise retailers (Walmart, Costco) declare return policy via `Offer.hasMerchantReturnPolicy` in JSON-LD schema without repeating it in the page body.
+- **Fix:** Added schema fallback that checks `Offer.hasMerchantReturnPolicy` for all Product/ProductGroup items when DOM extraction finds nothing.
+
+### BUG-0061 — Brand inTitle/inH1 false negative when schema includes legal suffix (e.g. "INC")
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-09
+- **Date Resolved:** 2026-03-09
+- **Found In:** `src/content/content-script.js` → `extractBrandSignals()`
+- **Root Cause:** Schema brand name included legal entity suffixes (e.g. "Unplugged Performance INC"). `inTitle` and `inH1` checks compared the full schema name against page title/H1, which use the normalized brand name without legal suffixes.
+- **Fix:** Before comparing, normalize the schema brand name by stripping trailing legal suffixes (INC, LLC, LTD, Corp, Limited, Co, International) with a case-insensitive regex.
+
+### BUG-0060 — Certification regex runs on full body.innerText causing false positives
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-09
+- **Date Resolved:** 2026-03-09
+- **Found In:** `src/content/content-script.js` → `extractCertifications()`
+- **Root Cause:** Certification regex patterns ran against `document.body.innerText` (full page) instead of scoped product content. Certifications mentioned in site footers, third-party seller badges, or policy pages could trigger false positives.
+- **Fix:** Changed to use `getProductContentText(null)` which excludes nav, header, footer, and off-topic site chrome.
+
+### BUG-0059 — schemas.reviews empty despite JSON-LD Review items or nested Product.review
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-09
+- **Date Resolved:** 2026-03-09
+- **Found In:** `src/content/content-script.js` → `categorizeSchemas()`
+- **Root Cause:** `categorizeSchemas()` only populated `schemas.reviews` from microdata, not from JSON-LD. Standalone JSON-LD `Review` type items were not handled, and `Product.review[]` arrays were not extracted. Affected Walmart, SpeedAddicts, and other platforms using JSON-LD reviews.
+- **Fix:** Added `type === 'review'` handler to the JSON-LD first pass of `categorizeSchemas()`. Also added extraction of `Product.review[]` nested reviews into `schemas.reviews` (max 5 samples).
+
+### BUG-0058 — Typeless JSON-LD AggregateRating silently dropped in extractReviewSignals
+- **Status:** Fixed
+- **Severity:** Critical
+- **Date Found:** 2026-03-09
+- **Date Resolved:** 2026-03-09
+- **Found In:** `src/content/content-script.js` → `extractReviewSignals()`
+- **Root Cause:** The second pass in `extractReviewSignals()` checked `itemType === 'aggregaterating'` but skipped items with no `@type`. Some platforms (Costco) emit AggregateRating-like blocks with `ratingValue` but no `@type` property.
+- **Fix:** Added a handler for typeless objects that contain `ratingValue` within a valid 0–5 range, treating them as AggregateRating when no rated value has been found yet.
+
+### BUG-0057 — Description schema fallback threshold too tight (50 chars)
+- **Status:** Fixed
+- **Severity:** Critical
+- **Date Found:** 2026-03-09
+- **Date Resolved:** 2026-03-09
+- **Found In:** `src/content/content-script.js` → `analyzeDescription()`
+- **Root Cause:** Schema fallback only triggered when DOM description text was < 50 chars. A 60-char DOM fragment (e.g. truncated intro text) would prevent schema promotion even though the schema has the full 300-word product description.
+- **Fix:** Changed threshold from `text.length < 50` (chars) to `word count < 20`. A description with fewer than 20 words triggers schema fallback if the schema has more content.
+
+### BUG-0056 — Return policy bullet points extracted as product features (FXR Racing)
+- **Status:** Fixed
+- **Severity:** Critical
+- **Date Found:** 2026-03-09
+- **Date Resolved:** 2026-03-09
+- **Found In:** `src/content/content-script.js` → `extractFeaturesFromContainer()`
+- **Root Cause:** `extractFeaturesFromContainer()` did not filter out containers that are within return/refund/policy sections. On FXR Racing (Shopify), a return policy section matched a feature selector and 9 policy bullet points were captured as product features.
+- **Fix:** Added context guards in `extractFeaturesFromContainer()`: skip containers whose id/class matches policy keywords; skip containers inside `[class*="policy"]` / `[class*="return"]` sections; skip individual `<li>` items that match return/shipping policy sentence patterns.
+
+### BUG-0055 — og:image CDN WebP delivery parameter not detected as WebP
+- **Status:** Fixed
+- **Severity:** Critical
+- **Date Found:** 2026-03-09
+- **Date Resolved:** 2026-03-09
+- **Found In:** `src/background/service-worker.js` → `verifyImageFormat()`
+- **Root Cause:** CDNs like Imgix, Fastly, and Cloudinary use query parameters (`auto=webp`, `fm=webp`, `format=webp`) to serve WebP to capable clients. Our HEAD request lacks `Accept: image/webp` so the CDN returns JPEG, masking the WebP delivery. The Costco og:image URL contained `auto=webp` but was scored as valid JPEG.
+- **Fix:** After Content-Type detection, check URL query params for CDN WebP delivery indicators. If found and format was otherwise JPEG/PNG, override to `isWebP=true, isValidFormat=false`. Same check added to the URL extension fallback path.
+
+### BUG-0054 — SEO internal link count hard-capped at 10 across all sites
+- **Status:** Fixed
+- **Severity:** Critical
+- **Date Found:** 2026-03-09
+- **Date Resolved:** 2026-03-09
+- **Found In:** `src/content/content-script.js` → `extractSeoSignals()`
+- **Root Cause:** An early-exit `break` at `internalLinkCount >= 10` was intended to short-circuit the loop once the scoring threshold was met. This caused all sites with 10+ internal links to report exactly `10`, making the raw count useless for diagnostics.
+- **Fix:** Removed the early-exit break. All qualifying internal links are now counted. The SEO scorer still awards full points for `count >= 10`.
+
+## Resolved Bugs (2026-03-09, batch 10 — trust badge and shipping text extraction)
+
+### BUG-0053 — shippingText captures inline CSS from WooCommerce product wrapper
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-09
+- **Date Resolved:** 2026-03-09
+- **Found In:** `src/content/content-script.js` → `extractTrustConfidence()`
+- **Root Cause:** The `[class*="shipping"]` CSS selector matched the WooCommerce product wrapper div (which carries the class `shipping-taxable`). That div contains an inline `<style>` element as a direct child. `textContent` returns text from all descendant nodes including `<style>` elements, so the extracted `shippingText` began with raw CSS (`:root { --npg-main-color: #007acc; } .thumbnails-...`).
+- **Fix:** Changed the shipping selector loop to use `innerText` instead of `textContent`. `innerText` is layout-aware and excludes hidden/non-rendered nodes like `<style>` and `<script>` elements. Also added a 600-char length guard to skip large container elements that match on a broad class substring.
+- **Notes:** Observed on unpluggedperformance.com product pages.
+
+### BUG-0052 — hasTrustBadges false negative for "Guaranteed Safe Checkout" sections (WooCommerce)
+- **Status:** Fixed
+- **Severity:** Low
+- **Date Found:** 2026-03-09
+- **Date Resolved:** 2026-03-09
+- **Found In:** `src/content/content-script.js` → `extractTrustConfidence()`
+- **Root Cause:** Trust badge CSS selectors only covered third-party seal class names (norton, mcafee, trust-badge, etc.) and did not include `guaranteed-safe-checkout`, a common WooCommerce/custom pattern. Trust badge text regex also didn't cover "guaranteed safe checkout" phrasing.
+- **Fix:** Added `[class*="guaranteed-safe-checkout"]`, `[class*="safe-checkout"]`, `[class*="checkout-badge"]`, `[class*="payment-badge"]` to `trustBadgeSelectors`. Added `guaranteed safe checkout` and `safe checkout guarantee` to the text regex.
+- **Notes:** Observed on unpluggedperformance.com. `hasSecureCheckout` was already `true` on the same page (since "safe checkout" triggered `hasSecureCheckoutMessaging`); this fix also sets `hasTrustBadges` for the visual trust section.
 
 ## Resolved Bugs (2026-03-09, batch 9 — JS review platform detection)
 
