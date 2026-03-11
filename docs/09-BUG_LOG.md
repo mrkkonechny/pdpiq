@@ -1,6 +1,6 @@
 # Bug Log
 
-> **PDS Document 09** | Last Updated: 2026-03-09 (BUG-0063)
+> **PDS Document 09** | Last Updated: 2026-03-11 (BUG-0065)
 
 Track all bugs encountered during development. Most recent entries at the top within each section.
 
@@ -24,6 +24,40 @@ Track all bugs encountered during development. Most recent entries at the top wi
 ## Active Bugs
 
 _No active bugs._
+
+## Resolved Bugs (2026-03-11)
+
+### BUG-0066 — hasGuarantee false negative when "no warranty" text appears in footer/legal sections
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-11
+- **Date Resolved:** 2026-03-11
+- **Found In:** `src/content/content-script.js` → `extractTrustConfidence()`
+- **Root Cause:** The guarantee negative-pattern guard (`no warranty|without warranty|void...warranty`) was tested against the full `document.body.innerText`. If those phrases appeared anywhere on the page (footer legal text, care instructions, warranty disclaimer sections), the check short-circuited and prevented detection of a valid warranty statement in the product content — even though the AI Readiness extractor found it via `getProductContentText()`.
+- **Fix:** Replaced the global negative guard with a scoped approach: match the guarantee pattern against `getProductContentText()` first, then check only the 30 characters preceding the match for negative qualifiers.
+- **Notes:** Confirmed on `https://fxrracing.ca/products/mens-adventure-lite-tri-laminate-bib-pant-1` — "1 Year Warranty" found by AI Readiness extractor but `hasGuarantee: false` in PDP Quality.
+
+### BUG-0065 — hasVariants and hasSwatches false negatives on Shopify Dawn-theme stores
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-11
+- **Date Resolved:** 2026-03-11
+- **Found In:** `src/content/content-script.js` → `extractContentCompleteness()`, `extractVisualPresentation()`
+- **Root Cause:** Two separate selector gaps. (1) `hasVariants` selectors didn't include Shopify Dawn's `<variant-selects>` and `<variant-radios>` custom elements, and had no URL-based fallback for the `?variant=` Shopify query param. (2) `hasSwatches` selectors didn't include `variant-radios input[type="radio"]` or `[data-option-name*="color"]` patterns used by Dawn-derived themes.
+- **Fix:** Added `variant-selects, variant-radios` to the `hasVariants` querySelector; added `?variant=\d+` URL fallback; for `hasSwatches` — added `[class*="colour"]`, select-by-id/aria-label patterns, and a text-scan fallback that queries legend/label elements for "color"/"colour" text and checks for interactive children in the parent container.
+- **Notes:** Confirmed on `https://fxrracing.ca/products/mens-adventure-lite-tri-laminate-bib-pant-1?variant=44423807336492` — product has clear color + size variants but both flags were false.
+
+## Resolved Bugs (2026-03-10)
+
+### BUG-0064 — FAQPage nested inside WebPage schema not extracted
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-10
+- **Date Resolved:** 2026-03-10
+- **Found In:** `src/content/content-script.js` → `categorizeSchemas()` and `extractFaqFromSchema()`
+- **Root Cause:** Both functions only processed top-level JSON-LD items. A common CMS pattern places `FAQPage` as `WebPage.mainEntity` (with questions under a second `mainEntity` array) rather than as a standalone top-level type. This caused `schemas.faq = null` and `contentQuality.faq.found = false` even when a full FAQPage was present — costing up to 20 AI Readiness points (FAQ Schema + FAQ Section).
+- **Fix:** Added a fourth pass in `categorizeSchemas()` and parallel logic in `extractFaqFromSchema()` to recurse into `WebPage`/`ItemPage` items and extract any nested `FAQPage`.
+- **Notes:** Confirmed on `https://www.lifeassure.com/products/classic/` which has 13 FAQ questions embedded as `WebPage.mainEntity.mainEntity`.
 
 ## Resolved Bugs (2026-03-09, batch 11 — multi-platform extraction QA review)
 

@@ -1,10 +1,19 @@
 # Changelog
 
-> **PDS Document 10** | Last Updated: 2026-03-09
+> **PDS Document 10** | Last Updated: 2026-03-10
 
 All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/). Most recent version at the top.
 
 ## [Unreleased]
+
+### Fixed
+- `hasGuarantee` false negative when "no warranty" text appears in footer/legal sections — global negative guard on `document.body.innerText` blocked detection of valid warranty statements in product content; guarantee check now uses `getProductContentText()` with a localised 30-char negative-qualifier check around the match position (BUG-0066)
+- `hasVariants` and `hasSwatches` false negatives on Shopify stores with custom themes — `hasVariants` now includes Dawn web components (`variant-selects`, `variant-radios`) and a `?variant=\d+` URL-based fallback; `hasSwatches` now includes `[class*="colour"]`, select-by-id/aria-label patterns, and a text-scan fallback that finds any legend/label element containing "color"/"colour" with interactive children (BUG-0065)
+- FAQPage nested inside WebPage/ItemPage schema not extracted — `categorizeSchemas()` and `extractFaqFromSchema()` only processed top-level JSON-LD items; a fourth pass now recurses into `WebPage`/`ItemPage` `.mainEntity` to find nested FAQPage schemas (BUG-0064)
+
+### Changed
+- FAQ scoring now differentiates product-specific FAQ (full credit) from page-level FAQ (50% points, warning status) — FAQPage nested under WebPage/ItemPage is tagged `scope: 'page'`; standalone FAQPage and DOM-found FAQ retain full credit; factor details label now shows "page-level — not product-specific" when applicable
+- New `faq-not-product-specific` recommendation fires when only a page-level FAQ is detected, guiding merchants to add product-specific questions with FAQPage schema markup on the product page
 
 ---
 

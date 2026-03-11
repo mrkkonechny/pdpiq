@@ -346,6 +346,7 @@ function categorizeSchemas(data, schemas) {
       const questions = (item.mainEntity || []).filter(e => e['@type'] === 'Question');
       schemas.faq = {
         questionCount: questions.length,
+        scope: 'standalone',
         questions: questions.map(q => ({
           question: q.name,
           answer: q.acceptedAnswer?.text,
@@ -409,6 +410,37 @@ function categorizeSchemas(data, schemas) {
         };
         if (schemas.product) schemas.product.hasRating = true;
         break;
+      }
+    }
+  }
+
+  // Fourth pass: pick up FAQPage nested inside WebPage/ItemPage
+  // (e.g. Life Assure pattern: WebPage.mainEntity = { @type: "FAQPage", mainEntity: [...] })
+  if (!schemas.faq) {
+    for (const item of items) {
+      if (!item || !item.mainEntity) continue;
+      const t = (Array.isArray(item['@type']) ? item['@type'][0] : item['@type'] || '').toLowerCase();
+      if (t === 'webpage' || t === 'itempage') {
+        const nested = Array.isArray(item.mainEntity) ? item.mainEntity : [item.mainEntity];
+        for (const ne of nested) {
+          if (!ne) continue;
+          const neType = (Array.isArray(ne['@type']) ? ne['@type'][0] : ne['@type'] || '').toLowerCase();
+          if (neType === 'faqpage' && ne.mainEntity) {
+            const questions = (Array.isArray(ne.mainEntity) ? ne.mainEntity : [ne.mainEntity])
+              .filter(e => e && e['@type'] === 'Question');
+            schemas.faq = {
+              questionCount: questions.length,
+              scope: 'page',
+              questions: questions.map(q => ({
+                question: q.name,
+                answer: q.acceptedAnswer?.text,
+                answerLength: (q.acceptedAnswer?.text || '').length
+              }))
+            };
+            break;
+          }
+        }
+        if (schemas.faq) break;
       }
     }
   }
@@ -1309,6 +1341,7 @@ function extractFeatureLikeItems(container, features) {
 function extractFaqContent() {
   const faqs = [];
   let source = null;
+  let scope = null;
   const selectors = ['.faq', '.faqs', '#faq', '.frequently-asked-questions'];
 
   for (const sel of selectors) {
@@ -1320,24 +1353,26 @@ function extractFaqContent() {
           faqs.push({ question: q.textContent.trim(), answerLength: (answer?.textContent || '').length });
         }
       });
-      if (faqs.length > 0) source = 'dom';
+      if (faqs.length > 0) { source = 'dom'; scope = 'dom'; }
     }
   }
 
   // Fallback: Extract FAQs from FAQPage schema
   if (faqs.length === 0) {
-    const schemaFaqs = extractFaqFromSchema();
+    const { faqs: schemaFaqs, scope: schemaScope } = extractFaqFromSchema();
     if (schemaFaqs.length > 0) {
       faqs.push(...schemaFaqs);
       source = 'schema';
+      scope = schemaScope;
     }
   }
 
   return {
     found: faqs.length > 0,
-    source: source,
+    source,
+    scope,
     count: faqs.length,
-    items: faqs.slice(0, 10), // Include the actual FAQ items for details display
+    items: faqs.slice(0, 10),
     countScore: faqs.length < 3 ? Math.round((faqs.length / 3) * 50) :
                 faqs.length < 5 ? 50 + Math.round(((faqs.length - 3) / 2) * 25) : 100
   };
@@ -1349,6 +1384,7 @@ function extractFaqContent() {
  */
 function extractFaqFromSchema() {
   const faqs = [];
+  let scope = null;
 
   document.querySelectorAll('script[type="application/ld+json"]').forEach(script => {
     try {
@@ -1361,11 +1397,27 @@ function extractFaqFromSchema() {
           const questions = Array.isArray(item.mainEntity) ? item.mainEntity : [item.mainEntity];
           questions.forEach(q => {
             if (q['@type'] === 'Question' && q.name) {
-              faqs.push({
-                question: q.name,
-                answerLength: (q.acceptedAnswer?.text || '').length,
-                source: 'schema'
+              faqs.push({ question: q.name, answerLength: (q.acceptedAnswer?.text || '').length });
+            }
+          });
+          // Standalone FAQPage takes precedence over page-nested
+          if (!scope || scope === 'page') scope = 'standalone';
+        }
+        // Also check for FAQPage nested inside WebPage/ItemPage
+        // (e.g. Life Assure pattern: WebPage.mainEntity = { @type: "FAQPage", mainEntity: [...] })
+        if ((type === 'webpage' || type === 'itempage') && item.mainEntity) {
+          const nested = Array.isArray(item.mainEntity) ? item.mainEntity : [item.mainEntity];
+          nested.forEach(ne => {
+            if (!ne) return;
+            const neType = (Array.isArray(ne['@type']) ? ne['@type'][0] : ne['@type'] || '').toLowerCase();
+            if (neType === 'faqpage' && ne.mainEntity) {
+              const questions = Array.isArray(ne.mainEntity) ? ne.mainEntity : [ne.mainEntity];
+              questions.forEach(q => {
+                if (q && q['@type'] === 'Question' && q.name) {
+                  faqs.push({ question: q.name, answerLength: (q.acceptedAnswer?.text || '').length });
+                }
               });
+              if (!scope) scope = 'page';
             }
           });
         }
@@ -1375,7 +1427,7 @@ function extractFaqFromSchema() {
     }
   });
 
-  return faqs;
+  return { faqs, scope };
 }
 
 function extractProductDetails(text) {
@@ -3128,14 +3180,19 @@ function extractTrustConfidence() {
     hasCustomerService = document.querySelector('[class*="live-chat"], [class*="chat-widget"], [data-chat], #chat-widget, .chat-button, [class*="customer-service"]') !== null;
   }
 
-  // Guarantee/Warranty Display
+  // Guarantee/Warranty Display — scoped to product content to avoid false negatives
+  // from "no warranty" text in footer/legal/care sections blocking the whole check
   let hasGuarantee = false;
   let guaranteeText = null;
   const guaranteePatterns = /(\d+[\s-]*(?:year|month|day|yr|mo)[\s-]*(?:limited\s+)?(?:warranty|guarantee)|(?:lifetime|full|money[\s-]?back)\s+(?:warranty|guarantee)|satisfaction\s+guarante?e|100%\s+(?:satisfaction|money[\s-]?back))/i;
   const guaranteeNegative = /no warranty|without warranty|void(?:s|ed)? (?:the\s+)?warranty/i;
-  if (!guaranteeNegative.test(lower)) {
-    const match = bodyText.match(guaranteePatterns);
-    if (match) {
+  const scopedText = getProductContentText();
+  const match = scopedText.match(guaranteePatterns);
+  if (match) {
+    // Confirm the match isn't immediately preceded by a negative qualifier
+    const matchIndex = scopedText.indexOf(match[0]);
+    const preceding = scopedText.substring(Math.max(0, matchIndex - 30), matchIndex);
+    if (!guaranteeNegative.test(preceding)) {
       hasGuarantee = true;
       guaranteeText = match[1].trim().substring(0, 50);
     }
@@ -3234,12 +3291,32 @@ function extractVisualPresentation() {
   }
 
   // Color/Variant Swatches
-  const hasSwatches = document.querySelector(
+  let hasSwatches = document.querySelector(
     '[class*="swatch"], [class*="color-picker"], [class*="variant-picker"], ' +
-    '[class*="color-option"], [data-option="color"], [data-option="colour"], ' +
+    '[class*="colour"], [class*="color-option"], [data-option="color"], [data-option="colour"], ' +
     '.product-form__option--color, [class*="option-swatch"], ' +
-    'input[type="radio"][name*="color" i], input[type="radio"][name*="colour" i]'
+    'input[type="radio"][name*="color" i], input[type="radio"][name*="colour" i], ' +
+    // Shopify Dawn web components and data-attribute patterns
+    'variant-radios input[type="radio"], [data-option-name*="color" i], [data-option-name*="colour" i], ' +
+    // Select elements labeled as color
+    'select[id*="color" i], select[id*="colour" i], select[aria-label*="color" i], select[aria-label*="colour" i]'
   ) !== null;
+  // Text-scan fallback: find any legend/label containing "color"/"colour" with interactive children
+  if (!hasSwatches) {
+    const candidateLabels = document.querySelectorAll(
+      'legend, label, [class*="label"], [class*="option-name"], [class*="option-title"], ' +
+      '[class*="option-label"], [class*="form-label"]'
+    );
+    for (const el of candidateLabels) {
+      if (/colou?r/i.test(el.textContent.trim().slice(0, 40))) {
+        const container = el.closest('fieldset, [class*="option"], [class*="picker"], [class*="selector"], form') || el.parentElement;
+        if (container && container.querySelector('input[type="radio"], input[type="checkbox"], button, [role="radio"], select')) {
+          hasSwatches = true;
+          break;
+        }
+      }
+    }
+  }
 
   // Image Quality Signals (high-res images with srcset)
   let hasHighResImages = false;
@@ -3282,12 +3359,16 @@ function extractContentCompleteness() {
     // Class fragment patterns for custom implementations
     '[class*="size-option"], [class*="option__btn"], [class*="variant-option"], ' +
     '[class*="variant__btn"], [class*="product__option"], ' +
-    // Shopify SingleOptionSelector pattern
-    'select[id*="SingleOptionSelector"]'
+    // Shopify SingleOptionSelector (older themes) and Dawn web components (modern themes)
+    'select[id*="SingleOptionSelector"], variant-selects, variant-radios'
   ) !== null;
   // Text-based fallback for React/custom platforms where class names are hashed
   if (!hasVariants) {
     hasVariants = /\bselect\s+(?:a\s+)?(?:size|colou?r|style|option)\b|\bchoose\s+(?:a\s+)?(?:size|colou?r|style)\b/i.test(lower);
+  }
+  // URL-based fallback: Shopify appends ?variant=<id> when a variant is selected
+  if (!hasVariants && /[?&]variant=\d+/.test(window.location.search)) {
+    hasVariants = true;
   }
 
   // Size Guide/Fit Info
