@@ -189,6 +189,15 @@ export const RECOMMENDATION_TEMPLATES = {
     implementation: 'Add 5+ frequently asked questions with detailed answers (50+ characters each). Cover shipping, returns, compatibility, and product-specific questions.'
   },
 
+  'faq-not-product-specific': {
+    title: 'Add product-specific FAQ questions',
+    description: 'A page-level FAQ (general site questions) provides limited AI citation value. Product-specific FAQs — questions about this product\'s features, compatibility, use cases, and setup — are far more likely to be cited by LLMs when users ask about this product.',
+    impact: 'medium',
+    effort: 'medium',
+    category: 'contentQuality',
+    implementation: 'Add a FAQ section directly on this product page with 5+ questions specific to this product (e.g. "What range does the base unit cover?", "Does it work without a phone line?"). Mark it up with FAQPage schema nested under the Product schema or as a standalone FAQPage on the product page.'
+  },
+
   'features-missing': {
     title: 'Add feature bullet points',
     description: 'Clear feature lists help LLMs quickly identify product capabilities.',

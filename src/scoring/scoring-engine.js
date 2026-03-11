@@ -171,15 +171,19 @@ export class ScoringEngine {
 
     // FAQ Schema (10 points)
     const hasFaq = data?.schemas?.faq !== null && data.schemas.faq?.questionCount > 0;
-    const faqScore = hasFaq ? weights.faqSchema : 0;
+    const faqSchemaScope = data?.schemas?.faq?.scope || 'standalone';
+    const faqSchemaIsPageLevel = faqSchemaScope === 'page';
+    const faqScore = hasFaq
+      ? (faqSchemaIsPageLevel ? Math.round(weights.faqSchema * 0.5) : weights.faqSchema)
+      : 0;
     factors.push({
       name: 'FAQ Schema',
-      status: hasFaq ? 'pass' : 'fail',
+      status: hasFaq ? (faqSchemaIsPageLevel ? 'warning' : 'pass') : 'fail',
       points: faqScore,
       maxPoints: weights.faqSchema,
-      details: hasFaq ?
-        `${data.schemas.faq.questionCount} FAQs structured` :
-        'No FAQ schema'
+      details: hasFaq
+        ? `${data.schemas.faq.questionCount} FAQs structured${faqSchemaIsPageLevel ? ' (page-level — not product-specific)' : ''}`
+        : 'No FAQ schema'
     });
     rawScore += faqScore;
 
@@ -544,16 +548,25 @@ export class ScoringEngine {
 
     // FAQ Presence (10 points)
     const faqCount = faq.count || 0;
-    const faqScore = faq.countScore ? Math.round((faq.countScore / 100) * weights.faqPresence) : 0;
+    const faqSectionScope = faq.scope || (faq.source === 'dom' ? 'dom' : 'standalone');
+    const faqSectionIsPageLevel = faqSectionScope === 'page';
+    const faqBaseScore = faq.countScore ? Math.round((faq.countScore / 100) * weights.faqPresence) : 0;
+    const faqSectionScore = faqSectionIsPageLevel ? Math.round(faqBaseScore * 0.5) : faqBaseScore;
+    const faqSectionStatus = faqCount >= 3
+      ? (faqSectionIsPageLevel ? 'warning' : 'pass')
+      : faqCount > 0 ? 'warning' : 'fail';
     const faqSource = faq.source ? ` (${faq.source})` : '';
+    const faqScopeLabel = faqSectionIsPageLevel ? ' — page-level, not product-specific' : '';
     factors.push({
       name: 'FAQ Section',
-      status: faqCount >= 3 ? 'pass' : faqCount > 0 ? 'warning' : 'fail',
-      points: faqScore,
+      status: faqSectionStatus,
+      points: faqSectionScore,
       maxPoints: weights.faqPresence,
-      details: faqCount > 0 ? `${faqCount} FAQ${faqCount !== 1 ? 's' : ''}${faqSource}` : 'No FAQ found'
+      details: faqCount > 0
+        ? `${faqCount} FAQ${faqCount !== 1 ? 's' : ''}${faqSource}${faqScopeLabel}`
+        : 'No FAQ found'
     });
-    rawScore += faqScore;
+    rawScore += faqSectionScore;
 
     // Dimensions (5 points) - Contextual for Need; N/A for apparel (use size chart instead)
     let dimensionsScore = details.hasDimensions ? weights.dimensions : 0;

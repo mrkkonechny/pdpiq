@@ -147,9 +147,15 @@ export class RecommendationEngine {
       }
     }
 
-    // FAQ schema missing (if FAQ content exists but no schema)
+    // FAQ schema missing or page-level only
     const faqContent = this.extractedData.contentQuality?.faq || {};
-    if (!schemas.faq && faqContent.count > 0) {
+    const faqSchemaScope = schemas.faq?.scope || null;
+    const faqContentScope = faqContent.scope || null;
+    const faqIsPageLevel = faqSchemaScope === 'page' || (!schemas.faq && faqContentScope === 'page');
+    if (faqIsPageLevel) {
+      // FAQ exists but is page-level (not product-specific) — recommend adding product FAQ
+      recs.push(this.createRecommendation('faq-not-product-specific'));
+    } else if (!schemas.faq && faqContent.count > 0) {
       recs.push(this.createRecommendation('faq-schema-missing'));
     } else if (!schemas.faq && faqContent.count === 0) {
       // No FAQ content and no schema - recommend adding both
@@ -221,8 +227,9 @@ export class RecommendationEngine {
       recs.push(this.createRecommendation('features-missing'));
     }
 
-    // FAQ content missing (skip if count === 0 — faq-schema-and-content-missing already covers that case)
-    if (faq.count > 0 && faq.count < 3) {
+    // FAQ content missing (skip if count === 0 — covered by structured data check;
+    // skip if page-level — covered by faq-not-product-specific recommendation)
+    if (faq.count > 0 && faq.count < 3 && faq.scope !== 'page') {
       recs.push(this.createRecommendation('faq-content-missing'));
     }
 
