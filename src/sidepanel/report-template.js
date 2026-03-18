@@ -160,6 +160,39 @@ function factorCountSummary(factors) {
  * @param {string} contextLabel - e.g. "Want Context"
  * @returns {string} HTML string
  */
+/**
+ * Build the Citation Opportunities section for the AI Readiness part of the report.
+ * @param {Object|null} opportunities - { missing: [], partial: [], covered: [] }
+ * @returns {string} HTML string
+ */
+function buildCitationOpportunitiesSection(opportunities) {
+  if (!opportunities) return '';
+  const { missing = [], partial = [] } = opportunities;
+  if (missing.length === 0 && partial.length === 0) return '';
+
+  function opportunityGroup(title, items, borderColor, textColor) {
+    if (items.length === 0) return '';
+    return `
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:${textColor};margin-bottom:8px">${title} (${items.length})</div>
+        ${items.map(entry => `
+        <div style="padding:8px 12px;margin-bottom:6px;border-radius:6px;background:#f9fafb;border-left:3px solid ${borderColor}">
+          <div style="font-size:12px;font-weight:600;color:#111827;margin-bottom:2px">${esc(entry.factorName)} <span style="font-weight:400;color:#9ca3af">· ${esc(entry.category)}</span></div>
+          <div style="font-size:11px;color:#6b7280;font-style:italic">${entry.queries.map(q => `"${esc(q)}"`).join(' · ')}</div>
+        </div>`).join('')}
+      </div>`;
+  }
+
+  return `
+  <!-- Citation Opportunities -->
+  <div style="margin-bottom:40px;padding:20px;background:#fff7ed;border-radius:10px;border:1px solid #fed7aa;page-break-inside:avoid">
+    <h2 style="font-size:15px;font-weight:700;color:#9a3412;margin:0 0 6px">Citation Opportunity Map</h2>
+    <p style="font-size:12px;color:#c2410c;margin:0 0 16px">Conversational queries your product should be cited for, based on AI Readiness scoring gaps.</p>
+    ${opportunityGroup("High-Value Queries You're Missing", missing, '#ef4444', '#ef4444')}
+    ${opportunityGroup('Queries You Partially Cover', partial, '#d97706', '#d97706')}
+  </div>`;
+}
+
 function buildPdpSection(pdpResult, pdpRecs, contextLabel) {
   if (!pdpResult) return '';
 
@@ -447,11 +480,12 @@ function buildSeoSection(seoResult, seoRecs) {
  * @param {Array} [seoRecommendations] - sorted SEO recommendation array
  * @returns {string} Complete HTML document string
  */
-export function generateHtmlReport(result, pageInfo, recommendations, context, pdpResult, pdpRecommendations, seoResult, seoRecommendations) {
-  const { totalScore, grade, gradeDescription, categoryScores, jsDependent } = result;
+export function generateHtmlReport(result, pageInfo, recommendations, context, pdpResult, pdpRecommendations, seoResult, seoRecommendations, citationOpportunities) {
+  const { totalScore, grade, gradeDescription, categoryScores, jsDependent, pageType } = result;
   const gradeColors = { A: '#22c55e', B: '#84cc16', C: '#eab308', D: '#f97316', F: '#ef4444' };
   const gradeColor = gradeColors[grade] || '#ef4444';
   const reportId = generateReportId();
+  const pageTypeLabel = pageType?.type === 'plp' ? 'Collection Page' : pageType?.type === 'pdp' ? 'Product Page' : null;
 
   const reportDate = new Date().toLocaleString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric',
@@ -605,7 +639,10 @@ export function generateHtmlReport(result, pageInfo, recommendations, context, p
 
   <!-- Page Info -->
   <div style="margin-bottom:28px;padding:14px 16px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb">
-    <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:4px;word-break:break-all">${esc(pageInfo?.title || 'Product Page')}</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <div style="font-size:13px;font-weight:700;color:#111827;word-break:break-all">${esc(pageInfo?.title || 'Product Page')}</div>
+      ${pageTypeLabel ? `<span style="display:inline-block;font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;padding:2px 8px;border-radius:4px;color:${pageType?.type === 'plp' ? '#7c3aed' : '#1d4ed8'};background:${pageType?.type === 'plp' ? '#ede9fe' : '#dbeafe'};flex-shrink:0">${esc(pageTypeLabel)}</span>` : ''}
+    </div>
     <div style="font-size:11px;color:#6b7280;word-break:break-all">${esc(pageInfo?.url || '')}</div>
   </div>
 
@@ -614,6 +651,30 @@ export function generateHtmlReport(result, pageInfo, recommendations, context, p
   <div style="margin-bottom:20px;padding:10px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:12px;color:#92400e">
     <strong>JS-rendered page</strong> — content behind interactions (e.g. Read More, accordions) is not captured and scores may be understated.
   </div>` : ''}
+
+  <!-- Top 3 Priorities (cross-score) -->
+  ${(() => {
+    const allPriorities = [
+      ...(recommendations || []).map(r => ({ ...r, source: 'AI Readiness' })),
+      ...(pdpRecommendations || []).map(r => ({ ...r, source: 'PDP Quality' })),
+      ...(seoRecommendations || []).map(r => ({ ...r, source: 'SEO Quality' }))
+    ].filter(r => r.impact === 'high').slice(0, 3);
+
+    if (allPriorities.length === 0) return '';
+
+    return `
+  <div style="margin-bottom:28px;padding:18px 20px;background:#fef2f2;border-radius:10px;border:2px solid #fca5a5">
+    <h2 style="font-size:15px;font-weight:800;color:#991b1b;margin:0 0 12px">Top ${allPriorities.length} Priorities</h2>
+    ${allPriorities.map((r, i) => `
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:${i < allPriorities.length - 1 ? '10px' : '0'}">
+      <div style="flex-shrink:0;width:24px;height:24px;border-radius:50%;background:#dc2626;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">${i + 1}</div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#111827">${esc(r.title)}</div>
+        <div style="font-size:11px;color:#6b7280">${esc(r.source)} · ${esc(r.description)}</div>
+      </div>
+    </div>`).join('')}
+  </div>`;
+  })()}
 
   <!-- AI Readiness Score Hero -->
   <div style="font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:1px;color:#6b7280;margin-bottom:12px">AI Readiness Score</div>
@@ -671,9 +732,18 @@ export function generateHtmlReport(result, pageInfo, recommendations, context, p
   </h2>
   <div style="margin-bottom:40px">${recItems || '<p style="color:#6b7280;font-size:13px">No recommendations — excellent coverage!</p>'}</div>
 
+  ${buildCitationOpportunitiesSection(citationOpportunities)}
+
   ${buildPdpSection(pdpResult, pdpRecommendations, contextLabel)}
 
   ${buildSeoSection(seoResult, seoRecommendations)}
+
+  <!-- Tribbute CTA -->
+  <div style="margin:40px 0;padding:24px;background:linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);border-radius:12px;border:1px solid #c7d2fe;text-align:center">
+    <div style="font-size:16px;font-weight:800;color:#3730a3;margin-bottom:8px">Ready to close these gaps?</div>
+    <div style="font-size:13px;color:#4338ca;margin-bottom:16px;max-width:480px;margin-left:auto;margin-right:auto">Tribbute helps eCommerce brands optimize product pages for AI citation, conversion, and organic search. Let us turn this report into a content strategy.</div>
+    <a href="https://tribbute.com/contact/?utm_source=pdpiq&amp;utm_medium=report&amp;utm_content=cta_consultation" target="_blank" rel="noopener" style="display:inline-block;padding:10px 28px;background:#4f46e5;color:#fff;font-size:13px;font-weight:700;border-radius:8px;text-decoration:none">Schedule a Consultation</a>
+  </div>
 
   <!-- Footer -->
   <div style="padding-top:20px;border-top:1px solid #e5e7eb">

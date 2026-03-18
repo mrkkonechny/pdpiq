@@ -97,6 +97,7 @@ function performFullExtraction() {
       aiDiscoverability: extractAIDiscoverabilitySignals(),
       pdpQuality: extractPdpQualitySignals(),
       seoSignals: extractSeoSignals(),
+      pageType: detectPageType(),
       pageInfo: {
         url: window.location.href,
         title: document.title,
@@ -3718,6 +3719,145 @@ function extractSeoSignals() {
   const domBreadcrumbs = { present: !!breadcrumbEl };
 
   return { titleTag, urlStructure, internalLinks, domBreadcrumbs };
+}
+
+// ==========================================
+// PAGE TYPE DETECTION (PDP vs PLP/Collection)
+// ==========================================
+
+/**
+ * Detect whether the current page is a Product Detail Page (PDP) or
+ * a Product Listing Page (PLP / collection / category page).
+ *
+ * Uses four signal tiers checked in priority order:
+ *   1. Schema type (highest confidence)
+ *   2. URL patterns
+ *   3. DOM structure
+ *   4. og:type meta tag
+ *
+ * @returns {{ type: 'pdp'|'plp'|'unknown', confidence: 'high'|'medium'|'low', signals: string[] }}
+ */
+function detectPageType() {
+  const signals = [];
+  let pdpScore = 0;
+  let plpScore = 0;
+
+  // --- Signal 1: Schema type (highest confidence) ---
+  const schemaTypes = [];
+  for (const { type } of iterateSchemaItems()) {
+    schemaTypes.push(type);
+  }
+
+  const hasProductSchema = schemaTypes.some(t => t === 'product' || t === 'productgroup');
+  const hasListSchema = schemaTypes.some(t =>
+    t === 'itemlist' || t === 'collectionpage' || t === 'searchresultspage' || t === 'offerscatalog'
+  );
+
+  if (hasProductSchema && !hasListSchema) {
+    pdpScore += 3;
+    signals.push('Product/ProductGroup schema found');
+  } else if (hasListSchema && !hasProductSchema) {
+    plpScore += 3;
+    signals.push('ItemList/CollectionPage schema found');
+  } else if (hasListSchema && hasProductSchema) {
+    // Both present — PLP with embedded product snippets (common on Shopify collections)
+    plpScore += 2;
+    signals.push('ItemList + Product schemas found (likely PLP with product snippets)');
+  }
+
+  // --- Signal 2: URL patterns ---
+  const path = window.location.pathname.toLowerCase();
+
+  const pdpUrlPatterns = [
+    /\/products\/[^/]+$/,       // Shopify: /products/product-name
+    /\/p\/[^/]+$/,              // Generic: /p/product-name
+    /\/dp\/[A-Z0-9]+/i,        // Amazon: /dp/B08N5WRWNW
+    /\/product\/[^/]+$/,        // WooCommerce: /product/product-name
+    /\/ip\/[^/]+$/,             // Walmart: /ip/product-name
+    /\/pdp\//i                  // Generic PDP path
+  ];
+
+  const plpUrlPatterns = [
+    /\/collections\/[^/]*$/,    // Shopify: /collections/collection-name
+    /\/collections$/,           // Shopify: /collections
+    /\/category\/[^/]+/,        // Generic: /category/name
+    /\/categories\//,           // Generic: /categories/
+    /\/c\/[^/]+$/,              // Compact: /c/name
+    /\/shop\/?$/,               // Generic: /shop or /shop/
+    /\/shop\/[^/]+$/,           // Generic: /shop/category
+    /\/browse\//,               // Generic: /browse/
+    /\/catalog\//,              // Generic: /catalog/
+    /\/search/i                 // Search results pages
+  ];
+
+  if (pdpUrlPatterns.some(p => p.test(path))) {
+    pdpScore += 2;
+    signals.push(`URL pattern matches PDP (${path})`);
+  } else if (plpUrlPatterns.some(p => p.test(path))) {
+    plpScore += 2;
+    signals.push(`URL pattern matches PLP (${path})`);
+  }
+
+  // --- Signal 3: DOM structure ---
+  // PDP indicators: single product hero with price + CTA
+  const hasAddToCart = !!document.querySelector(
+    'button[name="add"], [data-action="add-to-cart"], form[action*="/cart"], ' +
+    '.add-to-cart, #add-to-cart, [class*="add-to-cart"], [class*="addtocart"], ' +
+    '.product-form, #product-form, [data-product-form]'
+  );
+  const hasSingleProductPrice = !!document.querySelector(
+    '.product-price, .product__price, [class*="product-price"], [class*="pdp-price"], ' +
+    '[data-product-price], .price--main, .price-current'
+  );
+
+  // PLP indicators: product grid/card repeaters
+  const productCards = document.querySelectorAll(
+    '.product-card, .product-grid-item, [class*="product-card"], [class*="grid-item"], ' +
+    '.collection-product, [class*="collection-product"], [data-product-card], ' +
+    '.product-tile, [class*="product-tile"], li[class*="product"]'
+  );
+  const hasProductGrid = productCards.length >= 4;
+
+  if (hasAddToCart && hasSingleProductPrice) {
+    pdpScore += 2;
+    signals.push('Add-to-cart button and product price found (PDP structure)');
+  }
+  if (hasProductGrid) {
+    plpScore += 2;
+    signals.push(`Product grid detected (${productCards.length} cards)`);
+  }
+
+  // --- Signal 4: og:type meta tag ---
+  const ogType = document.querySelector('meta[property="og:type"]')?.content?.toLowerCase() || '';
+  if (ogType === 'product' || ogType === 'og:product' || ogType.startsWith('product.')) {
+    pdpScore += 1;
+    signals.push(`og:type = "${ogType}" (product)`);
+  } else if (ogType === 'website' || ogType === '') {
+    // "website" is default/generic — weak PLP signal only if other PLP signals present
+    if (plpScore > 0) {
+      plpScore += 1;
+      signals.push('og:type = "website" (generic, supporting PLP signals)');
+    }
+  }
+
+  // --- Determine result ---
+  let type = 'unknown';
+  let confidence = 'low';
+
+  if (pdpScore > plpScore && pdpScore >= 2) {
+    type = 'pdp';
+    confidence = pdpScore >= 5 ? 'high' : pdpScore >= 3 ? 'medium' : 'low';
+  } else if (plpScore > pdpScore && plpScore >= 2) {
+    type = 'plp';
+    confidence = plpScore >= 5 ? 'high' : plpScore >= 3 ? 'medium' : 'low';
+  } else if (pdpScore === plpScore && pdpScore >= 2) {
+    // Tie-break: default to PDP (most common analysis target)
+    type = 'pdp';
+    confidence = 'low';
+    signals.push('Tie-break: defaulting to PDP');
+  }
+
+  return { type, confidence, signals };
 }
 
 // Log that content script is loaded
