@@ -10,6 +10,7 @@ import { RecommendationEngine, PdpQualityRecommendationEngine, SeoQualityRecomme
 import { getGradeDescription, CATEGORY_DESCRIPTIONS, FACTOR_RECOMMENDATIONS, PDP_CATEGORY_DESCRIPTIONS, PDP_FACTOR_RECOMMENDATIONS, getPdpGradeDescription, SEO_CATEGORY_DESCRIPTIONS, SEO_FACTOR_RECOMMENDATIONS, getSeoGradeDescription } from '../scoring/weights.js';
 import { RECOMMENDATION_TEMPLATES, PDP_RECOMMENDATION_TEMPLATES, SEO_RECOMMENDATION_TEMPLATES } from '../recommendations/recommendation-rules.js';
 import { generateHtmlReport } from './report-template.js';
+import { CitationOpportunityEngine } from '../recommendations/citation-opportunities.js';
 import {
   saveAnalysis,
   getHistory,
@@ -41,6 +42,7 @@ class SidePanelApp {
     this.pdpRecommendations = [];
     this.seoScoreResult = null;
     this.seoRecommendations = [];
+    this.citationOpportunities = null;
     this.currentRequestId = null;
     this.analysisTimeoutId = null;
     this.selectedHistoryIds = [];
@@ -286,6 +288,10 @@ class SidePanelApp {
       );
       this.recommendations = recEngine.generateRecommendations();
 
+      // Generate Citation Opportunities (AI Readiness only)
+      const citationEngine = new CitationOpportunityEngine(this.scoreResult, this.currentData);
+      this.citationOpportunities = citationEngine.generateOpportunities();
+
       // Calculate PDP Quality score
       this.pdpScoreResult = scoringEngine.calculatePdpQualityScore(this.currentData);
 
@@ -454,11 +460,97 @@ class SidePanelApp {
     const jsWarn = document.getElementById('jsDependencyWarning');
     jsWarn.classList.toggle('hidden', !this.scoreResult.jsDependent);
 
+    // Show page type badge
+    this.updatePageTypeBadges();
+
     // Render category cards
     this.renderCategories();
 
     // Render recommendations
     this.renderRecommendations();
+
+    // Render citation opportunities
+    this.renderCitationOpportunities();
+  }
+
+  updatePageTypeBadges() {
+    const pageType = this.scoreResult?.pageType || this.currentData?.pageType;
+    if (!pageType || pageType.type === 'unknown') {
+      // Hide all badges when type is unknown
+      ['pageTypeBadge', 'pdpPageTypeBadge', 'seoPageTypeBadge'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.classList.add('hidden'); }
+      });
+      return;
+    }
+
+    const labels = { pdp: 'Product Page', plp: 'Collection Page' };
+    const label = labels[pageType.type] || 'Unknown Page Type';
+
+    ['pageTypeBadge', 'pdpPageTypeBadge', 'seoPageTypeBadge'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.textContent = label;
+        el.className = `page-type-badge page-type-${pageType.type}`;
+        el.classList.remove('hidden');
+      }
+    });
+  }
+
+  renderCitationOpportunities() {
+    const section = document.getElementById('citationOpportunitiesSection');
+    const content = document.getElementById('citationContent');
+    const toggle = document.getElementById('citationToggle');
+    const icon = toggle?.querySelector('.citation-toggle-icon');
+
+    if (!this.citationOpportunities || !section || !content) return;
+
+    const { missing, partial, covered } = this.citationOpportunities;
+    const hasOpportunities = missing.length > 0 || partial.length > 0;
+
+    if (!hasOpportunities) {
+      section.classList.add('hidden');
+      return;
+    }
+
+    section.classList.remove('hidden');
+
+    let html = '';
+
+    if (missing.length > 0) {
+      html += '<div class="citation-group">';
+      html += `<div class="citation-group-header missing">High-Value Queries You're Missing (${missing.length})</div>`;
+      missing.forEach(entry => {
+        html += `<div class="citation-item missing">
+          <div class="citation-item-factor">${escapeHtml(entry.factorName)} <span style="font-weight:400;color:#9ca3af">· ${escapeHtml(entry.category)}</span></div>
+          <div class="citation-item-query">${entry.queries.map(q => `"${escapeHtml(q)}"`).join(' · ')}</div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+
+    if (partial.length > 0) {
+      html += '<div class="citation-group">';
+      html += `<div class="citation-group-header partial">Queries You Partially Cover (${partial.length})</div>`;
+      partial.forEach(entry => {
+        html += `<div class="citation-item partial">
+          <div class="citation-item-factor">${escapeHtml(entry.factorName)} <span style="font-weight:400;color:#9ca3af">· ${escapeHtml(entry.category)}</span></div>
+          <div class="citation-item-query">${entry.queries.map(q => `"${escapeHtml(q)}"`).join(' · ')}</div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+
+    content.innerHTML = html;
+
+    // Toggle expand/collapse
+    if (!toggle._citationHandlerAttached) {
+      toggle.addEventListener('click', () => {
+        content.classList.toggle('hidden');
+        icon?.classList.toggle('expanded');
+      });
+      toggle._citationHandlerAttached = true;
+    }
   }
 
   renderCategories() {
@@ -1123,7 +1215,8 @@ class SidePanelApp {
       this.pdpScoreResult,
       this.pdpRecommendations,
       this.seoScoreResult,
-      this.seoRecommendations
+      this.seoRecommendations,
+      this.citationOpportunities
     );
 
     const blob = new Blob([html], { type: 'text/html' });

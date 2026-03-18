@@ -71,6 +71,9 @@
 
     <!-- AI Visibility Results -->
     <section id="results" class="results hidden">
+      <!-- Page Type Badge -->
+      <div id="pageTypeBadge" class="page-type-badge hidden" role="status" aria-label="Page type"></div>
+
       <!-- Overall Score -->
       <div class="score-card">
         <div class="grade-container">
@@ -105,6 +108,17 @@
         <!-- Dynamically populated -->
       </div>
 
+      <!-- Citation Opportunities (AI Readiness only) -->
+      <div id="citationOpportunitiesSection" class="citation-opportunities hidden">
+        <div class="section-header citation-header" id="citationToggle">
+          <h3>Citation Opportunities</h3>
+          <span class="citation-toggle-icon">&#9654;</span>
+        </div>
+        <div class="citation-content hidden" id="citationContent">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
       <!-- Actions -->
       <div class="actions">
         <button id="reanalyzeBtn" class="btn btn-secondary">
@@ -121,6 +135,9 @@
 
     <!-- PDP Quality Results -->
     <section id="pdpView" class="results hidden">
+      <!-- Page Type Badge -->
+      <div id="pdpPageTypeBadge" class="page-type-badge hidden" role="status" aria-label="Page type"></div>
+
       <!-- Overall PDP Score -->
       <div class="score-card">
         <div class="grade-container">
@@ -171,6 +188,9 @@
 
     <!-- SEO Quality Results -->
     <section id="seoView" class="results hidden">
+      <!-- Page Type Badge -->
+      <div id="seoPageTypeBadge" class="page-type-badge hidden" role="status" aria-label="Page type"></div>
+
       <!-- Overall SEO Score -->
       <div class="score-card">
         <div class="grade-container">

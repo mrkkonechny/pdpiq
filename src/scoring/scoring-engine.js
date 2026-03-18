@@ -62,6 +62,8 @@ export class ScoringEngine {
     const grade = getGrade(totalScore);
     // Flag JS-rendered pages so the UI can warn that scores may be understated
     const jsDependent = ['high', 'medium'].includes(extractedData.contentStructure?.jsDependency?.dependencyLevel);
+    // Include page type detection result
+    const pageType = extractedData.pageType || { type: 'unknown', confidence: 'low', signals: [] };
 
     return {
       totalScore,
@@ -70,6 +72,7 @@ export class ScoringEngine {
       context: this.context,
       categoryScores,
       jsDependent,
+      pageType,
       timestamp: new Date().toISOString()
     };
   }
@@ -1427,13 +1430,15 @@ export class ScoringEngine {
    */
   calculatePdpQualityScore(extractedData) {
     const pdpData = extractedData.pdpQuality || {};
+    const pageType = extractedData.pageType || { type: 'unknown', confidence: 'low', signals: [] };
+    const isPlp = pageType.type === 'plp';
 
     const categoryScores = {
-      purchaseExperience: this.scorePurchaseExperience(pdpData.purchaseExperience),
+      purchaseExperience: this.scorePurchaseExperience(pdpData.purchaseExperience, isPlp),
       trustConfidence: this.scoreTrustConfidence(pdpData.trustConfidence),
-      visualPresentation: this.scoreVisualPresentation(pdpData.visualPresentation),
-      contentCompleteness: this.scoreContentCompleteness(pdpData.contentCompleteness),
-      reviewsSocialProof: this.scoreReviewsSocialProof(pdpData.reviewsSocialProof)
+      visualPresentation: this.scoreVisualPresentation(pdpData.visualPresentation, isPlp),
+      contentCompleteness: this.scoreContentCompleteness(pdpData.contentCompleteness, isPlp),
+      reviewsSocialProof: this.scoreReviewsSocialProof(pdpData.reviewsSocialProof, isPlp)
     };
 
     const totalScore = Math.round(
@@ -1452,6 +1457,7 @@ export class ScoringEngine {
       gradeDescription: getPdpGradeDescription(grade),
       context: this.context,
       categoryScores,
+      pageType,
       timestamp: new Date().toISOString()
     };
   }
@@ -1459,7 +1465,7 @@ export class ScoringEngine {
   /**
    * Score Purchase Experience category (25% weight)
    */
-  scorePurchaseExperience(data) {
+  scorePurchaseExperience(data, isPlp = false) {
     const factors = [];
     let rawScore = 0;
     const weights = PDP_FACTOR_WEIGHTS.purchaseExperience;
@@ -1486,24 +1492,35 @@ export class ScoringEngine {
     });
     rawScore += ctaScore;
 
-    // CTA Clarity (15 pts)
-    let ctaClarityScore = 0;
-    let ctaClarityStatus = 'fail';
-    if (data?.ctaFound && data?.ctaIsClear) {
-      ctaClarityScore = weights.ctaClarity;
-      ctaClarityStatus = 'pass';
-    } else if (data?.ctaFound) {
-      ctaClarityScore = Math.round(weights.ctaClarity * 0.5);
-      ctaClarityStatus = 'warning';
+    // CTA Clarity (15 pts) — N/A on collection pages (no single product CTA)
+    if (isPlp) {
+      factors.push({
+        name: 'CTA Clarity',
+        status: 'pass',
+        points: weights.ctaClarity,
+        maxPoints: weights.ctaClarity,
+        details: 'N/A — Collection Page'
+      });
+      rawScore += weights.ctaClarity;
+    } else {
+      let ctaClarityScore = 0;
+      let ctaClarityStatus = 'fail';
+      if (data?.ctaFound && data?.ctaIsClear) {
+        ctaClarityScore = weights.ctaClarity;
+        ctaClarityStatus = 'pass';
+      } else if (data?.ctaFound) {
+        ctaClarityScore = Math.round(weights.ctaClarity * 0.5);
+        ctaClarityStatus = 'warning';
+      }
+      factors.push({
+        name: 'CTA Clarity',
+        status: ctaClarityStatus,
+        points: ctaClarityScore,
+        maxPoints: weights.ctaClarity,
+        details: data?.ctaIsClear ? 'Clear, action-oriented CTA' : data?.ctaFound ? 'CTA exists but text is generic' : 'No CTA found'
+      });
+      rawScore += ctaClarityScore;
     }
-    factors.push({
-      name: 'CTA Clarity',
-      status: ctaClarityStatus,
-      points: ctaClarityScore,
-      maxPoints: weights.ctaClarity,
-      details: data?.ctaIsClear ? 'Clear, action-oriented CTA' : data?.ctaFound ? 'CTA exists but text is generic' : 'No CTA found'
-    });
-    rawScore += ctaClarityScore;
 
     // Discount/Sale Messaging (15 pts)
     const discountScore = data?.hasDiscount ? weights.discountSaleMessaging : 0;
@@ -1657,7 +1674,7 @@ export class ScoringEngine {
   /**
    * Score Visual Presentation category (20% weight)
    */
-  scoreVisualPresentation(data) {
+  scoreVisualPresentation(data, isPlp = false) {
     const factors = [];
     let rawScore = 0;
     const weights = PDP_FACTOR_WEIGHTS.visualPresentation;
@@ -1699,14 +1716,15 @@ export class ScoringEngine {
     });
     rawScore += videoScore;
 
-    // Image Gallery Features (15 pts)
-    const galleryScore = data?.hasGalleryFeatures ? weights.imageGalleryFeatures : 0;
+    // Image Gallery Features (15 pts) — N/A on collection pages
+    const galleryNA = isPlp && !data?.hasGalleryFeatures;
+    const galleryScore = (data?.hasGalleryFeatures || galleryNA) ? weights.imageGalleryFeatures : 0;
     factors.push({
       name: 'Image Gallery Features',
-      status: data?.hasGalleryFeatures ? 'pass' : 'fail',
+      status: galleryNA ? 'pass' : data?.hasGalleryFeatures ? 'pass' : 'fail',
       points: galleryScore,
       maxPoints: weights.imageGalleryFeatures,
-      details: data?.hasGalleryFeatures ? 'Zoom, lightbox, or navigation found' : 'No gallery features (zoom, lightbox, nav)'
+      details: galleryNA ? 'N/A — Collection Page' : data?.hasGalleryFeatures ? 'Zoom, lightbox, or navigation found' : 'No gallery features (zoom, lightbox, nav)'
     });
     rawScore += galleryScore;
 
@@ -1724,19 +1742,20 @@ export class ScoringEngine {
     });
     rawScore += lifestyleScore;
 
-    // Color/Variant Swatches (20 pts)
+    // Color/Variant Swatches (20 pts) — N/A on collection pages
+    const swatchNA = isPlp && !data?.hasSwatches;
     const swatchMultiplier = getPdpContextMultiplier(this.context, 'colorVariantSwatches');
-    let swatchScore = data?.hasSwatches ? weights.colorVariantSwatches : 0;
-    swatchScore = Math.min(weights.colorVariantSwatches, Math.round(swatchScore * swatchMultiplier));
+    let swatchScore = (data?.hasSwatches || swatchNA) ? weights.colorVariantSwatches : 0;
+    if (!swatchNA) swatchScore = Math.min(weights.colorVariantSwatches, Math.round(swatchScore * swatchMultiplier));
     factors.push({
       name: 'Color/Variant Swatches',
-      status: data?.hasSwatches ? 'pass' : 'fail',
-      points: swatchScore,
+      status: swatchNA ? 'pass' : data?.hasSwatches ? 'pass' : 'fail',
+      points: swatchNA ? weights.colorVariantSwatches : swatchScore,
       maxPoints: weights.colorVariantSwatches,
-      contextual: swatchMultiplier !== 1.0,
-      details: data?.hasSwatches ? 'Visual color/variant selectors found' : 'No visual variant swatches'
+      contextual: !swatchNA && swatchMultiplier !== 1.0,
+      details: swatchNA ? 'N/A — Collection Page' : data?.hasSwatches ? 'Visual color/variant selectors found' : 'No visual variant swatches'
     });
-    rawScore += swatchScore;
+    rawScore += swatchNA ? weights.colorVariantSwatches : swatchScore;
 
     // Image Quality Signals (15 pts)
     const qualityScore = data?.hasHighResImages ? weights.imageQualitySignals : 0;
@@ -1761,7 +1780,7 @@ export class ScoringEngine {
   /**
    * Score Content Completeness category (15% weight)
    */
-  scoreContentCompleteness(data) {
+  scoreContentCompleteness(data, isPlp = false) {
     const factors = [];
     let rawScore = 0;
     const weights = PDP_FACTOR_WEIGHTS.contentCompleteness;
@@ -1780,19 +1799,20 @@ export class ScoringEngine {
     });
     rawScore += variantScore;
 
-    // Size Guide/Fit Info (15 pts)
+    // Size Guide/Fit Info (15 pts) — N/A on collection pages
+    const sizeNA = isPlp && !data?.hasSizeGuide;
     const sizeMultiplier = getPdpContextMultiplier(this.context, 'sizeGuideFitInfo');
-    let sizeScore = data?.hasSizeGuide ? weights.sizeGuideFitInfo : 0;
-    sizeScore = Math.min(weights.sizeGuideFitInfo, Math.round(sizeScore * sizeMultiplier));
+    let sizeScore = (data?.hasSizeGuide || sizeNA) ? weights.sizeGuideFitInfo : 0;
+    if (!sizeNA) sizeScore = Math.min(weights.sizeGuideFitInfo, Math.round(sizeScore * sizeMultiplier));
     factors.push({
       name: 'Size Guide/Fit Info',
-      status: data?.hasSizeGuide ? 'pass' : 'fail',
-      points: sizeScore,
+      status: sizeNA ? 'pass' : data?.hasSizeGuide ? 'pass' : 'fail',
+      points: sizeNA ? weights.sizeGuideFitInfo : sizeScore,
       maxPoints: weights.sizeGuideFitInfo,
-      contextual: sizeMultiplier !== 1.0,
-      details: data?.hasSizeGuide ? 'Size guide or fit info available' : 'No size guide or fit information'
+      contextual: !sizeNA && sizeMultiplier !== 1.0,
+      details: sizeNA ? 'N/A — Collection Page' : data?.hasSizeGuide ? 'Size guide or fit info available' : 'No size guide or fit information'
     });
-    rawScore += sizeScore;
+    rawScore += sizeNA ? weights.sizeGuideFitInfo : sizeScore;
 
     // Related/Recommended Products (15 pts)
     const relatedScore = data?.hasRelatedProducts ? weights.relatedRecommendedProducts : 0;
@@ -1805,14 +1825,15 @@ export class ScoringEngine {
     });
     rawScore += relatedScore;
 
-    // Q&A Section (15 pts)
-    const qaScore = data?.hasQASection ? weights.qaSection : 0;
+    // Q&A Section (15 pts) — N/A on collection pages
+    const qaNA = isPlp && !data?.hasQASection;
+    const qaScore = (data?.hasQASection || qaNA) ? weights.qaSection : 0;
     factors.push({
       name: 'Q&A Section',
-      status: data?.hasQASection ? 'pass' : 'fail',
+      status: qaNA ? 'pass' : data?.hasQASection ? 'pass' : 'fail',
       points: qaScore,
       maxPoints: weights.qaSection,
-      details: data?.hasQASection ? 'Customer Q&A section found' : 'No Q&A section'
+      details: qaNA ? 'N/A — Collection Page' : data?.hasQASection ? 'Customer Q&A section found' : 'No Q&A section'
     });
     rawScore += qaScore;
 
@@ -1827,19 +1848,20 @@ export class ScoringEngine {
     });
     rawScore += orgScore;
 
-    // "What's in the Box" (20 pts)
+    // "What's in the Box" (20 pts) — N/A on collection pages
+    const boxNA = isPlp && !data?.hasWhatsInBox;
     const boxMultiplier = getPdpContextMultiplier(this.context, 'whatsInTheBox');
-    let boxScore = data?.hasWhatsInBox ? weights.whatsInTheBox : 0;
-    boxScore = Math.min(weights.whatsInTheBox, Math.round(boxScore * boxMultiplier));
+    let boxScore = (data?.hasWhatsInBox || boxNA) ? weights.whatsInTheBox : 0;
+    if (!boxNA) boxScore = Math.min(weights.whatsInTheBox, Math.round(boxScore * boxMultiplier));
     factors.push({
       name: '"What\'s in the Box"',
-      status: data?.hasWhatsInBox ? 'pass' : 'fail',
-      points: boxScore,
+      status: boxNA ? 'pass' : data?.hasWhatsInBox ? 'pass' : 'fail',
+      points: boxNA ? weights.whatsInTheBox : boxScore,
       maxPoints: weights.whatsInTheBox,
-      contextual: boxMultiplier !== 1.0,
-      details: data?.hasWhatsInBox ? 'Package contents or included items listed' : 'No package contents information'
+      contextual: !boxNA && boxMultiplier !== 1.0,
+      details: boxNA ? 'N/A — Collection Page' : data?.hasWhatsInBox ? 'Package contents or included items listed' : 'No package contents information'
     });
-    rawScore += boxScore;
+    rawScore += boxNA ? weights.whatsInTheBox : boxScore;
 
     return {
       score: Math.min(100, rawScore),
@@ -1853,7 +1875,7 @@ export class ScoringEngine {
   /**
    * Score Reviews & Social Proof category (20% weight)
    */
-  scoreReviewsSocialProof(data) {
+  scoreReviewsSocialProof(data, isPlp = false) {
     const factors = [];
     let rawScore = 0;
     const weights = PDP_FACTOR_WEIGHTS.reviewsSocialProof;
@@ -1880,30 +1902,32 @@ export class ScoringEngine {
     });
     rawScore += starScore;
 
-    // Review Sorting/Filtering (15 pts)
-    const sortScore = data?.hasReviewSorting ? weights.reviewSortingFiltering : 0;
+    // Review Sorting/Filtering (15 pts) — N/A on collection pages
+    const sortNA = isPlp && !data?.hasReviewSorting;
+    const sortScore = (data?.hasReviewSorting || sortNA) ? weights.reviewSortingFiltering : 0;
     factors.push({
       name: 'Review Sorting/Filtering',
-      status: data?.hasReviewSorting ? 'pass' : 'fail',
+      status: sortNA ? 'pass' : data?.hasReviewSorting ? 'pass' : 'fail',
       points: sortScore,
       maxPoints: weights.reviewSortingFiltering,
-      details: data?.hasReviewSorting ? 'Review sort/filter options found' : 'No review sorting or filtering'
+      details: sortNA ? 'N/A — Collection Page' : data?.hasReviewSorting ? 'Review sort/filter options found' : 'No review sorting or filtering'
     });
     rawScore += sortScore;
 
-    // Photo/Video Reviews (20 pts)
+    // Photo/Video Reviews (20 pts) — N/A on collection pages
+    const mediaNA = isPlp && !data?.hasMediaReviews;
     const mediaMultiplier = getPdpContextMultiplier(this.context, 'photoVideoReviews');
-    let mediaScore = data?.hasMediaReviews ? weights.photoVideoReviews : 0;
-    mediaScore = Math.min(weights.photoVideoReviews, Math.round(mediaScore * mediaMultiplier));
+    let mediaScore = (data?.hasMediaReviews || mediaNA) ? weights.photoVideoReviews : 0;
+    if (!mediaNA) mediaScore = Math.min(weights.photoVideoReviews, Math.round(mediaScore * mediaMultiplier));
     factors.push({
       name: 'Photo/Video Reviews',
-      status: data?.hasMediaReviews ? 'pass' : 'fail',
-      points: mediaScore,
+      status: mediaNA ? 'pass' : data?.hasMediaReviews ? 'pass' : 'fail',
+      points: mediaNA ? weights.photoVideoReviews : mediaScore,
       maxPoints: weights.photoVideoReviews,
-      contextual: mediaMultiplier !== 1.0,
-      details: data?.hasMediaReviews ? 'Customer photo/video reviews found' : 'No customer-submitted review media'
+      contextual: !mediaNA && mediaMultiplier !== 1.0,
+      details: mediaNA ? 'N/A — Collection Page' : data?.hasMediaReviews ? 'Customer photo/video reviews found' : 'No customer-submitted review media'
     });
-    rawScore += mediaScore;
+    rawScore += mediaNA ? weights.photoVideoReviews : mediaScore;
 
     // Social Proof Indicators (15 pts)
     const spMultiplier = getPdpContextMultiplier(this.context, 'socialProofIndicators');
@@ -1978,12 +2002,15 @@ export class ScoringEngine {
 
     const grade = getGrade(totalScore);
 
+    const pageType = extractedData.pageType || { type: 'unknown', confidence: 'low', signals: [] };
+
     return {
       totalScore,
       grade,
       gradeDescription: getSeoGradeDescription(grade),
       context: 'neutral',
       categoryScores,
+      pageType,
       timestamp: new Date().toISOString()
     };
   }

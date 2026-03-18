@@ -538,6 +538,7 @@ export class PdpQualityRecommendationEngine {
     this.extractedData = extractedData;
     this.pdpData = extractedData.pdpQuality || {};
     this.context = pdpScoreResult.context || 'hybrid';
+    this.isPlp = pdpScoreResult.pageType?.type === 'plp';
   }
 
   /**
@@ -569,7 +570,7 @@ export class PdpQualityRecommendationEngine {
 
     if (!pe.ctaFound) {
       recs.push(this.createRecommendation('pdp-cta-missing'));
-    } else if (!pe.ctaIsClear) {
+    } else if (!this.isPlp && !pe.ctaIsClear) {
       recs.push(this.createRecommendation('pdp-cta-unclear'));
     }
 
@@ -656,7 +657,7 @@ export class PdpQualityRecommendationEngine {
       }
     }
 
-    if (!vp.hasGalleryFeatures) {
+    if (!this.isPlp && !vp.hasGalleryFeatures) {
       recs.push(this.createRecommendation('pdp-gallery-basic'));
     }
 
@@ -670,7 +671,7 @@ export class PdpQualityRecommendationEngine {
       }
     }
 
-    if (!vp.hasSwatches) {
+    if (!this.isPlp && !vp.hasSwatches) {
       const multiplier = getPdpContextMultiplier(this.context, 'colorVariantSwatches');
       const rec = this.createRecommendation('pdp-swatches-missing');
       if (multiplier > 1) {
@@ -704,7 +705,7 @@ export class PdpQualityRecommendationEngine {
       }
     }
 
-    if (!cc.hasSizeGuide) {
+    if (!this.isPlp && !cc.hasSizeGuide) {
       const multiplier = getPdpContextMultiplier(this.context, 'sizeGuideFitInfo');
       const rec = this.createRecommendation('pdp-size-guide-missing');
       if (multiplier > 1) {
@@ -718,7 +719,7 @@ export class PdpQualityRecommendationEngine {
       recs.push(this.createRecommendation('pdp-related-products-missing'));
     }
 
-    if (!cc.hasQASection) {
+    if (!this.isPlp && !cc.hasQASection) {
       recs.push(this.createRecommendation('pdp-qa-missing'));
     }
 
@@ -726,7 +727,7 @@ export class PdpQualityRecommendationEngine {
       recs.push(this.createRecommendation('pdp-details-unorganized'));
     }
 
-    if (!cc.hasWhatsInBox) {
+    if (!this.isPlp && !cc.hasWhatsInBox) {
       const multiplier = getPdpContextMultiplier(this.context, 'whatsInTheBox');
       const rec = this.createRecommendation('pdp-whats-in-box-missing');
       if (multiplier > 1) {
@@ -754,11 +755,11 @@ export class PdpQualityRecommendationEngine {
       recs.push(this.createRecommendation('pdp-star-visual-missing'));
     }
 
-    if (!rsp.hasReviewSorting) {
+    if (!this.isPlp && !rsp.hasReviewSorting) {
       recs.push(this.createRecommendation('pdp-review-sort-missing'));
     }
 
-    if (!rsp.hasMediaReviews) {
+    if (!this.isPlp && !rsp.hasMediaReviews) {
       const multiplier = getPdpContextMultiplier(this.context, 'photoVideoReviews');
       const rec = this.createRecommendation('pdp-review-media-missing');
       if (multiplier > 1) {

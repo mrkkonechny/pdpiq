@@ -1,10 +1,19 @@
 # Changelog
 
-> **PDS Document 10** | Last Updated: 2026-03-10
+> **PDS Document 10** | Last Updated: 2026-03-18
 
 All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/). Most recent version at the top.
 
 ## [Unreleased]
+
+---
+
+## [2.3.0] — 2026-03-18
+
+### Added
+- **Page type auto-detection** — `detectPageType()` identifies PDP vs PLP/collection pages using schema type, URL patterns, DOM structure, and og:type signals; page type badge displayed in side panel header and HTML report header; inapplicable factors auto-marked "N/A — Collection Page" on PLP pages (DEC-0025, ROAD-0034)
+- **Citation Opportunity Map** — rule-based engine mapping failing AI Readiness factors to specific conversational query patterns the page cannot answer; personalized with extracted product name, brand, and category; displayed in AI Visibility tab and AI Readiness report section only; groups by priority: high-value missing → partially covered → well-positioned (DEC-0026, ROAD-0035)
+- **HTML report executive summary** — "Top 3 priorities" hero section at the top of the report for CMO-level scanning; Tribbute CTA section for consulting lead conversion (ROAD-0036)
 
 ### Fixed
 - `hasGuarantee` false negative when "no warranty" text appears in footer/legal sections — global negative guard on `document.body.innerText` blocked detection of valid warranty statements in product content; guarantee check now uses `getProductContentText()` with a localised 30-char negative-qualifier check around the match position (BUG-0066)

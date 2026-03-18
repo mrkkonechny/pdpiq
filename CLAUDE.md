@@ -54,7 +54,8 @@ pdpiq/
 │   │   └── grading.js           # Grade color/background helpers, re-exports getGrade/getGradeDescription
 │   ├── recommendations/
 │   │   ├── recommendation-engine.js  # Prioritization logic
-│   │   └── recommendation-rules.js   # Issue-to-fix mappings, recommendation templates
+│   │   ├── recommendation-rules.js   # Issue-to-fix mappings, recommendation templates
+│   │   └── citation-opportunities.js # Citation Opportunity Map engine (AI Readiness only)
 │   ├── sidepanel/
 │   │   ├── sidepanel.html       # UI markup
 │   │   ├── sidepanel.css        # Styling (CSS variables for grade colours)
@@ -473,10 +474,70 @@ This is informational context for bilingual sites (common with Canadian retailer
 | `src/scoring/grading.js` | `getGradeColor()`, `getGradeBackgroundColor()`, re-exports `getGrade`/`getGradeDescription` |
 | `src/recommendations/recommendation-rules.js` | `RECOMMENDATION_TEMPLATES` (AI) + `PDP_RECOMMENDATION_TEMPLATES` (PDP) + `SEO_RECOMMENDATION_TEMPLATES` (SEO) |
 | `src/recommendations/recommendation-engine.js` | `RecommendationEngine` (AI) + `PdpQualityRecommendationEngine` (PDP) + `SeoQualityRecommendationEngine` (SEO) |
+| `src/recommendations/citation-opportunities.js` | `CitationOpportunityEngine` — maps failing AI Readiness factors to conversational query patterns |
 | `src/sidepanel/sidepanel.js` | UI state management, triple-tab rendering, history, comparison, export |
 | `src/sidepanel/report-template.js` | HTML report generation with AI Readiness, PDP Quality, and SEO Quality sections |
 | `src/background/service-worker.js` | Message routing, sender validation, URL safety, network fetches |
 | `src/storage/storage-manager.js` | History CRUD, quota pruning |
+
+### Page Type Detection
+
+`detectPageType()` in `content-script.js` auto-detects whether the analyzed page is a PDP or PLP/collection page. Returns `{ type: 'pdp'|'plp'|'unknown', confidence: 'high'|'medium'|'low', signals: [] }`.
+
+**Detection signals (checked in priority order):**
+1. **Schema type:** `Product`/`ProductGroup` → PDP; `ItemList`/`CollectionPage`/`SearchResultsPage` → PLP
+2. **URL patterns:** `/products/`, `/p/`, `/dp/` → PDP; `/collections/`, `/category/`, `/c/`, `/shop/` → PLP
+3. **DOM structure:** Single product hero with price/CTA → PDP; Product grid/card repeaters → PLP
+4. **og:type:** `product`/`product.item` → PDP; `website`/absent → likely PLP
+
+**Integration with scoring:**
+- Follows the apparel detection pattern — `ScoringEngine` checks page type and auto-marks inapplicable factors as "N/A — Collection Page"
+- Page type badge displayed in side panel header and HTML report header
+- Factors marked N/A for PLP pages: those requiring single-product context (e.g., CTA clarity, size guide, what's in the box, product-specific FAQ)
+
+**Key Architecture Decision (DEC-0025):**
+- Phase 1 (current): detect + display + N/A flagging using existing scoring
+- Phase 2 (ROAD-0038): add PLP-specific factors with adjusted weights once validated
+
+### Citation Opportunity Map
+
+The Citation Opportunity Map is a rule-based engine that maps failing AI Readiness factors to specific conversational query patterns the page cannot answer. It appears **only** in the AI Visibility tab and the AI Readiness section of the HTML report.
+
+**Architecture (DEC-0026):**
+- New file: `src/recommendations/citation-opportunities.js`
+- `CitationOpportunityEngine` class with `generateOpportunities(scoreResult, extractedData)` method
+- 30-40 query templates mapped from AI Readiness factor IDs across all 6 categories
+- Templates personalized with extracted product name, brand, and category via string interpolation
+- No LLM required — entirely rule-based
+
+**Query template structure:**
+```javascript
+{
+  factorId: 'comparison-content',
+  queries: [
+    'Is {product} better than {competitor}?',
+    'What are the alternatives to {product}?',
+    '{product} vs [competitor] — which should I buy?'
+  ],
+  status: 'missing' | 'partial' | 'covered',
+  priority: 'high' | 'medium' | 'low'
+}
+```
+
+**Grouping in UI/report:**
+- High-value queries you're missing (failing factors with high weight/multiplier)
+- Queries you partially cover (warning-status factors)
+- Queries you're well-positioned for (passing factors)
+
+### Strategic Product Context
+
+pdpIQ is currently **internal-only** — used by Tribbute's acquisition team and operations. It serves as:
+1. **Operations triage tool** for client engagements
+2. **Sales hook** for consulting relationships
+
+**Content generation** (Q&A, FAQ) lives OUTSIDE pdpIQ in a separate TRIBBUTE API-based enhanced platform (DEC-0027). pdpIQ provides assessment data via JSON export; the enhanced platform consumes it for generation. pdpIQ's zero-transmission privacy promise must remain intact.
+
+**The HTML report is the primary deliverable**, not the side panel. Report includes executive summary, triple scores, Citation Opportunity Map, and Tribbute CTA.
 
 ## Common Tasks
 

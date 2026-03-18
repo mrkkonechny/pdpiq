@@ -1,6 +1,6 @@
 # Roadmap
 
-> **PDS Document 08** | Last Updated: 2026-03-04
+> **PDS Document 08** | Last Updated: 2026-03-18
 
 Strategic feature plan and working backlog. Combines the "what's planned" view with the "what's in the queue" view. Most recent entries at the top within each section.
 
@@ -49,6 +49,77 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Notes:** Start with scoring-engine.js and weights.js. Recommended: Vitest for speed and ES module support.
 
 ## Approved (Queued)
+
+### ROAD-0036 — Elevate HTML report (executive summary, Tribbute CTA)
+- **Status:** Approved
+- **Type:** Improvement
+- **Priority:** P0 (Critical)
+- **Target Phase/Sprint:** v2.3.0 — Consulting Practice
+- **Date Added:** 2026-03-18
+- **Requested By:** Product strategy (consulting practice tool)
+- **Scope:** Medium (1-3 days)
+- **Description:** The HTML report is the primary consulting deliverable and sales hook. Currently jumps straight into scores. Needs a "3 things to fix first" executive summary that a CMO can read in 30 seconds, and a Tribbute CTA ("Schedule a consultation" or "Get a full content audit") to convert report recipients into consulting leads.
+- **Acceptance Criteria:**
+  - [ ] Executive summary section at top of report with top 3 priority issues across all scores
+  - [ ] Tribbute CTA section with configurable link/text
+  - [ ] Visual polish pass (spacing, hierarchy, scanability)
+- **Dependencies:** None
+- **Related:** —
+
+### ROAD-0034 — Page type auto-detection and display (PDP vs PLP — Phase 1)
+- **Status:** Approved
+- **Type:** Feature
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** v2.3.0 — Consulting Practice
+- **Date Added:** 2026-03-18
+- **Requested By:** Product strategy (client engagement need)
+- **Scope:** Medium (1-3 days)
+- **Description:** Auto-detect whether the analyzed page is a PDP or PLP/collection page using schema type, URL patterns, DOM structure, and og:type signals. Display page type badge in side panel header and HTML report header. Auto-mark clearly inapplicable factors as "N/A — Collection Page" using the proven apparel detection pattern. Enables clients to see pdpIQ is collection-page aware.
+- **Acceptance Criteria:**
+  - [ ] `detectPageType()` returns `{ type: 'pdp'|'plp'|'unknown', confidence, signals }`
+  - [ ] Page type badge visible in side panel header
+  - [ ] Page type badge visible in HTML report header
+  - [ ] Inapplicable factors auto-marked "N/A — Collection Page" on PLP pages
+  - [ ] Note on collection pages: "Some factors are optimized for product pages"
+- **Dependencies:** None
+- **Related:** DEC-0025, ROAD-0038
+
+### ROAD-0035 — Citation Opportunity Map (AI Visibility tab + report)
+- **Status:** Approved
+- **Type:** Feature
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** v2.3.0 — Consulting Practice
+- **Date Added:** 2026-03-18
+- **Requested By:** Product strategy (consulting deliverable differentiator)
+- **Scope:** Medium (1-3 days)
+- **Description:** Rule-based engine mapping failing AI Readiness factors to specific conversational query patterns the page cannot answer. Personalized with extracted product name, brand, and category. Displayed as a collapsible "Citation Opportunities" section in the AI Visibility tab only and the AI Readiness section of the HTML report only. Groups: high-value queries missing → partially covered → well-positioned. Creates a powerful consulting sales moment.
+- **Acceptance Criteria:**
+  - [ ] New `citation-opportunities.js` with 30-40 query templates mapped from AI Readiness factor IDs
+  - [ ] "Citation Opportunities" collapsible section in AI Visibility tab
+  - [ ] "Citation Opportunities" section in AI Readiness report section
+  - [ ] Query templates personalized with product name, brand, category
+  - [ ] Priority grouping (missing / partial / covered)
+  - [ ] Does NOT appear in PDP Quality or SEO Quality tabs/report sections
+- **Dependencies:** None
+- **Related:** DEC-0026
+
+### ROAD-0037 — Bulk triage mode (internal ops tooling)
+- **Status:** Approved
+- **Type:** Feature
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** v2.3.0 — Consulting Practice
+- **Date Added:** 2026-03-18
+- **Requested By:** Product strategy (ops team efficiency)
+- **Scope:** Medium (1-3 days)
+- **Description:** Internal tooling for ops team to quickly assess multiple client pages. Paste URLs into a textarea, sequentially analyze each via tabs API, produce summary table (URL, AI grade, PDP grade, SEO grade, top 3 issues). Export as CSV. Makes the ops team 5x faster on client assessments.
+- **Acceptance Criteria:**
+  - [ ] URL paste textarea in side panel (accessible from History tab or new mode)
+  - [ ] Sequential analysis with progress indicator
+  - [ ] Summary table with triple grades per URL
+  - [ ] Top 3 issues per URL in summary
+  - [ ] CSV export of batch results
+- **Dependencies:** None
+- **Related:** ROAD-0008
 
 ### ROAD-0007 — Quarterly AI crawler list review
 - **Status:** Approved
@@ -147,6 +218,57 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** DEC-0015
 
 ## Proposed (Needs Review)
+
+### ROAD-0038 — PLP-specific factors and adjusted weights (Phase 2)
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** v2.4.0 — Post-validation
+- **Date Added:** 2026-03-18
+- **Requested By:** Product strategy (client engagement need)
+- **Scope:** Large (3+ days)
+- **Description:** Phase 2 of page type detection. Add collection-page-specific factors with adjusted weights: product card completeness (images, prices, ratings per card), ItemList/CollectionPage schema, faceted navigation & filter UX, pagination vs infinite scroll, product count visibility, filter-to-URL mapping (crawlable facets). Only build after ops team validates need through consulting engagements.
+- **Acceptance Criteria:**
+  - [ ] PLP-specific extraction functions in content-script.js
+  - [ ] PLP-specific factor weights and category definitions in weights.js
+  - [ ] PLP scoring methods in scoring-engine.js
+  - [ ] PLP recommendation templates in recommendation-rules.js
+  - [ ] Automatic switch between PDP and PLP scoring based on detectPageType()
+- **Dependencies:** ROAD-0034 (Phase 1 page type detection)
+- **Related:** DEC-0025
+
+### ROAD-0039 — Vertical category expansion (beyond apparel)
+- **Status:** Proposed
+- **Type:** Improvement
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** v2.4.0 — Post-validation
+- **Date Added:** 2026-03-18
+- **Requested By:** Product strategy (consulting credibility)
+- **Scope:** Medium (1-3 days per vertical)
+- **Description:** Expand category auto-detection beyond apparel to electronics, home goods, health/beauty, food/beverage. Each vertical has different factor relevance — electronics emphasizes specs/compatibility, food emphasizes certifications, etc. Extends the isLikelyApparel() pattern to a general `detectProductVertical()`.
+- **Acceptance Criteria:**
+  - [ ] `detectProductVertical()` returns vertical type (apparel, electronics, home, health, food, general)
+  - [ ] Per-vertical N/A factor definitions
+  - [ ] Per-vertical scoring adjustments
+  - [ ] Backward-compatible with existing apparel detection
+- **Dependencies:** ROAD-0001 (test suite for regression safety)
+- **Related:** DEC-0015
+
+### ROAD-0040 — JSON export data contract for enhanced platform
+- **Status:** Proposed
+- **Type:** Improvement
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-18
+- **Requested By:** Product strategy (TRIBBUTE enhanced platform enablement)
+- **Scope:** Small (< 1 day)
+- **Description:** Define and document the JSON export schema as a formal data contract consumed by the future TRIBBUTE API enhanced platform (Q&A generator, content brief builder, competitor analysis). Current JSON export exists but may need enrichment to support generation use cases — e.g., full extracted text fields, structured spec data, review snippets.
+- **Acceptance Criteria:**
+  - [ ] Documented JSON schema with field descriptions
+  - [ ] All extraction data fields included (not just scores)
+  - [ ] Versioned schema for forward compatibility
+- **Dependencies:** None
+- **Related:** DEC-0027
 
 ### ROAD-0008 — Bulk analysis via CSV URL upload
 - **Status:** Proposed
@@ -613,4 +735,4 @@ _No rejected or held items._
 
 ---
 
-_This roadmap should be reviewed monthly or when significant new information arises. Last reviewed: 2026-03-01._
+_This roadmap should be reviewed monthly or when significant new information arises. Last reviewed: 2026-03-18._

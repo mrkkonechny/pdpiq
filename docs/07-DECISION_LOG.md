@@ -22,6 +22,36 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 
 ## Decisions
 
+### DEC-0027 — Q&A content generation as separate TRIBBUTE API product
+- **Date:** 2026-03-18
+- **Status:** Accepted
+- **Context:** FAQ/Q&A content is the largest gap Tribbute's clients face — both a knowledge gap (don't know what questions to answer) and a capacity gap (don't have time to write). pdpIQ already extracts all the structured product data needed to power generation. However, any LLM-based generation requires sending product data to an external API, which conflicts with pdpIQ's zero-transmission privacy architecture.
+- **Decision:** Q&A content generation will NOT live inside the pdpIQ extension. It will be built as a separate service via the TRIBBUTE API, part of a larger enhanced product/platform. pdpIQ provides the assessment data via its JSON export; the enhanced platform consumes that export for generation. pdpIQ's privacy promise remains intact.
+- **Rationale:** pdpIQ's zero-transmission model is a competitive moat for analyzing competitor pages, client pages, and authenticated sessions. Adding an asterisk ("zero data leaves your browser, unless you use the generator") would erode trust with agency and enterprise buyers. A separate product with explicit consent is cleaner architecturally and commercially.
+- **Alternatives Considered:** User-supplied API key model inside the extension (technically feasible but muddles the privacy narrative). Template-based generation without LLM (low value, feels like a toy). No generation at all (leaves money on the table).
+- **Consequences:** pdpIQ's JSON export schema becomes a data contract consumed by the enhanced platform. Export may need enrichment over time to support generation use cases. Two products to maintain.
+- **Related:** ROAD-0040
+
+### DEC-0026 — Citation Opportunity Map as rule-based AI Readiness extension
+- **Date:** 2026-03-18
+- **Status:** Accepted
+- **Context:** Tribbute considered showing sample conversational queries that products should align with for LLM citations. Generic query templates are commoditized (any LLM generates them for free). The differentiated approach: map failing AI Readiness factors to specific query patterns the page cannot answer, creating a "content gap → citation opportunity" view.
+- **Decision:** Add a "Citation Opportunities" feature to the AI Visibility tab and the AI Readiness section of the HTML report only. Rule-based engine maps each failing AI Readiness factor to 2-3 personalized query pattern templates (using extracted product name, brand, category). No LLM required — template-based with string interpolation. Grouped by priority: high-value queries missing → partially covered → well-positioned.
+- **Rationale:** Rule-based approach requires no external APIs (preserves privacy architecture). Maps directly from existing scoring factors (no new extraction needed). High consulting value — showing clients "here are 12 queries you're invisible for" is a powerful sales moment. Creates a natural handoff to consulting services.
+- **Alternatives Considered:** LLM-generated query suggestions (higher quality but requires external API, breaks privacy model). Full query simulation against live LLMs (complex, expensive, unreliable). Query templates across all three scores (over-scoped — citation opportunities only apply to AI Readiness).
+- **Consequences:** New `citation-opportunities.js` module. 30-40 query templates tied to AI Readiness factor IDs. Report becomes more differentiated as a consulting deliverable. Does not apply to PDP Quality or SEO Quality tabs.
+- **Related:** ROAD-0035
+
+### DEC-0025 — Page type auto-detection (PDP vs PLP) with phased scoring
+- **Date:** 2026-03-18
+- **Status:** Accepted
+- **Context:** pdpIQ analyzes individual PDPs only. Clients also want AI/UX/SEO perspectives on collection and category pages. A full PLP scoring model (new extraction, new factors, new recommendations) is high effort with weak problem validation — LLMs cite products, not collection pages. However, many existing factors DO apply to collection pages (schema, meta tags, canonical, breadcrumbs, internal links).
+- **Decision:** Two-phase approach. Phase 1: auto-detect page type using schema type, URL patterns, DOM structure, and og:type. Display page type badge in side panel header and report header. Run existing triple scoring with clearly inapplicable factors auto-marked "N/A — Collection Page" (extending the apparel detection pattern). Phase 2 (future): add PLP-specific factors with adjusted weights once validated through consulting engagements.
+- **Rationale:** Phase 1 is low-effort (2-3 days) and immediately signals page-type awareness to clients. Many existing factors (schema, meta, canonical, breadcrumbs, internal links, hreflang) are valid for collection pages. The N/A pattern already proven with apparel detection. Full PLP scoring model deferred until ops team validates the need.
+- **Alternatives Considered:** Full PLP scoring model immediately (high effort, weak validation, dilutes "the PDP tool" identity). Refuse to analyze non-PDP pages (misses client need). Separate extension for PLPs (fragmented experience).
+- **Consequences:** `detectPageType()` function added to content-script.js. Scoring engine gains page-type-aware N/A marking. Side panel and report show page type badge. Phase 2 requires new extraction logic and factor definitions.
+- **Related:** ROAD-0034, ROAD-0038, DEC-0015
+
 ### DEC-0024 — Add SEO Quality as third scoring dimension
 - **Date:** 2026-03-04
 - **Status:** Accepted
