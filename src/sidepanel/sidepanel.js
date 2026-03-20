@@ -732,8 +732,8 @@ class SidePanelApp {
         <div class="rec-header">
           <span class="rec-title">${escapeHtml(rec.title)}</span>
           <span class="rec-badges">
-            <span class="badge impact-badge ${escapeHtml(rec.impact)}">${escapeHtml(rec.impact)}</span>
-            <span class="badge effort-badge">${escapeHtml(rec.effort)}</span>
+            <span class="badge impact-badge ${escapeHtml(rec.impact)}">Impact: ${escapeHtml(rec.impact.charAt(0).toUpperCase() + rec.impact.slice(1))}</span>
+            <span class="badge effort-badge ${escapeHtml(rec.effort)}">Effort: ${escapeHtml(rec.effort.charAt(0).toUpperCase() + rec.effort.slice(1))}</span>
           </span>
         </div>
         <p class="rec-description">${escapeHtml(rec.description)}</p>
@@ -861,8 +861,8 @@ class SidePanelApp {
         <div class="rec-header">
           <span class="rec-title">${escapeHtml(rec.title)}</span>
           <span class="rec-badges">
-            <span class="badge impact-badge ${escapeHtml(rec.impact)}">${escapeHtml(rec.impact)}</span>
-            <span class="badge effort-badge">${escapeHtml(rec.effort)}</span>
+            <span class="badge impact-badge ${escapeHtml(rec.impact)}">Impact: ${escapeHtml(rec.impact.charAt(0).toUpperCase() + rec.impact.slice(1))}</span>
+            <span class="badge effort-badge ${escapeHtml(rec.effort)}">Effort: ${escapeHtml(rec.effort.charAt(0).toUpperCase() + rec.effort.slice(1))}</span>
           </span>
         </div>
         <p class="rec-description">${escapeHtml(rec.description)}</p>
@@ -977,8 +977,8 @@ class SidePanelApp {
         <div class="rec-header">
           <span class="rec-title">${escapeHtml(rec.title)}</span>
           <span class="rec-badges">
-            <span class="badge impact-badge ${escapeHtml(rec.impact)}">${escapeHtml(rec.impact)}</span>
-            <span class="badge effort-badge">${escapeHtml(rec.effort)}</span>
+            <span class="badge impact-badge ${escapeHtml(rec.impact)}">Impact: ${escapeHtml(rec.impact.charAt(0).toUpperCase() + rec.impact.slice(1))}</span>
+            <span class="badge effort-badge ${escapeHtml(rec.effort)}">Effort: ${escapeHtml(rec.effort.charAt(0).toUpperCase() + rec.effort.slice(1))}</span>
           </span>
         </div>
         <p class="rec-description">${escapeHtml(rec.description)}</p>

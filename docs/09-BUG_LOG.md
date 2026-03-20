@@ -1,6 +1,6 @@
 # Bug Log
 
-> **PDS Document 09** | Last Updated: 2026-03-20 (BUG-0079)
+> **PDS Document 09** | Last Updated: 2026-03-20 (BUG-0082)
 
 Track all bugs encountered during development. Most recent entries at the top within each section.
 
@@ -26,6 +26,35 @@ Track all bugs encountered during development. Most recent entries at the top wi
 _No active bugs._
 
 ## Resolved Bugs (2026-03-20)
+
+### BUG-0082 — `og:type` `isProductType` field uses exact match only
+- **Status:** Fixed
+- **Severity:** Low
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/content/content-script.js` line 691
+- **Root Cause:** `isProductType` was computed as `og.type === 'product'`, missing Shopify variants `'og:product'` and `'product.item'` / `'product.group'`. Scoring and recommendations were unaffected (both check `og.type` directly with correct pattern), but the raw JSON export showed `isProductType: false` for Shopify Plus stores.
+- **Fix:** Updated to `!!(og.type && (og.type === 'product' || og.type === 'og:product' || og.type.startsWith('product.')))`
+- **Related:** BUG-0080, BUG-0081
+
+### BUG-0081 — Social Proof Depth context multiplier not applied
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/scoring/scoring-engine.js` lines 1065–1080 (`scoreAuthorityTrust()`)
+- **Root Cause:** `socialScore` was set directly from `weights.socialProofDepth` without applying `this.multipliers.socialProof`. The multiplier was defined in `weights.js` (want: 1.4, need: 0.8, hybrid: 1.0) but never consumed. Factor also lacked the `contextual: true` flag.
+- **Fix:** Applied `Math.round(socialScore * (this.multipliers.socialProof || 1.0))` and computed matching `socialMax`; added `contextual: true` to the factor push.
+- **Related:** BUG-0080
+
+### BUG-0080 — Hreflang status always `'pass'` regardless of presence
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/scoring/scoring-engine.js` lines 2523–2524 (`scoreNavigationDiscovery()`)
+- **Root Cause:** Both branches of the `hreflangStatus` ternary returned `'pass'` — copy-paste error. Monolingual stores (no hreflang) received a passing status and earned full points, which was correct behavior but the incorrect status label caused confusion. `hreflangDetails` also showed 'N/A — monolingual site' (old string).
+- **Fix:** Changed status to `'na'` when `hasHreflang` is false; updated details string to `'Not applicable — monolingual site (no hreflang needed)'`. Points unchanged — monolingual sites are not penalized.
 
 ### BUG-0077 — `schemas.product.category` dead data path — category always falls back to 'products'
 - **Status:** Fixed

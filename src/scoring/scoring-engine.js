@@ -1062,7 +1062,9 @@ export class ScoringEngine {
     // Social Proof Depth (4 points)
     const socialProof = data?.socialProof || {};
     const hasSocialCount = !!(socialProof.soldCount || socialProof.customerCount);
-    const socialScore = hasSocialCount ? weights.socialProofDepth : 0;
+    let socialScore = hasSocialCount ? weights.socialProofDepth : 0;
+    socialScore = Math.round(socialScore * (this.multipliers.socialProof || 1.0));
+    const socialMax = Math.round(weights.socialProofDepth * (this.multipliers.socialProof || 1.0));
     let socialDetails = 'No sold count or customer count found';
     if (socialProof.soldCount) {
       socialDetails = `${socialProof.soldCount.toLocaleString()} sold`;
@@ -1074,7 +1076,8 @@ export class ScoringEngine {
       name: 'Social Proof Depth',
       status: hasSocialCount ? 'pass' : 'fail',
       points: socialScore,
-      maxPoints: weights.socialProofDepth,
+      maxPoints: socialMax,
+      contextual: true,
       details: socialDetails
     });
     rawScore += socialScore;
@@ -2520,11 +2523,11 @@ export class ScoringEngine {
     // Monolingual sites score full points with N/A status so they can achieve a perfect score.
     const hreflang = meta.hreflang || {};
     const hasHreflang = hreflang.present === true && (hreflang.count || 0) > 0;
-    const hreflangScore = hasHreflang ? weights.hreflangConfiguration : weights.hreflangConfiguration;
-    const hreflangStatus = hasHreflang ? 'pass' : 'pass';
+    const hreflangScore = weights.hreflangConfiguration; // same points either way — monolingual is not penalized
+    const hreflangStatus = hasHreflang ? 'pass' : 'na';
     const hreflangDetails = hasHreflang
       ? `${hreflang.count} hreflang tag${hreflang.count !== 1 ? 's' : ''} (${(hreflang.languages || []).map(l => l.lang).join(', ')})`
-      : 'N/A — monolingual site';
+      : 'Not applicable — monolingual site (no hreflang needed)';
     factors.push({
       name: 'Hreflang Configuration',
       status: hreflangStatus,

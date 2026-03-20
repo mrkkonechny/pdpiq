@@ -6,6 +6,15 @@ All notable changes to this project. Format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+### Fixed
+- **BUG-0080: Hreflang status always 'pass'** — `scoreNavigationDiscovery()` ternary had both branches returning `'pass'`; monolingual sites now correctly show status `'na'` with updated details string "Not applicable — monolingual site (no hreflang needed)" (`src/scoring/scoring-engine.js`)
+- **BUG-0081: Social Proof Depth context multiplier not applied** — `scoreAuthorityTrust()` was scoring Social Proof Depth at face value regardless of Want/Need/Hybrid context; now applies `this.multipliers.socialProof` and sets `contextual: true` on the factor (`src/scoring/scoring-engine.js`)
+- **BUG-0082: `isProductType` field uses exact match only** — `og.type === 'product'` missed Shopify variants `'og:product'` and `'product.item'`/`'product.group'`; updated to match all product og:type patterns; no scoring impact (scoring engine was correct), fixes JSON export accuracy (`src/content/content-script.js`)
+
+### Changed
+- **Recommendation sort order** — replaced priority-based sort with explicit impact DESC → effort ASC across all three engines (`RecommendationEngine`, `PdpQualityRecommendationEngine`, `SeoQualityRecommendationEngine`); high-impact items always surface first; within the same impact level, lowest-effort items appear first
+- **Recommendation badge labels** — impact and effort badges in the side panel (all three tabs) now show labeled, capitalized values ("Impact: High", "Effort: Low") instead of bare lowercase values; effort badges now use color variants (green = low, amber = medium, red = high) matching the existing HTML report semantics
+
 ---
 
 ## [2.3.6] — 2026-03-20

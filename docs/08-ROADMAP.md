@@ -220,6 +220,22 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 
 ## Proposed (Needs Review)
 
+### ROAD-0044 — Pass `isPlp` to remaining AI Readiness scoring methods
+- **Status:** Proposed
+- **Type:** Tech Debt
+- **Priority:** Unranked
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-20
+- **Requested By:** Accuracy audit (pre-client NaturalLife.com review)
+- **Scope:** Small (< 1 day)
+- **Description:** `isPlp` is currently passed to `scoreAIDiscoverability()` and `scoreStructuredData()` but not to `scoreProtocolMeta()`, `scoreContentQuality()`, `scoreContentStructure()`, or `scoreAuthorityTrust()`. No immediate impact on PDP analysis, but creates inconsistency when PLP scoring is eventually expanded (ROAD-0038). Identified as design debt — not a bug.
+- **Acceptance Criteria:**
+  - [ ] `isPlp` passed to all 6 AI Readiness scoring methods in `calculateScore()`
+  - [ ] Each method has a guard for N/A flagging on PLP-irrelevant factors
+- **Dependencies:** ROAD-0038 (PLP-specific factors Phase 2)
+- **Related:** DEC-0025, ROAD-0038
+- **Notes:** Flagged during accuracy audit 2026-03-20. Low risk for PDP-only usage, which is the current primary use case.
+
 ### ROAD-0041 — Build step evaluation and migration plan for content-script.js
 - **Status:** Proposed
 - **Type:** Tech Debt

@@ -9,14 +9,16 @@ import { ScoringEngine } from '../scoring/scoring-engine.js';
 
 /**
  * Shared sort comparator for all three recommendation engines.
- * Sorts by priority ascending, then by impact (high > medium > low).
+ * Sorts by impact descending (high→medium→low), then effort ascending (low→medium→high).
  */
 function sortRecommendations(recommendations) {
   const valid = recommendations.filter(r => r !== null);
   const impactOrder = { high: 0, medium: 1, low: 2 };
+  const effortOrder = { low: 0, medium: 1, high: 2 };
   return valid.sort((a, b) => {
-    if (a.priority !== b.priority) return a.priority - b.priority;
-    return (impactOrder[a.impact] || 2) - (impactOrder[b.impact] || 2);
+    const impactDiff = (impactOrder[a.impact] ?? 2) - (impactOrder[b.impact] ?? 2);
+    if (impactDiff !== 0) return impactDiff;
+    return (effortOrder[a.effort] ?? 1) - (effortOrder[b.effort] ?? 1);
   });
 }
 

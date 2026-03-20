@@ -688,7 +688,7 @@ function extractMetaTags() {
         descriptionLength: og.description?.length || 0,
         hasImage: !!og.image,
         hasImageDimensions: !!(og.imageWidth && og.imageHeight),
-        isProductType: og.type === 'product'
+        isProductType: !!(og.type && (og.type === 'product' || og.type === 'og:product' || og.type.startsWith('product.')))
       }
     },
     twitterCards: {
