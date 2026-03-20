@@ -11,6 +11,7 @@ import { getGradeDescription, CATEGORY_DESCRIPTIONS, FACTOR_RECOMMENDATIONS, PDP
 import { RECOMMENDATION_TEMPLATES, PDP_RECOMMENDATION_TEMPLATES, SEO_RECOMMENDATION_TEMPLATES } from '../recommendations/recommendation-rules.js';
 import { generateHtmlReport } from './report-template.js';
 import { CitationOpportunityEngine } from '../recommendations/citation-opportunities.js';
+import { CitationRoadmapEngine } from '../recommendations/citation-roadmap.js';
 import {
   saveAnalysis,
   getHistory,
@@ -43,6 +44,7 @@ class SidePanelApp {
     this.seoScoreResult = null;
     this.seoRecommendations = [];
     this.citationOpportunities = null;
+    this.citationRoadmap = null;
     this.currentRequestId = null;
     this.analysisTimeoutId = null;
     this.selectedHistoryIds = [];
@@ -140,6 +142,25 @@ class SidePanelApp {
     // Event delegation for all category lists (prevents memory leaks from re-rendering)
     ['categoryList', 'pdpCategoryList', 'seoCategoryList'].forEach(id => {
       this.setupCategoryListDelegation(id);
+    });
+
+    // Citation Opportunity Map toggle
+    const citationToggle = document.getElementById('citationToggle');
+    if (citationToggle) {
+      citationToggle.addEventListener('click', () => {
+        const content = document.getElementById('citationContent');
+        const icon = citationToggle.querySelector('.citation-toggle-icon');
+        content?.classList.toggle('hidden');
+        icon?.classList.toggle('expanded');
+      });
+    }
+
+    // Content-to-Citation Roadmap toggle
+    document.getElementById('citationRoadmapToggle')?.addEventListener('click', () => {
+      const content = document.getElementById('citationRoadmapContent');
+      const icon = document.querySelector('#citationRoadmapToggle .citation-toggle-icon');
+      content?.classList.toggle('hidden');
+      icon?.classList.toggle('expanded');
     });
   }
 
@@ -291,6 +312,10 @@ class SidePanelApp {
       // Generate Citation Opportunities (AI Readiness only)
       const citationEngine = new CitationOpportunityEngine(this.scoreResult, this.currentData);
       this.citationOpportunities = citationEngine.generateOpportunities();
+
+      // Generate Content-to-Citation Roadmap (AI Readiness only)
+      const roadmapEngine = new CitationRoadmapEngine(this.scoreResult, this.currentData);
+      this.citationRoadmap = roadmapEngine.generateRoadmap();
 
       // Calculate PDP Quality score
       this.pdpScoreResult = scoringEngine.calculatePdpQualityScore(this.currentData);
@@ -471,6 +496,9 @@ class SidePanelApp {
 
     // Render citation opportunities
     this.renderCitationOpportunities();
+
+    // Render content-to-citation roadmap
+    this.renderCitationRoadmap();
   }
 
   updatePageTypeBadges() {
@@ -505,10 +533,10 @@ class SidePanelApp {
 
     if (!this.citationOpportunities || !section || !content) return;
 
-    const { missing, partial, covered } = this.citationOpportunities;
-    const hasOpportunities = missing.length > 0 || partial.length > 0;
+    const { discovery = [], brand = [], toCapture = [], winning = [] } = this.citationOpportunities;
+    const hasContent = discovery.length > 0 || brand.length > 0 || toCapture.length > 0 || winning.length > 0;
 
-    if (!hasOpportunities) {
+    if (!hasContent) {
       section.classList.add('hidden');
       return;
     }
@@ -517,23 +545,47 @@ class SidePanelApp {
 
     let html = '';
 
-    if (missing.length > 0) {
-      html += '<div class="citation-group">';
-      html += `<div class="citation-group-header missing">High-Value Queries You're Missing (${missing.length})</div>`;
-      missing.forEach(entry => {
-        html += `<div class="citation-item missing">
-          <div class="citation-item-factor">${escapeHtml(entry.factorName)} <span style="font-weight:400;color:#9ca3af">· ${escapeHtml(entry.category)}</span></div>
+    // Group 1 — Discovery & Category Queries
+    if (discovery.length > 0) {
+      html += `<div class="citation-group">
+        <div class="citation-group-header discovery">Discovery & Category Queries (${discovery.length})</div>
+        <div class="citation-item discovery">
+          <div class="citation-item-query">${discovery.map(q => `"${escapeHtml(q)}"`).join(' · ')}</div>
+        </div>
+      </div>`;
+    }
+
+    // Group 2 — Brand Authority Queries
+    if (brand.length > 0) {
+      html += `<div class="citation-group">
+        <div class="citation-group-header brand-auth">Brand Authority Queries (${brand.length})</div>
+        <div class="citation-item brand-auth">
+          <div class="citation-item-query">${brand.map(q => `"${escapeHtml(q)}"`).join(' · ')}</div>
+        </div>
+      </div>`;
+    }
+
+    // Group 3 — Queries to Capture (fail + warning, with priority badges)
+    if (toCapture.length > 0) {
+      html += `<div class="citation-group"><div class="citation-group-header to-capture">Queries to Capture (${toCapture.length})</div>`;
+      toCapture.forEach(entry => {
+        const badgeClass = entry.priority === 'critical' ? 'priority-critical' : 'priority-refine';
+        const badgeLabel = entry.priority === 'critical' ? 'Critical' : 'Refine';
+        html += `<div class="citation-item to-capture">
+          <div class="citation-item-factor">${escapeHtml(entry.factorName)} <span style="font-weight:400;color:#9ca3af">· ${escapeHtml(entry.category)}</span>
+            <span class="citation-priority-badge ${badgeClass}">${badgeLabel}</span>
+          </div>
           <div class="citation-item-query">${entry.queries.map(q => `"${escapeHtml(q)}"`).join(' · ')}</div>
         </div>`;
       });
       html += '</div>';
     }
 
-    if (partial.length > 0) {
-      html += '<div class="citation-group">';
-      html += `<div class="citation-group-header partial">Queries You Partially Cover (${partial.length})</div>`;
-      partial.forEach(entry => {
-        html += `<div class="citation-item partial">
+    // Group 4 — Queries You're Already Winning
+    if (winning.length > 0) {
+      html += `<div class="citation-group"><div class="citation-group-header winning">Queries You're Already Winning (${winning.length})</div>`;
+      winning.forEach(entry => {
+        html += `<div class="citation-item winning">
           <div class="citation-item-factor">${escapeHtml(entry.factorName)} <span style="font-weight:400;color:#9ca3af">· ${escapeHtml(entry.category)}</span></div>
           <div class="citation-item-query">${entry.queries.map(q => `"${escapeHtml(q)}"`).join(' · ')}</div>
         </div>`;
@@ -543,14 +595,53 @@ class SidePanelApp {
 
     content.innerHTML = html;
 
-    // Toggle expand/collapse
-    if (!toggle._citationHandlerAttached) {
-      toggle.addEventListener('click', () => {
-        content.classList.toggle('hidden');
-        icon?.classList.toggle('expanded');
-      });
-      toggle._citationHandlerAttached = true;
+    // Toggle handler is bound once in bindEvents()
+  }
+
+  renderCitationRoadmap() {
+    const section = document.getElementById('citationRoadmapSection');
+    const content = document.getElementById('citationRoadmapContent');
+
+    if (!this.citationRoadmap || !section || !content) return;
+
+    const { tiers, summary } = this.citationRoadmap;
+
+    section.classList.remove('hidden');
+
+    // All blocks present — show strong state
+    if (tiers.length === 0) {
+      content.innerHTML = `<div class="roadmap-strong-state">Content foundation is strong — all tracked content blocks are in place.</div>`;
+      return;
     }
+
+    const effortLabels = { low: 'Low effort', medium: 'Medium effort', high: 'High effort' };
+
+    let html = '';
+    tiers.forEach(tier => {
+      html += `<div class="roadmap-tier">
+        <div class="roadmap-tier-header">
+          ${escapeHtml(tier.label)}
+          <span class="roadmap-timeframe">${escapeHtml(tier.timeframe)}</span>
+        </div>`;
+
+      tier.blocks.forEach(block => {
+        const platformText = block.platformNotes.map(n => `<strong>${escapeHtml(n.platform)}:</strong> ${escapeHtml(n.note)}`).join(' · ');
+        html += `<div class="roadmap-block status-${block.status}">
+          <div class="roadmap-block-header">
+            <span class="roadmap-block-title">${escapeHtml(block.title)}</span>
+            <span class="roadmap-status-badge ${block.status}">${block.status === 'missing' ? 'Missing' : 'Partial'}</span>
+          </div>
+          <div class="roadmap-impact">${escapeHtml(block.citationImpact)} · ${escapeHtml(effortLabels[block.effort] || block.effort)}</div>
+          <div class="roadmap-queries">${block.queryExamples.map(q => `"${escapeHtml(q)}"`).join(' · ')}</div>
+          ${platformText ? `<div class="roadmap-platform-notes">${platformText}</div>` : ''}
+          <div class="roadmap-guidance">${escapeHtml(block.guidance)}</div>
+        </div>`;
+      });
+
+      html += '</div>';
+    });
+
+    content.innerHTML = html;
   }
 
   renderCategories() {
@@ -1216,7 +1307,8 @@ class SidePanelApp {
       this.pdpRecommendations,
       this.seoScoreResult,
       this.seoRecommendations,
-      this.citationOpportunities
+      this.citationOpportunities,
+      this.citationRoadmap
     );
 
     const blob = new Blob([html], { type: 'text/html' });

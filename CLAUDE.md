@@ -55,7 +55,8 @@ pdpiq/
 │   ├── recommendations/
 │   │   ├── recommendation-engine.js  # Prioritization logic
 │   │   ├── recommendation-rules.js   # Issue-to-fix mappings, recommendation templates
-│   │   └── citation-opportunities.js # Citation Opportunity Map engine (AI Readiness only)
+│   │   ├── citation-opportunities.js # Citation Opportunity Map engine (AI Readiness only)
+│   │   └── citation-roadmap.js       # Content-to-Citation Roadmap engine (AI Readiness only)
 │   ├── sidepanel/
 │   │   ├── sidepanel.html       # UI markup
 │   │   ├── sidepanel.css        # Styling (CSS variables for grade colours)
@@ -474,7 +475,8 @@ This is informational context for bilingual sites (common with Canadian retailer
 | `src/scoring/grading.js` | `getGradeColor()`, `getGradeBackgroundColor()`, re-exports `getGrade`/`getGradeDescription` |
 | `src/recommendations/recommendation-rules.js` | `RECOMMENDATION_TEMPLATES` (AI) + `PDP_RECOMMENDATION_TEMPLATES` (PDP) + `SEO_RECOMMENDATION_TEMPLATES` (SEO) |
 | `src/recommendations/recommendation-engine.js` | `RecommendationEngine` (AI) + `PdpQualityRecommendationEngine` (PDP) + `SeoQualityRecommendationEngine` (SEO) |
-| `src/recommendations/citation-opportunities.js` | `CitationOpportunityEngine` — maps failing AI Readiness factors to conversational query patterns |
+| `src/recommendations/citation-opportunities.js` | `CitationOpportunityEngine` — maps failing AI Readiness factors to conversational query patterns; exports `extractProductIntelligence` |
+| `src/recommendations/citation-roadmap.js` | `CitationRoadmapEngine` — maps content gaps to citation opportunities; 5 blocks, 3 tiers |
 | `src/sidepanel/sidepanel.js` | UI state management, triple-tab rendering, history, comparison, export |
 | `src/sidepanel/report-template.js` | HTML report generation with AI Readiness, PDP Quality, and SEO Quality sections |
 | `src/background/service-worker.js` | Message routing, sender validation, URL safety, network fetches |
@@ -529,6 +531,45 @@ The Citation Opportunity Map is a rule-based engine that maps failing AI Readine
 - Queries you partially cover (warning-status factors)
 - Queries you're well-positioned for (passing factors)
 
+**Note:** `extractProductIntelligence()` is exported from `citation-opportunities.js` and re-used by `citation-roadmap.js` to personalize roadmap block copy with product name, brand, and category.
+
+### Content-to-Citation Roadmap
+
+The Content-to-Citation Roadmap answers "if I add this specific content, which LLM citations does it unlock?" It appears **only** in the AI Visibility tab and the AI Readiness section of the HTML report, after the Citation Opportunity Map.
+
+**Architecture:**
+- New file: `src/recommendations/citation-roadmap.js`
+- `CitationRoadmapEngine` class, imports `extractProductIntelligence` from `citation-opportunities.js` and `ScoringEngine.isLikelyApparel()`
+- `generateRoadmap(scoreResult, extractedData)` returns `{ productIntelligence, tiers, summary }`
+
+**5 content blocks across 3 tiers:**
+
+| Tier | Timeframe | Blocks |
+|------|-----------|--------|
+| Tier 1 — Quick Wins | 1–2 weeks | Description, Styling (apparel-gated) |
+| Tier 2 — Medium Priority | 2–4 weeks | FAQ, Fabric & Care (apparel-gated) |
+| Tier 3 — Content Investment | 4–8 weeks | Inline Reviews |
+
+**Block signal paths:**
+- **Description** (`_evalDescription`): `contentQuality.description.wordCount` — missing <50, partial 50–149, present ≥150
+- **FAQ** (`_evalFaq`): `contentQuality.faq.found`, `contentQuality.faq.count`, `structuredData.schemas.faq` (array)
+- **Fabric & Care** (`_evalFabricCare`, apparel-gated): `contentQuality.productDetails.hasMaterials` + feature text scan for care keywords
+- **Styling** (`_evalStyling`, apparel-gated): feature text scan for styling phrases (2+ matches = present)
+- **Inline Reviews** (`_evalInlineReviews`): `trustSignals.reviews.count` + `contentStructure.jsDependency.dependencyLevel`
+
+**Guard behavior:**
+- Blocks where `isLikelyApparel` is false return null for apparel-gated blocks (Fabric & Care, Styling)
+- Inline Reviews block returns null if `reviews.count === 0`
+- Present (passing) blocks are excluded from tiers
+- Empty tiers (all blocks null or present) are omitted from output
+- When all tiers are empty, `summary` is `"Content foundation is strong"`
+
+**`_scanFeatureText(keywords)`** helper scans extracted feature text for keyword matches and returns a count.
+
+**UI:** Collapsible `#citationRoadmapSection` below `#citationOpportunitiesSection` in the AI Visibility tab.
+
+**Report:** Amber-bordered section rendered by `buildCitationRoadmapSection(roadmap)` in `report-template.js`, after `buildCitationOpportunitiesSection()`. Passed as 10th argument to `generateHtmlReport()`.
+
 ### Strategic Product Context
 
 pdpIQ is currently **internal-only** — used by Tribbute's acquisition team and operations. It serves as:
@@ -537,7 +578,7 @@ pdpIQ is currently **internal-only** — used by Tribbute's acquisition team and
 
 **Content generation** (Q&A, FAQ) lives OUTSIDE pdpIQ in a separate TRIBBUTE API-based enhanced platform (DEC-0027). pdpIQ provides assessment data via JSON export; the enhanced platform consumes it for generation. pdpIQ's zero-transmission privacy promise must remain intact.
 
-**The HTML report is the primary deliverable**, not the side panel. Report includes executive summary, triple scores, Citation Opportunity Map, and Tribbute CTA.
+**The HTML report is the primary deliverable**, not the side panel. Report includes executive summary, triple scores, Citation Opportunity Map, Content-to-Citation Roadmap, and Tribbute CTA.
 
 ## Common Tasks
 

@@ -1,6 +1,6 @@
 # Bug Log
 
-> **PDS Document 09** | Last Updated: 2026-03-11 (BUG-0065)
+> **PDS Document 09** | Last Updated: 2026-03-20 (BUG-0079)
 
 Track all bugs encountered during development. Most recent entries at the top within each section.
 
@@ -24,6 +24,139 @@ Track all bugs encountered during development. Most recent entries at the top wi
 ## Active Bugs
 
 _No active bugs._
+
+## Resolved Bugs (2026-03-20)
+
+### BUG-0077 — `schemas.product.category` dead data path — category always falls back to 'products'
+- **Status:** Fixed
+- **Severity:** Critical
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/recommendations/citation-opportunities.js` → `extractProductIntelligence()` line 284
+- **Root Cause:** `schemas.product.category` is never set by the content script. The `schemas.product` object is built in `categorizeSchemas()` with fields: `name, description, image, sku, gtin, mpn, brand, hasOffer, hasRating, isProductGroup` — no `category` field. The check at line 284 will never match, so any page with ≤1 breadcrumb level falls through to the `'products'` hardcoded fallback, producing queries like "What types of **products** does Brand sell?"
+- **Fix:** Add `category` extraction to `schemas.product` in `content-script.js` (JSON-LD: `item.category`; microdata: `item.properties.category`), or add a URL-slug fallback tier in `extractProductIntelligence()` as an alternative.
+- **Related:** DEC-0026, ROAD-0035
+
+### BUG-0078 — Service worker strips `requestId` on EXTRACT_DATA forwarding — race condition unguarded
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/background/service-worker.js` → `EXTRACT_DATA` case (~line 72)
+- **Root Cause:** The service worker forwards `EXTRACT_DATA` to the content script as `{ type: 'EXTRACT_DATA' }` — a new object literal that drops the `requestId` from the original message. The content script echoes back `undefined` as the requestId. The side panel's stale-response guard skips validation because `message.requestId` is falsy, so every response is accepted. The race condition protection documented in the architecture is non-functional.
+- **Fix:** Change forwarding to: `chrome.tabs.sendMessage(tabs[0].id, { type: 'EXTRACT_DATA', requestId: message.requestId });`
+- **Notes:** Currently masked because there is typically only one in-flight request. Under rapid re-analysis (user switches context quickly), stale results can overwrite current ones.
+- **Related:** —
+
+### BUG-0067 — `scoreAICrawlerAccess` returns float score when robots.txt is CORS-blocked
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/scoring/scoring-engine.js` → `scoreAICrawlerAccess()` (~line 1345)
+- **Root Cause:** CORS-blocked robots.txt assigns `score = maxPoints * 0.5`. With `maxPoints = 30`, this produces `15.0` (float). Other paths use `Math.round()`. The float propagates into the factor's `points` field and displays as `"15.0/30"` instead of `"15/30"` in the side panel and report.
+- **Fix:** Wrap the assignment: `score = Math.round(maxPoints * 0.5);`
+- **Related:** —
+
+### BUG-0068 — `_cleanProductName` dash-split heuristic fails when variant portion contains a product-type word
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/recommendations/citation-opportunities.js` → `_cleanProductName()` (~lines 340–354)
+- **Root Cause:** When the regex matches a dash separator and the "after" part contains a word in `PRODUCT_TYPE_MAP`, the split is suppressed and the full raw name is retained. For `"Yoga Pants - Women's Leggings"`, `"leggings"` is in the map, so the variant suffix is not stripped — producing queries like `"What is the Yoga Pants - Women's Leggings from Brand?"`.
+- **Fix:** Add secondary heuristic: if `after.length < before.length * 0.6` AND the first token of `after` is a color/material/size indicator, treat as variant regardless of `PRODUCT_TYPE_MAP` membership.
+- **Related:** —
+
+### BUG-0069 — `Review Count` factor rawScore accumulation float cap can diverge from displayed maxPoints
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/scoring/scoring-engine.js` → review count scoring block (~lines 884–895)
+- **Root Cause:** `reviewCountEffectiveMax` (used for `points` display) uses `Math.round(Math.min(weights.reviewCount * 1.5, ...))`. The `rawScore` accumulation uses `Math.min(weights.reviewCount * 1.5, reviewCountScore)` — an unrounded cap. In Want context (1.4× multiplier), effective max is 31 but the rawScore cap is 33.0. A score of 32 would display as `32/31` — impossible in the UI — because the accumulation cap differs from the display cap.
+- **Fix:** Define a single `reviewCap = Math.round(Math.min(weights.reviewCount * 1.5, ...))` and use it for both `maxPoints` and `rawScore` accumulation.
+- **Related:** —
+
+### BUG-0070 — `CitationOpportunityEngine` crashes with TypeError if `pageInfo` is absent from extractedData
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/recommendations/citation-opportunities.js` → `_cleanTitle()` called from `extractProductIntelligence()`
+- **Root Cause:** If extraction returns a partial result with `pageInfo: null` (e.g., on extraction error), `_cleanTitle(undefined)` executes `undefined.split(...)` — a TypeError. The engine constructor throws, and the citation section silently disappears from both UI and report with no user-visible indication.
+- **Fix:** Add null guard to `_cleanTitle`: `if (!title) return 'this product';`. Also wrap `extractProductIntelligence(extractedData)` in the constructor try/catch with a safe-default context fallback.
+- **Related:** —
+
+### BUG-0071 — AI Readiness scoring does not apply N/A marking for PLP (collection) pages
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/scoring/scoring-engine.js` → `calculateScore()`
+- **Root Cause:** DEC-0025 Phase 1 marks inapplicable factors N/A for PLPs in PDP Quality scoring but `calculateScore()` (AI Readiness) does not check `pageType` at all. On collection pages, factors like Product Schema, Offer Schema, Product Identifiers, and FAQ Schema score 0/30, 0/20, 0/15, etc. — unfair penalties producing misleadingly low AI Readiness scores.
+- **Fix:** Pass `isPlp` to AI Readiness category scorers and mark product-specific factors N/A for PLPs, mirroring the pattern in `scorePurchaseExperience(data, isPlp)`. Noted as Phase 2 in DEC-0025 but currently produces misleading consulting output.
+- **Related:** DEC-0025, ROAD-0038
+
+### BUG-0072 — `_cleanTitle` multi-word strip phrases silently fail due to `\b` word boundary on spaces
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/recommendations/citation-opportunities.js` → `_cleanTitle()` (~lines 312–313)
+- **Root Cause:** `\b${word}\b` is applied to multi-word entries in `TITLE_STRIP_WORDS` (e.g., `'free shipping'`, `'limited edition'`). Word-boundary anchors on internal spaces don't behave as expected — the space is not itself a word boundary character in this context. These phrases are never stripped from page titles.
+- **Fix:** Detect `word.includes(' ')` and use a simple case-insensitive string replace without `\b` anchors for multi-word entries. Pre-compile all regexes as module-level constants to avoid per-call allocation.
+- **Related:** BUG-0074
+
+### BUG-0073 — `'unknown'` crawler status incorrectly routed to `covered` group in Citation Opportunity Map
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/scoring/scoring-engine.js` → `scoreAICrawlerAccess()` (~line 1338); `src/recommendations/citation-opportunities.js` → `generateOpportunities()` (~lines 992–998)
+- **Root Cause:** `scoreAICrawlerAccess` initializes `status = 'unknown'` and only updates inside conditional branches. If `robotsData` is null/undefined (e.g., airplane mode), status stays `'unknown'`. `generateOpportunities()` routes via `if fail → missing`, `else if warning → partial`, `else → covered` — the else catches `'unknown'`, placing the factor in the "positive" covered group. A site with unchecked robots.txt incorrectly shows AI Crawler Access as a covered query.
+- **Fix:** Add explicit `'unknown'` handling: skip the factor entirely rather than assigning to covered. Also add null guard in `scoreAICrawlerAccess` for missing robotsData.
+- **Related:** BUG-0067
+
+### BUG-0074 — `PRODUCT_TYPE_MAP` first-token-wins loses product type specificity on multi-segment URLs
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/recommendations/citation-opportunities.js` → `extractProductIntelligence()` (~lines 202–207)
+- **Root Cause:** The token loop returns on the first `PRODUCT_TYPE_MAP` match. For a URL like `/collections/bags-and-purses/womens-handbags`, `"bags"` matches before `"purses"` — a more generic term than if `"handbag"` were in the map. Queries use the less-specific type.
+- **Fix:** Collect all matching tokens and prefer the longest (most characters) as a specificity proxy. Document as a known limitation if not addressed — output degrades gracefully.
+- **Related:** —
+
+### BUG-0079 — `isSafeUrl()` does not block RFC 1918 private IP ranges (SSRF risk)
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/background/service-worker.js` → `isSafeUrl()` (~lines 141–151)
+- **Root Cause:** `isSafeUrl()` blocks `localhost`, `127.0.0.1`, `0.0.0.0` but not `10.x.x.x`, `192.168.x.x`, or `172.16-31.x.x`. A malicious page could set `og:image` to a local network router URL and trigger a HEAD request from the extension's `<all_urls>` permission. Pre-existing as ROAD-0005.
+- **Fix:** Add private-range regex check in `isSafeUrl()`. Also block `::1` (IPv6 localhost) and `169.254.x.x` (link-local).
+- **Related:** ROAD-0005
+
+### BUG-0075 — `schemas.product.brand` not type-guarded in CitationOpportunityEngine — object interpolation risk
+- **Status:** Fixed
+- **Severity:** Low
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/recommendations/citation-opportunities.js` → `extractProductIntelligence()` (~line 269)
+- **Root Cause:** Brand is read as `brand = schemas.product.brand`. If content script returns the raw schema object (`{ "@type": "Brand", "name": "Acme" }`) rather than a normalized string, template strings like `"Is ${ctx.brand} a good brand?"` produce `"Is [object Object] a good brand?"`.
+- **Fix:** Add guard: `brand = (typeof brand === 'string') ? brand : brand?.name || '';`
+- **Related:** —
+
+### BUG-0076 — `_citationHandlerAttached` DOM property bypasses event delegation pattern
+- **Status:** Fixed
+- **Severity:** Low
+- **Date Found:** 2026-03-20
+- **Date Resolved:** 2026-03-20
+- **Found In:** `src/sidepanel/sidepanel.js` → `renderCitationOpportunities()` (~lines 547–553)
+- **Root Cause:** Click listener attached directly to the citation toggle element with a DOM property guard (`toggle._citationHandlerAttached = true`). Inconsistent with the established event delegation pattern used everywhere else. If `#citationToggle` is ever re-created in a full DOM re-render, the property is lost and duplicate listeners accumulate.
+- **Fix:** Either move the toggle listener into `bindEvents()` (called once at init), or explicitly document that `#citationToggle` is a permanent DOM node. Currently safe at existing rendering architecture.
+- **Related:** —
 
 ## Resolved Bugs (2026-03-11)
 

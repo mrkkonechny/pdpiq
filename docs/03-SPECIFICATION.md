@@ -335,6 +335,61 @@
 - Edge cases: If storage is exactly at 80%, pruning triggers. If history has fewer than 5 entries and quota is hit, at least 1 entry is removed (`Math.max(1, ...)`). Pruning operates on array position (oldest = last in array since newest is prepended), not timestamp.
 - Source of truth: `pruneIfNearQuota()` and `saveAnalysis()` in `src/storage/storage-manager.js`
 
+**Rule 16: Citation Opportunity Map Generation**
+- Description: Rule-based engine that maps failing AI Readiness factors to specific conversational query patterns that the page cannot currently answer. Appears only in the AI Visibility tab and the AI Readiness section of the HTML report.
+- Logic:
+  ```
+  1. For each AI Readiness factor that is failing or warning,
+     look up matching query templates in citation-opportunities.js
+  2. Personalize templates with product name, brand, and category
+     extracted via extractProductIntelligence()
+  3. Group results:
+     - "High-value queries you're missing" (failing factors, high weight)
+     - "Queries you partially cover" (warning factors)
+     - "Queries you're well-positioned for" (passing factors)
+  ```
+- Edge cases: No LLM required — entirely rule-based. Templates that cannot be personalized (missing product name/brand) fall back to generic placeholders. Does not appear in PDP Quality or SEO Quality tabs or report sections.
+- Source of truth: `CitationOpportunityEngine` in `src/recommendations/citation-opportunities.js`
+
+**Rule 17: Content-to-Citation Roadmap Generation**
+- Description: Maps specific content gaps to the LLM citation opportunities they would unlock if filled. Presented as a 3-tier prioritized roadmap in the AI Visibility tab and AI Readiness report section.
+- Logic:
+  ```
+  5 content blocks evaluated in 3 tiers:
+
+  Tier 1 — Quick Wins (1–2 weeks):
+    Description block:
+      missing  → contentQuality.description.wordCount < 50
+      partial  → wordCount 50–149
+      present  → wordCount >= 150
+    Styling block (apparel-gated):
+      present  → feature text contains 2+ styling phrases
+      missing  → otherwise
+
+  Tier 2 — Medium Priority (2–4 weeks):
+    FAQ block:
+      present  → faq.found AND (faq.count >= 3 OR faq schema array non-empty)
+      partial  → faq.found AND count 1–2
+      missing  → not found
+    Fabric & Care block (apparel-gated):
+      present  → productDetails.hasMaterials AND feature text contains care keywords
+      missing  → otherwise
+
+  Tier 3 — Content Investment (4–8 weeks):
+    Inline Reviews block:
+      null     → reviews.count === 0 (block excluded entirely)
+      present  → reviews.count > 0 AND jsDependency !== 'high'
+      missing  → reviews.count > 0 AND jsDependency === 'high'
+
+  Guard behavior:
+    - Apparel-gated blocks (Styling, Fabric & Care) return null if !isLikelyApparel
+    - Present blocks are excluded from output tiers
+    - Tiers with no remaining blocks are omitted
+    - When all tiers empty: summary = "Content foundation is strong"
+  ```
+- Edge cases: Apparel detection follows the same `ScoringEngine.isLikelyApparel()` heuristic used by scoring. Non-apparel products never see Styling or Fabric & Care blocks. Product name/brand personalization via `extractProductIntelligence()` imported from `citation-opportunities.js`.
+- Source of truth: `CitationRoadmapEngine` in `src/recommendations/citation-roadmap.js`
+
 ### 2.3 Output Requirements
 
 | Output | Format | Destination | Frequency |
@@ -366,6 +421,16 @@ Self-contained HTML file (~50-100KB)
 │   │   ├── Medium Priority
 │   │   └── Nice to Have
 │   │   └── Each recommendation: title, description, impact badge, effort badge
+│   ├── Citation Opportunity Map (AI Readiness section only)
+│   │   ├── High-value queries missing (failing AI Readiness factors)
+│   │   ├── Queries partially covered (warning factors)
+│   │   └── Queries well-positioned for (passing factors)
+│   ├── Content-to-Citation Roadmap (AI Readiness section only)
+│   │   ├── Amber-bordered section rendered by buildCitationRoadmapSection()
+│   │   ├── Tier 1: Quick Wins (Description, Styling if apparel)
+│   │   ├── Tier 2: Medium Priority (FAQ, Fabric & Care if apparel)
+│   │   ├── Tier 3: Content Investment (Inline Reviews if reviews exist)
+│   │   └── "Content foundation is strong" message when all blocks present
 │   ├── Footer
 │   │   ├── Report ID (unique per report)
 │   │   ├── Generated timestamp
@@ -611,4 +676,4 @@ Step 2b: User clicks "Download Analysis Data"
 
 ---
 
-_This specification should be updated when business logic or requirements change. Last reviewed: 2026-03-01._
+_This specification should be updated when business logic or requirements change. Last reviewed: 2026-03-20._

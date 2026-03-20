@@ -1,10 +1,70 @@
 # Changelog
 
-> **PDS Document 10** | Last Updated: 2026-03-18
+> **PDS Document 10** | Last Updated: 2026-03-20
 
 All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/). Most recent version at the top.
 
 ## [Unreleased]
+
+---
+
+## [2.3.6] — 2026-03-20
+
+### Added
+- **Content-to-Citation Roadmap** — new forward-looking content investment roadmap in the AI Visibility tab and HTML report; answers "if I add this specific content, which LLM citations does it unlock?"; 5 content blocks across 3 tiers (Tier 1: Description + Styling, Tier 2: FAQ + Fabric & Care, Tier 3: Inline Review Content); apparel blocks (Fabric & Care, Styling) are gated by `ScoringEngine.isLikelyApparel()`; Inline Reviews block returns null when `reviews.count === 0`; all blocks personalized with product name, brand, and type via `extractProductIntelligence()`; shows "Content foundation is strong" state when all blocks are present; new file `src/recommendations/citation-roadmap.js` with `CitationRoadmapEngine` class; `extractProductIntelligence` in `citation-opportunities.js` exported for reuse; roadmap section added to sidepanel UI (collapsible, below Citation Opportunities) and HTML report (after Citation Opportunity Map); new CSS classes added to `sidepanel.css`; `generateHtmlReport()` updated to accept 10th `citationRoadmap` param
+
+---
+
+## [2.3.5] — 2026-03-20
+
+### Changed
+- **Citation Opportunity Map — 4-group restructure** — replaced the 3-group scoring-gap model (missing/partial/covered) with a 4-group model that separates query type from coverage status; Groups 1 & 2 ("Discovery & Category Queries", "Brand Authority Queries") are always generated from product intelligence signals regardless of page score; Group 3 ("Queries to Capture") merges fail+warning factor-mapped entries with Critical/Refine priority badges; Group 4 ("Queries You're Already Winning") now visible, showing passing factor queries; new `generateDiscoveryQueries()` method in `CitationOpportunityEngine`; `generateOpportunities()` return shape changed to `{ discovery, brand, toCapture, winning, context }`; updated `renderCitationOpportunities()` in `sidepanel.js`, `buildCitationOpportunitiesSection()` in `report-template.js`, and added 4-group CSS modifier classes + `.citation-priority-badge` in `sidepanel.css`
+
+---
+
+## [2.3.4] — 2026-03-20
+
+### Changed
+- **Citation Opportunity Map — `bareProductName` for natural query phrasing** — added `_stripMarketingPrefix()` to remove possessive + sentiment-adjective prefixes from product names (e.g., "My Favorite Cotton Top" → "Cotton Top") before use in query templates; new `bareProductName` context variable available in all PDP_QUERY_TEMPLATES; all 14 PDP factor templates rewritten to use `bareProductName`/`shortName` as primary references rather than `cleanName`/full title; `cleanName` reserved for Entity Consistency queries where the exact registered product name matters for LLM entity anchoring; queries now follow an anchor/follow-up pattern — first query uses `bareProductName`+brand for discoverability, follow-ups use `shortName` or brand+category for natural conversational phrasing
+
+---
+
+## [2.3.3] — 2026-03-20
+
+### Fixed
+- **BUG-0077** — `schemas.product.category` dead data path — added `category` field to `schemas.product` in both JSON-LD and microdata extraction paths in `content-script.js`; added URL-slug fallback tier in `extractProductIntelligence()` for pages without breadcrumbs or schema category; queries now use real product category instead of hardcoded "products"
+- **BUG-0078** — Service worker dropped `requestId` on `EXTRACT_DATA` forwarding — stale-response race condition protection is now functional; content script receives and echoes the request ID as designed
+- **BUG-0067** — `scoreAICrawlerAccess` returned float `15.0` when robots.txt is CORS-blocked — wrapped assignment in `Math.round()`, displays as `15/30` not `15.0/30`
+- **BUG-0068** — `_cleanProductName` failed to strip variant suffixes when the variant portion contained a product-type word — added `variantIsShorter` heuristic so short suffixes (e.g., color names) are split even when they incidentally contain a product-type token
+- **BUG-0069** — `Review Count` factor `rawScore` accumulation used an unrounded float cap that could diverge from displayed `maxPoints` in Want context — replaced `reviewCountEffectiveMax` with a single `reviewCap` used consistently for both display and accumulation
+- **BUG-0070** — `CitationOpportunityEngine` crashed with `TypeError` when `extractedData.pageInfo` was null — wrapped `extractProductIntelligence()` call in constructor try/catch with safe-default context fallback; added null guard to `_cleanTitle()`
+- **BUG-0071** — AI Readiness scoring had no N/A marking for PLP (collection) pages — Product Schema, Offer Schema, Review Schema (Structured Data category) and Product Identifiers (AI Discoverability category) now award full points with "N/A — Collection Page" status on PLP pages, consistent with PDP Quality's existing pattern
+- **BUG-0072** — Multi-word entries in `TITLE_STRIP_WORDS` ("free shipping", "on sale", "limited edition") were never stripped from page titles due to incorrect `\b` word-boundary anchoring at spaces — pre-compiled strip regexes at module level; multi-word phrases now use plain case-insensitive replace without `\b` anchors
+- **BUG-0073** — `'unknown'` status from `scoreAICrawlerAccess` was routed to the `covered` (positive) group in Citation Opportunity Map — only explicit `'pass'` status now enters `covered`; `'unknown'`, `'na'`, and other statuses are omitted from all groups; added null guard in `scoreAICrawlerAccess` for missing `robotsData`
+- **BUG-0074** — `PRODUCT_TYPE_MAP` token loop returned first match rather than most specific — now collects all matches and prefers the longest token; multi-word phrase matches always win over single-token matches
+- **BUG-0075** — `schemas.product.brand` not type-guarded in `extractProductIntelligence()` — object values now have `.name` extracted, preventing `"[object Object]"` in generated queries
+- **BUG-0076** — Citation toggle `click` listener attached via DOM property mutation (`_citationHandlerAttached`) inconsistent with event delegation pattern — listener moved to `bindEvents()`, bound once at init
+- **BUG-0079** — `isSafeUrl()` did not block RFC 1918 private IP ranges or IPv6 localhost — now rejects `10.x`, `192.168.x`, `172.16–31.x`, `169.254.x`, and `::1` in addition to existing localhost checks
+
+---
+
+## [2.3.2] — 2026-03-18
+
+### Changed
+- **Citation Opportunity Map — PDP query refinement** — product page queries now use cleaned product names with variant/color suffixes separated (e.g., "Ringer Tank Top" instead of "Ringer Tank Top - Rust Folk Floral"); `_cleanProductName()` splits on dash/dash separators and parenthetical suffixes; variant info preserved and used contextually in image queries ("Show me the Ringer Tank Top in Rust Folk Floral"); new `shortName` property ("this tank top") provides natural pronoun-style references to reduce repetitive full-name usage in queries; PDP templates now vary phrasing based on detected product type (e.g., "Is this tank top comfortable for all-day wear?" vs generic "Is [product] right for me?")
+
+---
+
+## [2.3.1] — 2026-03-18
+
+### Changed
+- **Citation Opportunity Map v2 — Product Intelligence Layer** — complete rewrite of query generation for natural-sounding conversational queries; replaces rigid `{product}` string interpolation with context-aware template functions
+  - New `extractProductIntelligence()` parses page title, URL, H1, and breadcrumbs to extract product type (100+ dictionary entries mapping tokens like "tees" → "t-shirts"), style keywords (boho, vintage, minimalist, etc.), and audience (women, men, kids, etc.)
+  - Marketing fluff stripped from titles — "Shop", "Buy", "Browse", "Collection", "Free Shipping" etc. removed before query generation
+  - Domain names humanized — `naturallife.com` → "Natural Life" instead of "naturallife"
+  - **Separate PDP and PLP template sets** — collection pages get shopping/browsing queries ("Where can I find boho t-shirts for women?") instead of product-specific queries ("What are the specs for Shop Colorful Boho Tees?")
+  - PLP queries incorporate style + audience + product type combinations for realistic conversational phrasing
+  - PDP queries use cleaner product references with natural articles ("the [product]" instead of raw title text)
 
 ---
 

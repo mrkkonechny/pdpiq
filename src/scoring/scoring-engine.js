@@ -39,14 +39,15 @@ export class ScoringEngine {
    * @returns {Object} Complete scoring result
    */
   calculateScore(extractedData, imageVerification = null, aiDiscoverabilityData = null) {
+    const isPlp = extractedData.pageType?.type === 'plp';
     // Calculate category scores
     const categoryScores = {
-      structuredData: this.scoreStructuredData(extractedData.structuredData),
+      structuredData: this.scoreStructuredData(extractedData.structuredData, isPlp),
       protocolMeta: this.scoreProtocolMeta(extractedData.metaTags, imageVerification),
       contentQuality: this.scoreContentQuality(extractedData.contentQuality, extractedData.aiDiscoverability, extractedData),
       contentStructure: this.scoreContentStructure(extractedData.contentStructure, extractedData.contentQuality?.textMetrics),
       authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals, extractedData.aiDiscoverability),
-      aiDiscoverability: this.scoreAIDiscoverability(extractedData, aiDiscoverabilityData)
+      aiDiscoverability: this.scoreAIDiscoverability(extractedData, aiDiscoverabilityData, isPlp)
     };
 
     // Calculate weighted total
@@ -80,69 +81,79 @@ export class ScoringEngine {
   /**
    * Score Structured Data category (20% weight)
    */
-  scoreStructuredData(data) {
+  scoreStructuredData(data, isPlp = false) {
     const factors = [];
     let rawScore = 0;
     const maxScore = 100;
     const weights = FACTOR_WEIGHTS.structuredData;
 
-    // Product Schema (30 points) - Critical, graduated scoring
-    const product = data?.schemas?.product;
-    const hasProduct = product != null; // handles both null (no schema found) and undefined (extraction error)
-    let productScore = 0;
-    let productDetails = 'Missing Product schema markup';
+    // Product Schema (30 points) - Critical, graduated scoring (N/A for PLP)
+    if (isPlp) {
+      factors.push({ name: 'Product Schema', status: 'na', points: weights.productSchema, maxPoints: weights.productSchema, critical: true, details: 'N/A — Collection Page' });
+      rawScore += weights.productSchema;
+    } else {
+      const product = data?.schemas?.product;
+      const hasProduct = product != null; // handles both null (no schema found) and undefined (extraction error)
+      let productScore = 0;
+      let productDetails = 'Missing Product schema markup';
 
-    if (hasProduct) {
-      const presentFields = [];
-      const missingFields = [];
+      if (hasProduct) {
+        const presentFields = [];
+        const missingFields = [];
 
-      // name: 6 pts
-      if (product.name) { productScore += 6; presentFields.push('name'); } else { missingFields.push('name'); }
-      // description: 5 pts
-      if (product.description) { productScore += 5; presentFields.push('description'); } else { missingFields.push('description'); }
-      // image: 5 pts
-      if (product.image) { productScore += 5; presentFields.push('image'); } else { missingFields.push('image'); }
-      // offers: 5 pts
-      if (product.hasOffer) { productScore += 5; presentFields.push('offers'); } else { missingFields.push('offers'); }
-      // brand: 3 pts
-      if (product.brand) { productScore += 3; presentFields.push('brand'); } else { missingFields.push('brand'); }
-      // identifiers (gtin/mpn/sku): 3 pts
-      if (product.gtin || product.mpn || product.sku) { productScore += 3; presentFields.push('identifiers'); } else { missingFields.push('identifiers'); }
-      // rating: 3 pts
-      if (product.hasRating) { productScore += 3; presentFields.push('rating'); } else { missingFields.push('rating'); }
+        // name: 6 pts
+        if (product.name) { productScore += 6; presentFields.push('name'); } else { missingFields.push('name'); }
+        // description: 5 pts
+        if (product.description) { productScore += 5; presentFields.push('description'); } else { missingFields.push('description'); }
+        // image: 5 pts
+        if (product.image) { productScore += 5; presentFields.push('image'); } else { missingFields.push('image'); }
+        // offers: 5 pts
+        if (product.hasOffer) { productScore += 5; presentFields.push('offers'); } else { missingFields.push('offers'); }
+        // brand: 3 pts
+        if (product.brand) { productScore += 3; presentFields.push('brand'); } else { missingFields.push('brand'); }
+        // identifiers (gtin/mpn/sku): 3 pts
+        if (product.gtin || product.mpn || product.sku) { productScore += 3; presentFields.push('identifiers'); } else { missingFields.push('identifiers'); }
+        // rating: 3 pts
+        if (product.hasRating) { productScore += 3; presentFields.push('rating'); } else { missingFields.push('rating'); }
 
-      // Scale to maxPoints (30)
-      productScore = Math.round((productScore / 30) * weights.productSchema);
+        // Scale to maxPoints (30)
+        productScore = Math.round((productScore / 30) * weights.productSchema);
 
-      productDetails = `Present: ${presentFields.join(', ')}`;
-      if (missingFields.length > 0) {
-        productDetails += ` | Missing: ${missingFields.join(', ')}`;
+        productDetails = `Present: ${presentFields.join(', ')}`;
+        if (missingFields.length > 0) {
+          productDetails += ` | Missing: ${missingFields.join(', ')}`;
+        }
       }
+
+      const productStatus = !hasProduct ? 'fail' : productScore >= weights.productSchema * 0.8 ? 'pass' : productScore >= weights.productSchema * 0.5 ? 'warning' : 'fail';
+      factors.push({
+        name: 'Product Schema',
+        status: productStatus,
+        points: productScore,
+        maxPoints: weights.productSchema,
+        critical: true,
+        details: productDetails
+      });
+      rawScore += productScore;
     }
 
-    const productStatus = !hasProduct ? 'fail' : productScore >= weights.productSchema * 0.8 ? 'pass' : productScore >= weights.productSchema * 0.5 ? 'warning' : 'fail';
-    factors.push({
-      name: 'Product Schema',
-      status: productStatus,
-      points: productScore,
-      maxPoints: weights.productSchema,
-      critical: true,
-      details: productDetails
-    });
-    rawScore += productScore;
-
-    // Offer Schema (20 points) - Critical
-    const hasOffer = data?.schemas?.offer !== null;
-    const offerScore = hasOffer ? weights.offerSchema : 0;
-    factors.push({
-      name: 'Offer Schema',
-      status: hasOffer ? 'pass' : 'fail',
-      points: offerScore,
-      maxPoints: weights.offerSchema,
-      critical: true,
-      details: hasOffer ? 'Price and availability structured' : 'Missing Offer schema'
-    });
-    rawScore += offerScore;
+    // Offer Schema (20 points) - Critical (N/A for PLP)
+    if (isPlp) {
+      factors.push({ name: 'Offer Schema', status: 'na', points: weights.offerSchema, maxPoints: weights.offerSchema, critical: true, details: 'N/A — Collection Page' });
+      rawScore += weights.offerSchema;
+    } else {
+      const hasOffer = data?.schemas?.offer !== null;
+      const offerScore = hasOffer ? weights.offerSchema : 0;
+      factors.push({
+        name: 'Offer Schema',
+        status: hasOffer ? 'pass' : 'fail',
+        points: offerScore,
+        maxPoints: weights.offerSchema,
+        critical: true,
+        details: hasOffer ? 'Price and availability structured' : 'Missing Offer schema'
+      });
+      rawScore += offerScore;
+    }
 
     // AggregateRating Schema (15 points)
     const hasRating = data?.schemas?.aggregateRating !== null;
@@ -158,19 +169,24 @@ export class ScoringEngine {
     });
     rawScore += ratingScore;
 
-    // Review Schema (10 points)
-    const hasReviews = data?.schemas?.reviews?.length > 0;
-    const reviewScore = hasReviews ? weights.reviewSchema : 0;
-    factors.push({
-      name: 'Review Schema',
-      status: hasReviews ? 'pass' : 'fail',
-      points: reviewScore,
-      maxPoints: weights.reviewSchema,
-      details: hasReviews ?
-        `${data.schemas.reviews.length} reviews structured` :
-        'No structured reviews'
-    });
-    rawScore += reviewScore;
+    // Review Schema (10 points) — N/A for PLP
+    if (isPlp) {
+      factors.push({ name: 'Review Schema', status: 'na', points: weights.reviewSchema, maxPoints: weights.reviewSchema, details: 'N/A — Collection Page' });
+      rawScore += weights.reviewSchema;
+    } else {
+      const hasReviews = data?.schemas?.reviews?.length > 0;
+      const reviewScore = hasReviews ? weights.reviewSchema : 0;
+      factors.push({
+        name: 'Review Schema',
+        status: hasReviews ? 'pass' : 'fail',
+        points: reviewScore,
+        maxPoints: weights.reviewSchema,
+        details: hasReviews ?
+          `${data.schemas.reviews.length} reviews structured` :
+          'No structured reviews'
+      });
+      rawScore += reviewScore;
+    }
 
     // FAQ Schema (10 points)
     const hasFaq = data?.schemas?.faq !== null && data.schemas.faq?.questionCount > 0;
@@ -883,16 +899,16 @@ export class ScoringEngine {
     // Review Count (25 points) - Contextual
     let reviewCountScore = reviews.countScore ? Math.round((reviews.countScore / 100) * weights.reviewCount) : 0;
     reviewCountScore = Math.round(reviewCountScore * this.multipliers.reviewCount);
-    const reviewCountEffectiveMax = Math.round(Math.min(weights.reviewCount * 1.5, weights.reviewCount * this.multipliers.reviewCount));
+    const reviewCap = Math.round(Math.min(weights.reviewCount * 1.5, weights.reviewCount * this.multipliers.reviewCount));
     factors.push({
       name: 'Review Count',
       status: reviews.count >= 25 ? 'pass' : reviews.count >= 5 ? 'warning' : 'fail',
-      points: Math.min(reviewCountEffectiveMax, reviewCountScore),
-      maxPoints: reviewCountEffectiveMax,
+      points: Math.min(reviewCap, reviewCountScore),
+      maxPoints: reviewCap,
       contextual: true,
       details: reviews.count > 0 ? `${reviews.count} reviews` : 'No reviews found'
     });
-    rawScore += Math.min(weights.reviewCount * 1.5, reviewCountScore);
+    rawScore += Math.min(reviewCap, reviewCountScore);
 
     // Average Rating (20 points) - Contextual
     let ratingScore = reviews.ratingScore ? Math.round((reviews.ratingScore / 100) * weights.averageRating) : 0;
@@ -1092,7 +1108,7 @@ export class ScoringEngine {
    * @param {Object} extractedData - Full extracted data from content script
    * @param {Object} networkData - Network fetch data (robots.txt, llms.txt, Last-Modified)
    */
-  scoreAIDiscoverability(extractedData, networkData) {
+  scoreAIDiscoverability(extractedData, networkData, isPlp = false) {
     const factors = [];
     let rawScore = 0;
     const maxScore = 100;
@@ -1115,10 +1131,15 @@ export class ScoringEngine {
     factors.push(answerResult.factor);
     rawScore += answerResult.score;
 
-    // Product Identifiers (15 points)
-    const identResult = this.scoreProductIdentifiers(extractedData, weights.productIdentifiers);
-    factors.push(identResult.factor);
-    rawScore += identResult.score;
+    // Product Identifiers (15 points) — N/A for PLP
+    if (isPlp) {
+      factors.push({ name: 'Product Identifiers', status: 'na', points: weights.productIdentifiers, maxPoints: weights.productIdentifiers, details: 'N/A — Collection Page' });
+      rawScore += weights.productIdentifiers;
+    } else {
+      const identResult = this.scoreProductIdentifiers(extractedData, weights.productIdentifiers);
+      factors.push(identResult.factor);
+      rawScore += identResult.score;
+    }
 
     // llms.txt Presence (10 points)
     const llmsResult = this.scoreLlmsTxt(llms, weights.llmsTxtPresence);
@@ -1338,11 +1359,18 @@ export class ScoringEngine {
     let status = 'unknown';
     let details = 'Unable to check robots.txt';
 
+    if (!robotsData || typeof robotsData !== 'object') {
+      return {
+        score: 0,
+        factor: { name: 'AI Crawler Access', status: 'unknown', points: 0, maxPoints, details }
+      };
+    }
+
     if (robotsData.accessible === false && robotsData.error) {
       // CORS blocked - can't determine
       status = 'warning';
       details = 'robots.txt not accessible (CORS)';
-      score = maxPoints * 0.5; // Give partial credit
+      score = Math.round(maxPoints * 0.5); // Give partial credit
     } else if (robotsData.accessible === false) {
       // No robots.txt - assume allowed
       status = 'pass';

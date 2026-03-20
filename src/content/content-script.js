@@ -259,6 +259,7 @@ function categorizeSchemas(data, schemas) {
         gtin: gtin || existingProduct.gtin,
         mpn: mpn || existingProduct.mpn,
         brand: brandName || existingProduct.brand,
+        category: (typeof item.category === 'string' ? item.category : item.category?.name) || existingProduct.category || null,
         hasOffer: existingProduct.hasOffer || !!item.offers || !!(item.hasVariant && item.hasVariant.length > 0),
         hasRating: existingProduct.hasRating || !!item.aggregateRating,
         isProductGroup: existingProduct.isProductGroup || type === 'productgroup'
@@ -486,6 +487,7 @@ function categorizeMicrodataSchemas(microdataItems, schemas) {
         image: item.properties.image || null,
         sku: item.properties.sku || item.properties.productGroupID || null,
         brand: extractBrandName(item.properties.brand?.properties?.name || item.properties.brand) || extractBrandName(item.properties.manufacturer),
+        category: (typeof item.properties.category === 'string' ? item.properties.category : item.properties.category?.name) || null,
         hasOffer: !!item.properties.offers || !!item.properties.hasVariant,
         hasRating: !!item.properties.aggregateRating,
         isProductGroup: type === 'productgroup',

@@ -1,6 +1,6 @@
 # Decision Log
 
-> **PDS Document 07** | Last Updated: 2026-03-03
+> **PDS Document 07** | Last Updated: 2026-03-20
 
 Track architectural, technical, and strategic decisions with their rationale. Most recent entries at the top. Never delete entries — decisions that were later reversed are valuable context.
 
@@ -21,6 +21,16 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 ---
 
 ## Decisions
+
+### DEC-0028 — Build step evaluation threshold for content-script.js
+- **Date:** 2026-03-20
+- **Status:** Accepted
+- **Context:** `content-script.js` is currently 3,864 lines with all extraction logic inlined. The `extractors/` directory was deleted for MV3 compatibility without a bundler. The file will grow as new factors and verticals are added. Engineering review flagged this as approaching maintainability risk.
+- **Decision:** Adopt a bundler (`esbuild` or `rollup`) if either trigger is hit: (1) the file exceeds 5,000 lines, or (2) adding Phase 2 PLP scoring (ROAD-0038) requires more than 500 additional lines. Until then, the inline approach is acceptable — the caching system, extraction helpers, and DEBUG guards all remain well-organized at current scale.
+- **Rationale:** A bundler adds operational overhead (build step, config file, node_modules) that currently has no payoff. The inline approach preserves the zero-bundler operational simplicity that makes loading the extension trivially easy. Pre-committing now avoids a forced, rushed migration later.
+- **Alternatives Considered:** Adopt bundler immediately (no current benefit, adds friction). Keep inline forever (becomes unmaintainable at 6,000+ lines). Use dynamic import() (not supported for content scripts in MV3 without a bundler).
+- **Consequences:** File size must be monitored. New extraction domains should be estimated before implementation to assess whether they trigger the threshold. When triggered, migration to esbuild is estimated at ~4 hours.
+- **Related:** ROAD-0038, ROAD-0041
 
 ### DEC-0027 — Q&A content generation as separate TRIBBUTE API product
 - **Date:** 2026-03-18

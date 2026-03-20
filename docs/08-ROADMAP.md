@@ -1,6 +1,6 @@
 # Roadmap
 
-> **PDS Document 08** | Last Updated: 2026-03-18
+> **PDS Document 08** | Last Updated: 2026-03-20
 
 Strategic feature plan and working backlog. Combines the "what's planned" view with the "what's in the queue" view. Most recent entries at the top within each section.
 
@@ -138,20 +138,21 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** DEC-0004
 
 ### ROAD-0005 — Expand isSafeUrl to block RFC 1918 ranges
-- **Status:** Approved
+- **Status:** Done
 - **Type:** Improvement
 - **Priority:** P1 (High)
 - **Target Phase/Sprint:** v1.2.0 — Foundation Hardening
 - **Date Added:** 2026-03-01
+- **Date Completed:** 2026-03-20
 - **Requested By:** PDS Process (security review)
 - **Scope:** Small (< 1 day)
 - **Description:** `isSafeUrl()` blocks localhost/127.0.0.1/0.0.0.0 but not 192.168.x.x, 10.x.x.x, or 172.16-31.x.x. These private ranges are theoretically fetchable via the `<all_urls>` permission.
 - **Acceptance Criteria:**
-  - [ ] `isSafeUrl()` rejects all RFC 1918 private ranges
-  - [ ] `isSafeUrl()` rejects link-local addresses (169.254.x.x)
-  - [ ] Existing tests still pass
+  - [x] `isSafeUrl()` rejects all RFC 1918 private ranges
+  - [x] `isSafeUrl()` rejects link-local addresses (169.254.x.x)
+  - [ ] Existing tests still pass (deferred — no test suite yet, ROAD-0001)
 - **Dependencies:** ROAD-0001 (test suite should be in place first)
-- **Related:** DEC-0001
+- **Related:** DEC-0001, BUG-0079
 
 ### ROAD-0002 — Centralize DEBUG flag
 - **Status:** Approved
@@ -218,6 +219,41 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** DEC-0015
 
 ## Proposed (Needs Review)
+
+### ROAD-0041 — Build step evaluation and migration plan for content-script.js
+- **Status:** Proposed
+- **Type:** Tech Debt
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** Triggered by DEC-0028 threshold (5,000 lines or Phase 2 PLP adds 500+ lines)
+- **Date Added:** 2026-03-20
+- **Requested By:** Engineering review (2026-03-20)
+- **Scope:** Small (< 1 day)
+- **Description:** When `content-script.js` exceeds 5,000 lines or PLP Phase 2 requires 500+ new lines, migrate to an `esbuild` or `rollup` build step. This allows the source to be split into logical modules (extraction domains) that bundle into a single content script. Preserves the zero-runtime-dependency architecture while removing the maintenance burden of a monolithic file.
+- **Acceptance Criteria:**
+  - [ ] `esbuild` or `rollup` configured with minimal config (< 20 lines)
+  - [ ] Source split into domain-level modules (content, structured-data, pdp-quality, seo, etc.)
+  - [ ] Built output is a single content-script.js (same as current)
+  - [ ] Extension loading workflow unchanged (load unpacked still works)
+  - [ ] All existing tests pass against built output
+- **Dependencies:** ROAD-0001 (test suite for regression safety), DEC-0028 threshold condition
+- **Related:** DEC-0028
+
+### ROAD-0042 — Wire `deleteAnalysis()` to per-entry delete button in History tab
+- **Status:** Proposed
+- **Type:** Improvement
+- **Priority:** P3 (Low)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-20
+- **Requested By:** Engineering review (2026-03-20)
+- **Scope:** Small (< 1 day)
+- **Description:** `storage-manager.js` exports `deleteAnalysis`, `getAnalysis`, `getHistoryByDomain`, `getHistoryByUrl`, `getRecentAnalyses`, and `exportHistory` — none of which are currently imported anywhere. The most user-visible gap is `deleteAnalysis`: users have no way to remove individual history entries, only to wait for the 20-entry cap to prune old ones. A delete button per history entry would close this gap.
+- **Acceptance Criteria:**
+  - [ ] Delete button (×) visible on each history entry in History tab
+  - [ ] Confirmation prompt before deletion (single-click is too risky)
+  - [ ] History list re-renders after deletion
+  - [ ] `deleteAnalysis()` in storage-manager.js is the underlying call
+- **Dependencies:** None
+- **Related:** —
 
 ### ROAD-0038 — PLP-specific factors and adjusted weights (Phase 2)
 - **Status:** Proposed
@@ -580,6 +616,29 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 
 ## Completed
 
+### ROAD-0043 — Content-to-Citation Roadmap (AI Visibility tab + report)
+- **Status:** Done
+- **Type:** Feature
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** v2.3.6 — Consulting Practice
+- **Date Added:** 2026-03-20
+- **Date Completed:** 2026-03-20
+- **Requested By:** Product strategy (consulting deliverable — actionable content plan)
+- **Scope:** Medium (1-3 days)
+- **Description:** Rule-based engine that maps specific content gaps to the LLM citation opportunities they would unlock if filled. Presented as a 3-tier prioritized roadmap (Quick Wins / Medium Priority / Content Investment) with 5 content blocks. Two blocks (Styling, Fabric & Care) are apparel-gated. Displayed as a collapsible section below Citation Opportunities in the AI Visibility tab and as an amber-bordered section in the AI Readiness report section. Personalized with extracted product name and brand.
+- **Acceptance Criteria:**
+  - [x] `CitationRoadmapEngine` in new `src/recommendations/citation-roadmap.js`
+  - [x] 5 content blocks across 3 tiers (Description, FAQ, Fabric & Care, Styling, Inline Reviews)
+  - [x] Apparel-gated blocks (Styling, Fabric & Care) hidden for non-apparel products
+  - [x] Inline Reviews block excluded when `reviews.count === 0`
+  - [x] "Content foundation is strong" state when all tiers empty
+  - [x] Collapsible `#citationRoadmapSection` in AI Visibility tab
+  - [x] `buildCitationRoadmapSection()` in report-template.js, amber-bordered
+  - [x] `extractProductIntelligence` exported from `citation-opportunities.js` and shared
+  - [x] manifest.json bumped to v2.3.6
+- **Dependencies:** ROAD-0035 (Citation Opportunity Map)
+- **Related:** DEC-0026
+
 ### ROAD-0033 — SEO Quality scoring dimension
 - **Status:** Done
 - **Type:** Feature
@@ -735,4 +794,4 @@ _No rejected or held items._
 
 ---
 
-_This roadmap should be reviewed monthly or when significant new information arises. Last reviewed: 2026-03-18._
+_This roadmap should be reviewed monthly or when significant new information arises. Last reviewed: 2026-03-20._

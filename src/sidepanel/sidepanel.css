@@ -359,6 +359,11 @@ body {
 .citation-group-header.missing { color: #ef4444; }
 .citation-group-header.partial { color: #d97706; }
 .citation-group-header.covered { color: #22c55e; }
+/* 4-group header colours */
+.citation-group-header.discovery { color: #7c3aed; }
+.citation-group-header.brand-auth { color: #1d4ed8; }
+.citation-group-header.to-capture { color: #b45309; }
+.citation-group-header.winning { color: #15803d; }
 .citation-item {
   padding: 6px 8px;
   margin-bottom: 4px;
@@ -369,6 +374,25 @@ body {
 .citation-item.missing { border-left-color: #ef4444; }
 .citation-item.partial { border-left-color: #d97706; }
 .citation-item.covered { border-left-color: #22c55e; }
+/* 4-group item left-border / background */
+.citation-item.discovery { border-left-color: #7c3aed; background: #faf5ff; }
+.citation-item.brand-auth { border-left-color: #1d4ed8; background: #eff6ff; }
+.citation-item.to-capture { border-left-color: #d97706; }
+.citation-item.winning { border-left-color: #22c55e; background: #f0fdf4; }
+/* Priority badge (used in toCapture group) */
+.citation-priority-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.citation-priority-badge.priority-critical { background: #fef2f2; color: #b91c1c; }
+.citation-priority-badge.priority-refine   { background: #fffbeb; color: #b45309; }
 .citation-item-factor {
   font-size: 11px;
   font-weight: 600;
@@ -380,6 +404,63 @@ body {
   color: var(--text-secondary);
   font-style: italic;
   line-height: 1.4;
+}
+
+/* Content-to-Citation Roadmap */
+.citation-roadmap { margin-top: var(--space-md); margin-bottom: var(--space-md); }
+
+.roadmap-tier { margin-bottom: var(--space-md); }
+.roadmap-tier-header {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--text-secondary);
+  padding: 4px 0; margin-bottom: 6px;
+  display: flex; align-items: center; gap: 6px;
+}
+.roadmap-timeframe {
+  font-size: 10px; font-weight: 500; color: var(--text-tertiary);
+  background: var(--bg-secondary); padding: 1px 6px;
+  border-radius: 10px; text-transform: none; letter-spacing: 0;
+}
+
+.roadmap-block {
+  padding: 8px 10px; margin-bottom: 6px;
+  border-radius: var(--border-radius);
+  background: var(--bg-secondary);
+  border-left: 3px solid var(--border-color);
+}
+.roadmap-block.status-missing { border-left-color: #ef4444; }
+.roadmap-block.status-partial  { border-left-color: #d97706; }
+
+.roadmap-block-header {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 4px;
+}
+.roadmap-block-title { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+
+.roadmap-status-badge {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.4px; padding: 1px 5px; border-radius: 3px;
+}
+.roadmap-status-badge.missing { background: #fef2f2; color: #b91c1c; }
+.roadmap-status-badge.partial  { background: #fffbeb; color: #b45309; }
+
+.roadmap-impact { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+.roadmap-queries {
+  font-size: 11px; color: var(--text-secondary);
+  font-style: italic; line-height: 1.4; margin-bottom: 4px;
+}
+.roadmap-platform-notes { font-size: 10px; color: var(--text-tertiary); }
+.roadmap-guidance {
+  font-size: 11px; color: var(--text-secondary);
+  margin-top: 6px; padding: 6px 8px;
+  background: var(--bg-primary); border-radius: 4px;
+  border-left: 2px solid var(--border-color);
+}
+
+.roadmap-strong-state {
+  font-size: 12px; color: #15803d;
+  background: #f0fdf4; border-radius: var(--border-radius);
+  padding: 8px 12px; border-left: 3px solid #22c55e;
 }
 
 /* Section Header */

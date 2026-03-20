@@ -162,24 +162,43 @@ function factorCountSummary(factors) {
  */
 /**
  * Build the Citation Opportunities section for the AI Readiness part of the report.
- * @param {Object|null} opportunities - { missing: [], partial: [], covered: [] }
+ * @param {Object|null} opportunities - { discovery: [], brand: [], toCapture: [], winning: [] }
  * @returns {string} HTML string
  */
 function buildCitationOpportunitiesSection(opportunities) {
   if (!opportunities) return '';
-  const { missing = [], partial = [] } = opportunities;
-  if (missing.length === 0 && partial.length === 0) return '';
+  const { discovery = [], brand = [], toCapture = [], winning = [] } = opportunities;
+  if (!discovery.length && !brand.length && !toCapture.length && !winning.length) return '';
+
+  function simpleQueryGroup(title, queries, borderColor, textColor) {
+    if (!queries.length) return '';
+    return `
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:${textColor};margin-bottom:8px">${title} (${queries.length})</div>
+        <div style="padding:8px 12px;border-radius:6px;background:#f9fafb;border-left:3px solid ${borderColor}">
+          <div style="font-size:11px;color:#6b7280;font-style:italic">${queries.map(q => `"${esc(q)}"`).join(' · ')}</div>
+        </div>
+      </div>`;
+  }
 
   function opportunityGroup(title, items, borderColor, textColor) {
-    if (items.length === 0) return '';
+    if (!items.length) return '';
     return `
       <div style="margin-bottom:16px">
         <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:${textColor};margin-bottom:8px">${title} (${items.length})</div>
-        ${items.map(entry => `
-        <div style="padding:8px 12px;margin-bottom:6px;border-radius:6px;background:#f9fafb;border-left:3px solid ${borderColor}">
-          <div style="font-size:12px;font-weight:600;color:#111827;margin-bottom:2px">${esc(entry.factorName)} <span style="font-weight:400;color:#9ca3af">· ${esc(entry.category)}</span></div>
-          <div style="font-size:11px;color:#6b7280;font-style:italic">${entry.queries.map(q => `"${esc(q)}"`).join(' · ')}</div>
-        </div>`).join('')}
+        ${items.map(entry => {
+          let priorityBadge = '';
+          if (entry.priority === 'critical') {
+            priorityBadge = `<span style="display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;padding:1px 5px;border-radius:3px;margin-left:6px;vertical-align:middle;background:#fef2f2;color:#b91c1c">Critical</span>`;
+          } else if (entry.priority === 'refine') {
+            priorityBadge = `<span style="display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;padding:1px 5px;border-radius:3px;margin-left:6px;vertical-align:middle;background:#fffbeb;color:#b45309">Refine</span>`;
+          }
+          return `
+          <div style="padding:8px 12px;margin-bottom:6px;border-radius:6px;background:#f9fafb;border-left:3px solid ${borderColor}">
+            <div style="font-size:12px;font-weight:600;color:#111827;margin-bottom:2px">${esc(entry.factorName)} <span style="font-weight:400;color:#9ca3af">· ${esc(entry.category)}</span>${priorityBadge}</div>
+            <div style="font-size:11px;color:#6b7280;font-style:italic">${entry.queries.map(q => `"${esc(q)}"`).join(' · ')}</div>
+          </div>`;
+        }).join('')}
       </div>`;
   }
 
@@ -187,9 +206,62 @@ function buildCitationOpportunitiesSection(opportunities) {
   <!-- Citation Opportunities -->
   <div style="margin-bottom:40px;padding:20px;background:#fff7ed;border-radius:10px;border:1px solid #fed7aa;page-break-inside:avoid">
     <h2 style="font-size:15px;font-weight:700;color:#9a3412;margin:0 0 6px">Citation Opportunity Map</h2>
-    <p style="font-size:12px;color:#c2410c;margin:0 0 16px">Conversational queries your product should be cited for, based on AI Readiness scoring gaps.</p>
-    ${opportunityGroup("High-Value Queries You're Missing", missing, '#ef4444', '#ef4444')}
-    ${opportunityGroup('Queries You Partially Cover', partial, '#d97706', '#d97706')}
+    <p style="font-size:12px;color:#c2410c;margin:0 0 16px">Conversational queries your product should be cited for, based on content signals and scoring gaps.</p>
+    ${simpleQueryGroup('Discovery & Category Queries', discovery, '#7c3aed', '#7c3aed')}
+    ${simpleQueryGroup('Brand Authority Queries', brand, '#1d4ed8', '#1d4ed8')}
+    ${opportunityGroup('Queries to Capture', toCapture, '#d97706', '#b45309')}
+    ${opportunityGroup("Queries You're Already Winning", winning, '#22c55e', '#15803d')}
+  </div>`;
+}
+
+function buildCitationRoadmapSection(roadmap) {
+  if (!roadmap || !roadmap.tiers) return '';
+  const { tiers, summary } = roadmap;
+
+  if (tiers.length === 0) {
+    return `
+  <!-- Content-to-Citation Roadmap -->
+  <div style="margin-bottom:40px;padding:20px;background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0;page-break-inside:avoid">
+    <h2 style="font-size:15px;font-weight:700;color:#15803d;margin:0 0 6px">Content-to-Citation Roadmap</h2>
+    <p style="font-size:12px;color:#15803d;margin:0;padding:8px 12px;background:#f0fdf4;border-radius:6px;border-left:3px solid #22c55e">Content foundation is strong — all tracked content blocks are in place.</p>
+  </div>`;
+  }
+
+  const effortLabels = { low: 'Low effort', medium: 'Medium effort', high: 'High effort' };
+  const statusColors = { missing: { border: '#ef4444', badge: 'background:#fef2f2;color:#b91c1c', label: 'Missing' },
+    partial: { border: '#d97706', badge: 'background:#fffbeb;color:#b45309', label: 'Partial' } };
+
+  function roadmapBlockHtml(block) {
+    const sc = statusColors[block.status] || statusColors.missing;
+    const platforms = block.platformNotes.map(n => `<strong>${esc(n.platform)}:</strong> ${esc(n.note)}`).join(' · ');
+    return `
+    <div style="padding:10px 12px;margin-bottom:8px;border-radius:6px;background:#f9fafb;border-left:3px solid ${sc.border}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:12px;font-weight:600;color:#111827">${esc(block.title)}</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;padding:1px 5px;border-radius:3px;${sc.badge}">${sc.label}</span>
+      </div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:3px">${esc(block.citationImpact)} · ${esc(effortLabels[block.effort] || block.effort)}</div>
+      <div style="font-size:11px;color:#6b7280;font-style:italic;margin-bottom:3px">${block.queryExamples.map(q => `"${esc(q)}"`).join(' · ')}</div>
+      ${platforms ? `<div style="font-size:10px;color:#9ca3af;margin-bottom:3px">${platforms}</div>` : ''}
+      <div style="font-size:11px;color:#6b7280;padding:5px 8px;background:#fff;border-radius:4px;border-left:2px solid #e5e7eb;margin-top:4px">${esc(block.guidance)}</div>
+    </div>`;
+  }
+
+  const tierHtml = tiers.map(tier => `
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;padding:4px 0;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+        ${esc(tier.label)}
+        <span style="font-size:10px;font-weight:500;color:#9ca3af;background:#f3f4f6;padding:1px 6px;border-radius:10px;text-transform:none;letter-spacing:0">${esc(tier.timeframe)}</span>
+      </div>
+      ${tier.blocks.map(roadmapBlockHtml).join('')}
+    </div>`).join('');
+
+  return `
+  <!-- Content-to-Citation Roadmap -->
+  <div style="margin-bottom:40px;padding:20px;background:#fffbeb;border-radius:10px;border:1px solid #fde68a;page-break-inside:avoid">
+    <h2 style="font-size:15px;font-weight:700;color:#92400e;margin:0 0 6px">Content-to-Citation Roadmap</h2>
+    <p style="font-size:12px;color:#b45309;margin:0 0 16px">Specific content additions that unlock new LLM citation opportunities — ordered by effort and impact.</p>
+    ${tierHtml}
   </div>`;
 }
 
@@ -480,7 +552,7 @@ function buildSeoSection(seoResult, seoRecs) {
  * @param {Array} [seoRecommendations] - sorted SEO recommendation array
  * @returns {string} Complete HTML document string
  */
-export function generateHtmlReport(result, pageInfo, recommendations, context, pdpResult, pdpRecommendations, seoResult, seoRecommendations, citationOpportunities) {
+export function generateHtmlReport(result, pageInfo, recommendations, context, pdpResult, pdpRecommendations, seoResult, seoRecommendations, citationOpportunities, citationRoadmap) {
   const { totalScore, grade, gradeDescription, categoryScores, jsDependent, pageType } = result;
   const gradeColors = { A: '#22c55e', B: '#84cc16', C: '#eab308', D: '#f97316', F: '#ef4444' };
   const gradeColor = gradeColors[grade] || '#ef4444';
@@ -733,6 +805,7 @@ export function generateHtmlReport(result, pageInfo, recommendations, context, p
   <div style="margin-bottom:40px">${recItems || '<p style="color:#6b7280;font-size:13px">No recommendations — excellent coverage!</p>'}</div>
 
   ${buildCitationOpportunitiesSection(citationOpportunities)}
+  ${buildCitationRoadmapSection(citationRoadmap)}
 
   ${buildPdpSection(pdpResult, pdpRecommendations, contextLabel)}
 

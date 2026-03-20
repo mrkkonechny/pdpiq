@@ -69,7 +69,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Forward extraction request to content script
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]) {
-          chrome.tabs.sendMessage(tabs[0].id, { type: 'EXTRACT_DATA' });
+          chrome.tabs.sendMessage(tabs[0].id, { type: 'EXTRACT_DATA', requestId: message.requestId });
         }
       });
       break;
@@ -143,7 +143,9 @@ function isSafeUrl(url) {
     const parsed = new URL(url);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
     const hostname = parsed.hostname.toLowerCase();
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0') return false;
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0' || hostname === '::1') return false;
+    const privateRanges = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.)/;
+    if (privateRanges.test(hostname)) return false;
     return true;
   } catch {
     return false;

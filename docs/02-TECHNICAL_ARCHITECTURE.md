@@ -47,6 +47,16 @@ Data flows in one direction: content script extracts raw signals from the page D
 │              │  │  • 44+ templates    │  │                           │
 │              │  └─────────────────────┘  │                           │
 │              │  ┌─────────────────────┐  │                           │
+│              │  │CitationOpportunityEng│ │                           │
+│              │  │  • generateOpportunities│                          │
+│              │  │  • extractProductIntel│ │                           │
+│              │  └─────────────────────┘  │                           │
+│              │  ┌─────────────────────┐  │                           │
+│              │  │  CitationRoadmapEng │  │                           │
+│              │  │  • generateRoadmap()│  │                           │
+│              │  │  • 5 blocks, 3 tiers│  │                           │
+│              │  └─────────────────────┘  │                           │
+│              │  ┌─────────────────────┐  │                           │
 │              │  │  StorageManager     │  │     ┌──────────────────┐ │
 │              │  │  • Save/load history│  │────►│ chrome.storage   │ │
 │              │  │  • Quota pruning    │  │     │ .local (10MB)    │ │
@@ -272,6 +282,8 @@ SidePanelApp.displayResults()
   ├─► Render 6 expandable category cards with per-factor detail
   ├─► Render top 10 recommendations with impact/effort badges
   ├─► Toggle JS dependency warning banner if applicable
+  ├─► CitationOpportunityEngine.generateOpportunities() → renderCitationOpportunities()
+  └─► CitationRoadmapEngine.generateRoadmap() → renderCitationRoadmap()
   │
   ▼
 saveAnalysis() → chrome.storage.local
@@ -466,4 +478,4 @@ ls icons/icon16.png icons/icon48.png icons/icon128.png
 
 ---
 
-_This document should be updated whenever a significant architectural change is made. Last reviewed: 2026-03-01._
+_This document should be updated whenever a significant architectural change is made. Last reviewed: 2026-03-20._
