@@ -1248,7 +1248,11 @@ export class ScoringEngine {
     const locations = [];
     const pointsPerLocation = maxPoints / 4;
 
-    // 1. H1 text — use first non-empty H1 (some platforms emit empty placeholder H1s)
+    // 1. Schema.org Product name — always present (required to reach this point)
+    matches++;
+    locations.push('schema');
+
+    // 2. H1 text — use first non-empty H1 (some platforms emit empty placeholder H1s)
     const h1Texts = extractedData.contentStructure?.headings?.h1?.texts || [];
     const h1Text = h1Texts.find(t => t.trim().length > 0) || '';
     if (h1Text) {
@@ -1259,17 +1263,17 @@ export class ScoringEngine {
       }
     }
 
-    // 2. og:title
-    const ogTitle = extractedData.metaTags?.openGraph?.title;
-    if (ogTitle) {
-      const ogLower = ogTitle.toLowerCase().trim();
-      if (ogLower === nameLower || ogLower.includes(nameLower) || nameLower.includes(ogLower)) {
+    // 3. HTML <title> tag — the primary signal LLMs use for page identity
+    const pageTitle = extractedData.seoSignals?.titleTag?.text || extractedData.pageInfo?.title;
+    if (pageTitle) {
+      const titleLower = pageTitle.toLowerCase().trim();
+      if (titleLower === nameLower || titleLower.includes(nameLower) || nameLower.includes(titleLower)) {
         matches++;
-        locations.push('og:title');
+        locations.push('page title');
       }
     }
 
-    // 3. Meta description (contains check)
+    // 4. Meta description (contains check)
     const metaDesc = extractedData.metaTags?.standard?.description;
     if (metaDesc) {
       const metaLower = metaDesc.toLowerCase();
@@ -1279,16 +1283,6 @@ export class ScoringEngine {
       if (metaLower.includes(nameLower) || matchedWords.length >= Math.ceil(nameWords.length * 0.6)) {
         matches++;
         locations.push('meta desc');
-      }
-    }
-
-    // 4. Page title (document.title via og:title or standard title)
-    const pageTitle = extractedData.pageInfo?.title;
-    if (pageTitle) {
-      const titleLower = pageTitle.toLowerCase().trim();
-      if (titleLower === nameLower || titleLower.includes(nameLower) || nameLower.includes(titleLower)) {
-        matches++;
-        locations.push('title');
       }
     }
 

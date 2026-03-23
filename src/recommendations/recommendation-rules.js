@@ -90,7 +90,7 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'og-title-missing': {
     title: 'Add og:title meta tag',
-    description: 'Missing og:title means social shares of this page will use the HTML &lt;title&gt; as a fallback. og:title is an Open Graph social sharing signal — for LLM visibility, the &lt;title&gt; tag and H1 heading are the confirmed product name signals.',
+    description: 'Missing og:title means social shares of this page will typically fall back to the HTML &lt;title&gt;. og:title is an Open Graph social sharing signal — for LLM visibility, the &lt;title&gt; tag and H1 heading are the confirmed product name signals.',
     impact: 'medium',
     effort: 'low',
     category: 'protocolMeta',
@@ -112,7 +112,7 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'low',
     effort: 'low',
     category: 'protocolMeta',
-    implementation: 'Add &lt;meta name="twitter:card" content="summary_large_image"&gt; for X/Twitter sharing. This does not affect AI Readiness — the impact is entirely on social platform display.'
+    implementation: 'Add &lt;meta name="twitter:card" content="summary_large_image"&gt; for X/Twitter sharing.'
   },
 
   // Structured Data
