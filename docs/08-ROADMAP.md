@@ -1,6 +1,6 @@
 # Roadmap
 
-> **PDS Document 08** | Last Updated: 2026-03-20
+> **PDS Document 08** | Last Updated: 2026-03-23 (14 new items added from PM & competitive review)
 
 Strategic feature plan and working backlog. Combines the "what's planned" view with the "what's in the queue" view. Most recent entries at the top within each section.
 
@@ -219,6 +219,287 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** DEC-0015
 
 ## Proposed (Needs Review)
+
+### ROAD-0060 — Informational PageSpeed link in SEO report section
+- **Status:** Proposed
+- **Type:** Improvement
+- **Priority:** P3 (Low)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Small (< 1 day)
+- **Description:** Add a non-scored informational note to the SEO Quality section of the side panel and HTML report with a direct link to `pagespeed.web.dev/?url={encodedUrl}` pre-filled for the analyzed page. Reads raw TTFB and page load timing from `performance.getEntriesByType('navigation')` and displays them as context-only figures (not scored). Includes a clear disclaimer: "Measured in this Chrome session — use PageSpeed Insights for standardized field data." Avoids misleading clients with in-browser numbers that diverge from Google's simulated benchmarks, while still giving a quick pointer to the right tool.
+- **Acceptance Criteria:**
+  - [ ] PageSpeed Insights link appears in SEO tab (side panel) and SEO section of HTML report
+  - [ ] Link pre-fills the analyzed URL (`pagespeed.web.dev/?url=...`)
+  - [ ] Raw TTFB and load time shown as informational figures (no pass/fail status)
+  - [ ] Disclaimer text present: measurements are Chrome-session only
+  - [ ] SEO score and factor weights unchanged (no new scoring factors added)
+- **Dependencies:** None
+- **Related:** DEC-0009 (zero-transmission — no API call to PageSpeed Insights)
+
+### ROAD-0059 — Vertical category benchmarks ("Your score vs. industry average")
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Medium (1-3 days)
+- **Description:** Show industry average scores by vertical (Fashion, Electronics, Health & Beauty, Home, Food) alongside the user's score on the report hero and side panel. "You: 58 / Fashion average: 71." Transforms scores from absolute to relative, dramatically increasing client urgency. Phase 1: hardcode benchmarks from Tribbute's internal scoring dataset (10+ PDPs per vertical), updated quarterly.
+- **Acceptance Criteria:**
+  - [ ] Benchmark dataset defined per vertical (at minimum: fashion, electronics, general)
+  - [ ] Benchmark scores displayed on score hero in side panel and report
+  - [ ] "Below average / Above average / Average" label shown per model
+  - [ ] Benchmark source/date shown in report footnote
+- **Dependencies:** ROAD-0039 (vertical detection — needed to know which benchmark to show)
+- **Related:** ROAD-0039
+
+### ROAD-0058 — Factor status change digest (re-analysis diff)
+- **Status:** Proposed
+- **Type:** Improvement
+- **Priority:** P3 (Low)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Small (< 1 day)
+- **Description:** When re-analyzing a URL that already exists in history, produce a brief "what changed" summary: "3 factors improved (Product Schema, og:image, FAQ), 1 new warning (entity consistency), score up +7 points." Useful for client update emails and engagement progress notes. Lighter version of ROAD-0049.
+- **Acceptance Criteria:**
+  - [ ] Re-analysis detected when URL matches existing history entry
+  - [ ] Changed factors listed (improved, regressed, new warnings)
+  - [ ] Net score delta shown
+  - [ ] Digest visible in side panel before/after re-analysis and includable in report
+- **Dependencies:** Category-level scores only (lighter than ROAD-0013)
+- **Related:** ROAD-0049, ROAD-0013
+
+### ROAD-0057 — Developer handoff export (Markdown checklist)
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P3 (Low)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Small (< 1 day)
+- **Description:** A stripped-down export containing only failing/warning factors with their remediation guidance, formatted as a Markdown developer checklist. Not the full HTML report — just the action items. Designed for direct handoff to a client's engineering team without sending the full consulting report.
+- **Acceptance Criteria:**
+  - [ ] "Download Dev Checklist" action on each score tab
+  - [ ] Output is a .md file with one checkbox per failing/warning factor
+  - [ ] Each checkbox includes: factor name, status, specific remediation text
+  - [ ] Platform-specific notes included if available (see ROAD-0048)
+- **Dependencies:** None (ROAD-0048 enhances it but is not required)
+- **Related:** ROAD-0048
+
+### ROAD-0056 — Multi-context score comparison (Want vs. Need vs. Hybrid)
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P3 (Low)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Medium (1-3 days)
+- **Description:** Run the same URL in all 3 contexts (Want, Need, Hybrid) and show a 3-column comparison. Highlights which factors are context-sensitive and by how much. Useful for clients with mixed buyer personas (e.g., fashion items bought as gifts vs. personal use). Surfaces which content investments swing the most across contexts.
+- **Acceptance Criteria:**
+  - [ ] "Run all contexts" button triggers 3 sequential analyses
+  - [ ] 3-column comparison view in side panel
+  - [ ] Factors with high context variance flagged
+  - [ ] Exportable as report section
+- **Dependencies:** None
+- **Related:** DEC-0006
+
+### ROAD-0055 — Client session labels on history entries
+- **Status:** Proposed
+- **Type:** Improvement
+- **Priority:** P3 (Low)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Small (< 1 day)
+- **Description:** Allow attaching a label to a history entry: client name, engagement stage, and free-text notes. Turns history from a domain-name list into a lightweight engagement log. Tribbute works across multiple client accounts — current history has no client context.
+- **Acceptance Criteria:**
+  - [ ] Edit label button on each history entry
+  - [ ] Fields: client name, engagement stage (dropdown), notes (free text)
+  - [ ] Label visible on history list row
+  - [ ] Labels included in history CSV export (ROAD-0054)
+- **Dependencies:** None (ROAD-0054 for CSV export integration)
+- **Related:** ROAD-0054
+
+### ROAD-0054 — History export (CSV)
+- **Status:** Proposed
+- **Type:** Improvement
+- **Priority:** P3 (Low)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Small (< 1 day)
+- **Description:** Export the full analysis history as a CSV with columns: date, URL, domain, context, AI grade, AI score, PDP grade, PDP score, SEO grade, SEO score. Enables ops tracking across client engagements and simple spreadsheet reporting for account management. `exportHistory()` already exists in storage-manager.js — primarily a UI wiring task.
+- **Acceptance Criteria:**
+  - [ ] "Export history as CSV" button in History tab
+  - [ ] CSV includes all stored entries (not just visible 20)
+  - [ ] Columns: date, URL, domain, context, AI grade/score, PDP grade/score, SEO grade/score
+  - [ ] Client labels included if ROAD-0055 is implemented
+- **Dependencies:** None (`exportHistory()` in storage-manager.js already exists)
+- **Related:** ROAD-0055
+
+### ROAD-0053 — AI crawler allowlist visual summary card
+- **Status:** Proposed
+- **Type:** Improvement
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Small (< 1 day)
+- **Description:** Present crawler access data (which already powers the AI Discoverability score) as a standalone visual card in the AI Visibility tab and HTML report. Shows all 11 monitored AI crawlers with status badges (Allowed / Blocked / Unknown), grouped by company (OpenAI, Anthropic, Google, etc.), plus a headline count: "7 of 11 AI crawlers can access your page." Extremely readable in client presentations and slide decks without technical explanation.
+- **Acceptance Criteria:**
+  - [ ] Visual card in AI Visibility tab (collapsible)
+  - [ ] Visual card in HTML report (AI Readiness section)
+  - [ ] Crawlers grouped by company with named badges
+  - [ ] Allowed/Blocked/Unknown status per crawler
+  - [ ] Headline "X of Y crawlers have access" stat
+- **Dependencies:** None (data already extracted by service-worker.js)
+- **Related:** DEC-0004, ROAD-0007
+
+### ROAD-0052 — Inline report annotation mode
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Medium (1-3 days)
+- **Description:** Before exporting the HTML report, allow the user to add notes to specific factors. Examples: "Discussed with client — custom solution in place" or "Confirmed fix in next sprint." Currently, consultants export and then manually edit the HTML. Annotation mode makes this native to the side panel and bakes notes into the exported report.
+- **Acceptance Criteria:**
+  - [ ] Annotation icon/button on each factor row in side panel
+  - [ ] Free-text note field per factor
+  - [ ] Annotated factors visually flagged in side panel
+  - [ ] Notes included in HTML report export alongside the factor
+  - [ ] Notes persisted with history entry
+- **Dependencies:** None
+- **Related:** —
+
+### ROAD-0051 — Simplified executive 1-pager report variant
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Medium (1-3 days)
+- **Description:** A second, shorter report format: 1 page with 3 grade badges, top 3 issues in plain English, 3 recommended next steps, and Tribbute CTA. Designed for email to CMO/VP stakeholders or as a meeting leave-behind in a slide deck. The current report is detailed and comprehensive (ideal for ops/dev teams) but too long for executive stakeholders. Separate from ROAD-0036 (which elevated the existing report's executive summary).
+- **Acceptance Criteria:**
+  - [ ] "Download 1-Pager" action alongside existing "Download Report"
+  - [ ] Fits on a single printed page (A4/Letter)
+  - [ ] Includes: 3 grade badges, top 3 cross-model issues, 3 next steps, Tribbute CTA
+  - [ ] Plain-English descriptions (no jargon, no factor IDs)
+  - [ ] Tribbute branding and UTM links
+- **Dependencies:** None
+- **Related:** ROAD-0036
+
+### ROAD-0050 — SEO → AI Readiness gap highlight card
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Small (< 1 day)
+- **Description:** A dedicated callout (side panel + report) surfacing the delta between SEO score and AI Readiness score. Example: "You're a B (82) on SEO but an F (48) on AI Readiness — this gap represents your biggest emerging risk as LLM-driven discovery grows." Many clients have invested heavily in SEO and don't know they have an AI readiness problem. This creates urgency from data they already trust (their SEO score). Only pdpIQ can show this gap — no competitor measures both dimensions.
+- **Acceptance Criteria:**
+  - [ ] Gap card shown when SEO and AI Readiness grades differ by 2+ letter grades
+  - [ ] Card visible in AI Visibility tab and HTML report executive summary
+  - [ ] Plain-English framing of the risk (not just numbers)
+  - [ ] Link/CTA to consult Tribbute on AI readiness strategy
+- **Dependencies:** None (both scores already calculated)
+- **Related:** DEC-0024
+
+### ROAD-0049 — Score improvement validator (Before/After diff)
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Medium (1-3 days)
+- **Description:** When re-analyzing a URL that exists in history, automatically compare to the most recent prior analysis. Show score deltas per category and overall, plus which factors changed status. Provides empirical proof that Tribbute's recommendations improved the page and enables "Month 1 vs. Month 3" client update reports. Full factor-level diff requires ROAD-0013; a lighter version scoped to category scores + grade changes can ship earlier.
+- **Acceptance Criteria:**
+  - [ ] Re-analysis auto-detected when URL matches existing history entry
+  - [ ] Score delta shown per model (e.g., "AI Readiness: +11 points")
+  - [ ] Category-level score changes shown
+  - [ ] "Before/After" section in HTML report
+  - [ ] (Full version) Factor-level status changes listed (requires ROAD-0013)
+- **Dependencies:** Category-level diff can ship independently; factor-level diff depends on ROAD-0013
+- **Related:** ROAD-0013, ROAD-0058
+
+### ROAD-0048 — Platform-specific remediation notes
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Medium (1-3 days)
+- **Description:** Auto-detect the eCommerce platform (Shopify, WooCommerce, Magento, BigCommerce, Salesforce Commerce Cloud) from DOM signals and URL patterns. Append platform-specific "how to fix" guidance to each failing recommendation. Example: instead of generic "Add Product schema," show "In Shopify: ensure your theme calls {{ product.json_ld }} or install a schema app. Check Settings > Metafields." Eliminates the consulting-to-dev translation work after every audit.
+- **Acceptance Criteria:**
+  - [ ] `detectPlatform()` function identifies Shopify, WooCommerce, Magento, BigCommerce, SFCC, and General
+  - [ ] Platform shown as badge in side panel header and report
+  - [ ] Platform-specific notes appended to recommendations for at least the top 10 most common failing factors per platform
+  - [ ] Graceful fallback to generic notes when platform unknown
+- **Dependencies:** None
+- **Related:** —
+
+### ROAD-0047 — "Start Here" priority focus mode
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Small (< 1 day)
+- **Description:** A simplified view showing only the top 3 highest-impact issues across all three scoring models, ranked by points-at-stake × effort. Designed for client presentations where the full 56-factor breakdown overwhelms the room. Shown as a "Start Here" card at the top of the side panel results and as a dedicated section before the full breakdown in the HTML report.
+- **Acceptance Criteria:**
+  - [ ] "Start Here" card in side panel showing top 3 cross-model issues
+  - [ ] Each issue: factor name, which model, plain-English description, estimated points gain
+  - [ ] "Start Here" section at top of HTML report (before AI Readiness section)
+  - [ ] Issues ranked by impact×effort (reuses existing recommendation priority logic)
+- **Dependencies:** None
+- **Related:** ROAD-0036
+
+### ROAD-0046 — Competitive URL comparison mode (in-session)
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** PM & competitive review (2026-03-23)
+- **Scope:** Medium (1-3 days)
+- **Description:** Analyze a client's URL and a competitor's URL in the same session. Show a side-by-side factor-level diff with explicit "competitor has the advantage here" callouts. Include a "competitive gap narrative" block in the report summarizing the 3 strongest competitor advantages. This is the single most persuasive sales motion in consulting — showing a client exactly where their competitor outperforms them on AI readiness closes rooms faster than abstract recommendations. Distinct from ROAD-0020 (which depends on ROAD-0013 for historical factor storage); this version works entirely in-session.
+- **Acceptance Criteria:**
+  - [ ] "Compare with competitor" button after analysis completes
+  - [ ] Second URL input to analyze competitor page in same session
+  - [ ] Side-by-side comparison view: both scores + factor-level delta column
+  - [ ] Factors where competitor leads flagged with clear visual treatment
+  - [ ] "Competitive Gap Narrative" section in HTML report (top 3 competitor advantages)
+  - [ ] Does NOT require ROAD-0013 (uses in-session data only)
+- **Dependencies:** None (in-session only, no history storage needed)
+- **Related:** ROAD-0020
+
+### ROAD-0045 — Crawler visibility confidence layer: distinguish DOM-rendered vs. LLM-accessible content
+- **Status:** Proposed
+- **Type:** Research
+- **Priority:** Unranked
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-23
+- **Requested By:** Client analysis session (Natural Life vs. Baltic Born)
+- **Scope:** Large (3+ days)
+- **Description:** pdpIQ extracts data from a fully JS-rendered Chrome DOM — it sees everything present after all scripts have run. Most LLM crawlers (GPTBot, ClaudeBot, PerplexityBot) are raw HTML parsers that do not execute JavaScript. This means pdpIQ can award points for content that LLM crawlers would never see: JS-injected accordion interiors, lazy-loaded sections, Vue-rendered content that isn't server-side rendered. The tool currently has no way to distinguish "content that is in the initial server-rendered HTML" from "content that only appears after JS execution or user interaction." This inflates scores in a way that misrepresents actual LLM visibility and undermines the tool's core value proposition. Additionally, even content present in the initial HTML but locked in schema markup vs. DOM prose has different LLM weight — schema is always machine-readable; DOM prose depends on crawler depth and CSS visibility handling.
+- **Acceptance Criteria:**
+  - [ ] Research phase documents which LLM crawlers execute JS and which do not
+  - [ ] Identify which pdpIQ factors are most at risk of DOM-only false positives (shipping/returns, accordion content, lazy-loaded reviews)
+  - [ ] Propose a confidence signal (e.g. "schema-backed", "DOM only", "JS-dependent") per factor or per category
+  - [ ] Define whether this changes scoring or only surfaces a warning to the user
+  - [ ] Consider adding a "raw HTML simulation mode" that filters the DOM to only elements present in the initial server response
+- **Dependencies:** ROAD-0001 (test suite — needed to safely refactor extraction)
+- **Related:** BUG-0085, BUG-0086
+- **Notes:** The most concrete near-term action is fixing BUG-0085 and BUG-0086 to require substantive content before awarding flags. The broader question of JS-rendered vs. server-rendered detection is a larger research and architecture project. Schema-backed signals (JSON-LD) are the gold standard for LLM visibility and should be weighted accordingly in any future confidence model. **Partial progress 2026-03-23:** The JS-dependency warning shown in the side panel and report was reworded from "scores may be understated" (incorrect direction) to "scores may reflect more than LLM crawlers actually see" (correct direction). The old copy also described the issue as pdpIQ's extraction limitation, which was wrong — pdpIQ runs in Chrome after full JS execution and captures accordion/collapsed content. The real risk is the inverse: pdpIQ sees more than LLM crawlers do.
 
 ### ROAD-0044 — Pass `isPlp` to remaining AI Readiness scoring methods
 - **Status:** Proposed
