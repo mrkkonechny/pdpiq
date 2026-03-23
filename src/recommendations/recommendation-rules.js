@@ -63,11 +63,11 @@ export const RECOMMENDATION_TEMPLATES = {
   // Protocol & Meta
   'og-image-missing': {
     title: 'Add og:image meta tag',
-    description: 'Missing og:image means no visual representation in LLM chats and social shares. Add a high-quality product image.',
+    description: 'Missing og:image removes your product thumbnail from social shares and link previews. This is a social sharing signal — LLM crawlers are text-only parsers and do not process image files during indexing.',
     impact: 'high',
     effort: 'low',
     category: 'protocolMeta',
-    implementation: 'Add &lt;meta property="og:image" content="https://your-site.com/product-image.jpg"&gt; to the page head. JPEG or PNG is recommended for broadest compatibility.'
+    implementation: 'Add og:image with a JPEG or PNG product image (1200×630px recommended for social preview cards). For LLM visibility, ensure your product has descriptive alt text on its primary image.'
   },
 
   'og-image-webp': {
@@ -90,29 +90,29 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'og-title-missing': {
     title: 'Add og:title meta tag',
-    description: 'Missing og:title affects how the page appears in social shares and LLM references.',
+    description: 'Missing og:title means social shares of this page will use the HTML &lt;title&gt; as a fallback. og:title is an Open Graph social sharing signal — for LLM visibility, the &lt;title&gt; tag and H1 heading are the confirmed product name signals.',
     impact: 'medium',
     effort: 'low',
     category: 'protocolMeta',
-    implementation: 'Add &lt;meta property="og:title" content="Product Name - Brand"&gt; to the page head. Keep under 60 characters.'
+    implementation: 'Add og:title matching your product name for clean social link previews. Ensure your HTML &lt;title&gt; tag is product-name-first for LLM and search signals.'
   },
 
   'og-description-missing': {
     title: 'Add og:description meta tag',
-    description: 'Missing og:description limits how the product is described when shared.',
+    description: 'Missing og:description means social shares will use a content excerpt as fallback. og:description is a social sharing signal only — for LLM retrieval, the &lt;meta name="description"&gt; tag is the confirmed signal that AI systems use to assess page relevance.',
     impact: 'medium',
     effort: 'low',
     category: 'protocolMeta',
-    implementation: 'Add &lt;meta property="og:description" content="..."&gt; with 100-200 characters describing the product benefits.'
+    implementation: 'Add og:description (100–200 chars) for social sharing. More importantly, ensure your meta description is specific, product-name-inclusive, and under 160 characters for LLM retrieval.'
   },
 
   'twitter-card-missing': {
     title: 'Add Twitter Card markup',
-    description: 'Missing Twitter Card tags limit product visibility on Twitter/X when shared.',
+    description: 'Missing Twitter Card tags means your page will not display an enhanced preview card when shared on X/Twitter. Twitter Cards are a social sharing signal — there is no documented evidence that Twitter Card tags influence LLM crawler behavior or AI citation rates.',
     impact: 'low',
     effort: 'low',
     category: 'protocolMeta',
-    implementation: 'Add twitter:card (summary_large_image), twitter:title, twitter:description, and twitter:image meta tags.'
+    implementation: 'Add &lt;meta name="twitter:card" content="summary_large_image"&gt; for X/Twitter sharing. This does not affect AI Readiness — the impact is entirely on social platform display.'
   },
 
   // Structured Data
@@ -511,11 +511,11 @@ export const RECOMMENDATION_TEMPLATES = {
   // Additional Protocol & Meta
   'og-type-missing': {
     title: 'Add og:type meta tag with product value',
-    description: 'Missing or incorrect og:type prevents platforms and LLMs from identifying this as a product page. Set to "product" or "product.item".',
+    description: 'Missing og:type means this page lacks an Open Graph type declaration for social sharing contexts. Note: og:type has no documented effect on LLM classification — LLMs use Schema.org Product markup and content signals to identify product pages.',
     impact: 'medium',
     effort: 'low',
     category: 'protocolMeta',
-    implementation: 'Add &lt;meta property="og:type" content="product"&gt; to the page head. For specific product variants, use "product.item". This signals to AI systems and social platforms that the page represents a purchasable product.'
+    implementation: 'Add &lt;meta property="og:type" content="product"&gt; for social sharing completeness. For LLM product identification, implement Schema.org Product JSON-LD (tracked separately in Structured Data).'
   },
 
   'twitter-image-missing': {
