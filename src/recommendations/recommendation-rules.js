@@ -236,11 +236,11 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'factual-specificity-low': {
     title: 'Add Statistics and Quantified Claims',
-    impact: 'medium',
     description: 'No percentages, measurements, or quantified comparisons detected in this product\'s content. The GEO paper (ACM SIGKDD 2024) found that statistics addition is the single largest AI visibility lever — boosting citation rates by up to 40% — while persuasive language alone shows no significant improvement.',
-    implementation: 'Include specific numbers: performance percentages ("47% reduction in X"), physical measurements ("2.4 kg, 30cm × 20cm"), comparative quantities ("3× more Y than leading competitor"), and outcome figures ("saves up to 2 hours per week"). Even 3–5 well-placed statistics substantially improve AI extractability.',
+    impact: 'medium',
     effort: 'medium',
-    category: 'contentQuality'
+    category: 'contentQuality',
+    implementation: 'Include specific numbers: performance percentages ("47% reduction in X"), physical measurements ("2.4 kg, 30cm × 20cm"), comparative quantities ("3× more Y than leading competitor"), and outcome figures ("saves up to 2 hours per week"). Even 3–5 well-placed statistics substantially improve AI extractability.'
   },
 
   'materials-missing': {
@@ -465,7 +465,7 @@ export const RECOMMENDATION_TEMPLATES = {
   'llms-txt-missing': {
     title: 'Add llms.txt file',
     description: 'No llms.txt file detected. This emerging specification (September 2024) was intended to help AI systems understand site content. As of early 2026, no major LLM provider (OpenAI, Anthropic, Google, Perplexity) has officially confirmed reading llms.txt during crawling, and independent analysis found no measurable effect on citation rates.',
-    impact: 'medium',
+    impact: 'low',
     effort: 'low',
     category: 'aiDiscoverability',
     implementation: 'Implementing llms.txt costs little but has no confirmed AI citation benefit today. If your brand has a developer-focused audience, it may help with manual AI tool usage. For eCommerce, invest in Schema.org markup, content quality, and robots.txt configuration before llms.txt.'
