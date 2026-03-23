@@ -115,6 +115,16 @@ export const RECOMMENDATION_TEMPLATES = {
     implementation: 'Add &lt;meta name="twitter:card" content="summary_large_image"&gt; for X/Twitter sharing.'
   },
 
+  'last-modified-missing': {
+    title: 'Add Content Freshness Signal',
+    priority: 'medium',
+    description: 'No Last-Modified header returned by this server. Content freshness is one of the most strongly documented AI citation signals — Ahrefs analysis of 17M+ citations found AI-cited content is 25.7% fresher than traditionally-ranked content, and 76.4% of ChatGPT citations were updated within the last 30 days.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'technical',
+    implementation: 'Configure your server or CDN to return a Last-Modified header on product page responses. For Shopify: this is typically handled by the platform. For custom setups: ensure HTTP headers include Last-Modified set to the page\'s actual last modification date. Also add dateModified to your Schema.org Product markup.'
+  },
+
   // Structured Data
   'product-schema-missing': {
     title: 'Add Product schema markup',
@@ -218,11 +228,21 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'description-quality-low': {
     title: 'Improve product description quality',
-    description: 'Your description lacks benefit statements, emotional language, or technical terms. High-quality copy gives LLMs richer material to cite when answering "is this product right for me?" queries.',
+    description: 'Your product description lacks the factual specificity that AI systems preferentially cite. The GEO paper (ACM SIGKDD 2024) found that content with statistics and quantified claims achieves up to 40% higher AI visibility — while persuasive/emotional tone shows no measurable improvement.',
     impact: 'medium',
     effort: 'medium',
     category: 'contentQuality',
-    implementation: 'Rewrite the description to include: (1) benefit-led statements ("so you can..."), (2) emotional or experiential language for lifestyle products, or (3) precise technical terms for spec-driven products. Combine both for hybrid products. Aim for at least one benefit statement and one technical differentiator per paragraph.'
+    implementation: 'Add: (1) specific percentages and measurements ("47% more efficient", "150cm × 60cm"), (2) quantified comparisons ("3× faster charge time than previous model"), (3) named validations ("tested to ISO 9001 standards"), (4) use-case framing ("ideal for X because Y"). Replace vague superlatives ("best", "amazing") with citable specifics.'
+  },
+
+  'factual-specificity-low': {
+    title: 'Add Statistics and Quantified Claims',
+    priority: 'medium',
+    impact: 'medium',
+    description: 'No percentages, measurements, or quantified comparisons detected in this product\'s content. The GEO paper (ACM SIGKDD 2024) found that statistics addition is the single largest AI visibility lever — boosting citation rates by up to 40% — while persuasive language alone shows no significant improvement.',
+    implementation: 'Include specific numbers: performance percentages ("47% reduction in X"), physical measurements ("2.4 kg, 30cm × 20cm"), comparative quantities ("3× more Y than leading competitor"), and outcome figures ("saves up to 2 hours per week"). Even 3–5 well-placed statistics substantially improve AI extractability.',
+    effort: 'medium',
+    category: 'contentQuality'
   },
 
   'materials-missing': {
