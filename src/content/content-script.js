@@ -778,6 +778,37 @@ function isCanonicalForCurrentUrl(canonicalUrl, currentUrl) {
 // CONTENT QUALITY EXTRACTOR
 // ==========================================
 
+/**
+ * Detect factual specificity signals in product content: quantified claims,
+ * percentages, named sources, and quantified outcomes.
+ * GEO paper (ACM SIGKDD 2024): adding statistics boosts AI visibility up to 40%.
+ * @returns {{ hasStatisticalClaims: boolean, statisticsCount: number, hasNamedSources: boolean, hasQuantifiedComparisons: boolean }}
+ */
+function extractFactualSpecificity() {
+  const text = getProductContentText();
+  if (!text || text.length < 50) {
+    return { hasStatisticalClaims: false, statisticsCount: 0, hasNamedSources: false, hasQuantifiedComparisons: false };
+  }
+
+  // Percentage values: "47%", "200%", "up to 35%"
+  const percentageMatches = text.match(/\b\d+(?:\.\d+)?%/g) || [];
+  // Quantified comparisons: "3× faster", "50% lighter", "2x more", "10 times"
+  const comparisonMatches = text.match(/\b\d+(?:\.\d+)?[×x]\s*\w+|\d+(?:\.\d+)?%\s+(?:more|less|faster|lighter|stronger|longer|shorter|better|cheaper|easier)/gi) || [];
+  // Named sources: "according to [Org]", "[Year] [Institute] study/research/trial"
+  const sourceMatches = text.match(/according to\s+[A-Z][a-z]+|(?:19|20)\d{2}\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:study|research|trial|report|survey)/g) || [];
+  // Quantified outcomes: "saves X hours", "reduces Y by Z%"
+  const outcomeMatches = text.match(/(?:saves?|reduces?|increases?|improves?)\s+(?:\w+\s+)?(?:by\s+)?\d+/gi) || [];
+
+  const statisticsCount = percentageMatches.length + comparisonMatches.length + sourceMatches.length + outcomeMatches.length;
+
+  return {
+    hasStatisticalClaims: percentageMatches.length > 0,
+    statisticsCount,
+    hasNamedSources: sourceMatches.length > 0,
+    hasQuantifiedComparisons: comparisonMatches.length > 0
+  };
+}
+
 function extractContentQuality() {
   const mainContent = getMainContentArea();
   const productText = getProductContentText(mainContent);
@@ -788,7 +819,8 @@ function extractContentQuality() {
     features: extractFeatures(),
     faq: extractFaqContent(),
     productDetails: extractProductDetails(productText),
-    textMetrics: analyzeTextMetrics(mainContent)
+    textMetrics: analyzeTextMetrics(mainContent),
+    factualSpecificity: extractFactualSpecificity()
   };
 }
 
