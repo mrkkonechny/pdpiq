@@ -401,6 +401,7 @@ export const FACTOR_RECOMMENDATIONS = {
   'Canonical URL': 'canonical-missing',
   'Meta Description': 'meta-description-missing',
   'Robots Allows Indexing': 'robots-blocking',
+  'Last-Modified Header': 'last-modified-missing',
 
   // Content Quality
   'Description Length': 'description-short',

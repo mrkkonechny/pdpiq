@@ -43,7 +43,7 @@ export class ScoringEngine {
     // Calculate category scores
     const categoryScores = {
       structuredData: this.scoreStructuredData(extractedData.structuredData, isPlp),
-      protocolMeta: this.scoreProtocolMeta(extractedData.metaTags, imageVerification),
+      protocolMeta: this.scoreProtocolMeta(extractedData.metaTags, imageVerification, aiDiscoverabilityData?.lastModified),
       contentQuality: this.scoreContentQuality(extractedData.contentQuality, extractedData.aiDiscoverability, extractedData),
       contentStructure: this.scoreContentStructure(extractedData.contentStructure, extractedData.contentQuality?.textMetrics),
       authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals, extractedData.aiDiscoverability),
@@ -257,7 +257,7 @@ export class ScoringEngine {
   /**
    * Score Protocol & Meta Compliance category (15% weight)
    */
-  scoreProtocolMeta(data, imageVerification) {
+  scoreProtocolMeta(data, imageVerification, lastModifiedData = null) {
     const factors = [];
     let rawScore = 0;
     const maxScore = 100;
@@ -441,6 +441,36 @@ export class ScoringEngine {
     });
     rawScore += robotsScore;
 
+    // Last-Modified Header (12 points) — Ahrefs: 25.7% fresher content in AI citations
+    let lastModifiedScore = 0;
+    let lastModifiedStatus = 'fail';
+    let lastModifiedDetails = 'Last-Modified header not present or not accessible';
+    if (lastModifiedData?.lastModified) {
+      const modifiedDate = new Date(lastModifiedData.lastModified);
+      const now = new Date();
+      const ageInDays = (now - modifiedDate) / (1000 * 60 * 60 * 24);
+      if (ageInDays <= 90) {
+        lastModifiedScore = weights.lastModified;
+        lastModifiedStatus = 'pass';
+        lastModifiedDetails = `Last-Modified: ${modifiedDate.toLocaleDateString()} (${Math.round(ageInDays)} days ago)`;
+      } else {
+        lastModifiedScore = Math.round(weights.lastModified * 0.5);
+        lastModifiedStatus = 'warning';
+        lastModifiedDetails = `Last-Modified: ${modifiedDate.toLocaleDateString()} (${Math.round(ageInDays)} days ago — content may be considered stale by AI systems)`;
+      }
+    } else if (lastModifiedData?.accessible === false) {
+      lastModifiedStatus = 'fail';
+      lastModifiedDetails = 'Last-Modified header not returned by server';
+    }
+    factors.push({
+      name: 'Last-Modified Header',
+      status: lastModifiedStatus,
+      points: lastModifiedScore,
+      maxPoints: weights.lastModified,
+      details: lastModifiedDetails
+    });
+    rawScore += lastModifiedScore;
+
     return {
       score: Math.min(100, rawScore),
       maxScore,
@@ -537,6 +567,32 @@ export class ScoringEngine {
       ].filter(Boolean).join(', ') || 'Needs improvement'
     });
     rawScore += descQualityScore;
+
+    // Factual Specificity (10 points) — GEO paper: statistics addition boosts AI visibility +40%
+    const fsData = extractedData?.contentQuality?.factualSpecificity || {};
+    const statsCount = fsData.statisticsCount || 0;
+    let factualSpecScore, factualSpecStatus, factualSpecDetails;
+    if (statsCount >= 3) {
+      factualSpecScore = weights.factualSpecificity;
+      factualSpecStatus = 'pass';
+      factualSpecDetails = `${statsCount} quantified claim${statsCount !== 1 ? 's' : ''} detected (percentages, measurements, named sources)`;
+    } else if (statsCount >= 1) {
+      factualSpecScore = Math.round(weights.factualSpecificity * 0.5);
+      factualSpecStatus = 'warning';
+      factualSpecDetails = `${statsCount} quantified claim detected — add statistics and measurements for full score`;
+    } else {
+      factualSpecScore = 0;
+      factualSpecStatus = 'fail';
+      factualSpecDetails = 'No statistics, percentages, or quantified claims detected in product description';
+    }
+    factors.push({
+      name: 'Factual Specificity',
+      status: factualSpecStatus,
+      points: factualSpecScore,
+      maxPoints: weights.factualSpecificity,
+      details: factualSpecDetails
+    });
+    rawScore += factualSpecScore;
 
     // Specification Count (10 points) - Contextual
     const specCount = specs.count || 0;
