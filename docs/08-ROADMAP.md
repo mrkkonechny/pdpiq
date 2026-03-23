@@ -220,6 +220,41 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 
 ## Proposed (Needs Review)
 
+### ROAD-0062 — ChatGPT Shopping Feed Integration Advisory
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** v3.x
+- **Date Added:** 2026-03-23
+- **Requested By:** DEC-0030 (v3.0.0 scoring accuracy overhaul)
+- **Scope:** Medium (1-3 days)
+- **Description:** ChatGPT Shopping uses structured merchant feeds (CSV/TSV/XML/JSON), not crawled schema, as source of truth for pricing and availability. Add detection for shopping feed signals and recommendation for OpenAI merchant program enrollment. Complements existing schema-based scoring by surfacing the feed pathway that ChatGPT Shopping actually relies on.
+- **Acceptance Criteria:**
+  - [ ] Detection logic identifies presence or absence of shopping feed signals on the analyzed page
+  - [ ] Recommendation template added for merchant feed enrollment (links to OpenAI merchant program docs)
+  - [ ] Factor or informational note appears in AI Visibility tab and HTML report
+  - [ ] No scoring impact on pages where feed signals are absent (advisory only, not penalised)
+- **Dependencies:** ROAD-0061 (platform-specific profiles provide the framing context)
+- **Related:** DEC-0030
+
+### ROAD-0061 — Platform-Specific AI Readiness Profiles
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** v4.0
+- **Date Added:** 2026-03-23
+- **Requested By:** DEC-0030 (v3.0.0 scoring accuracy overhaul)
+- **Scope:** Large (3+ days)
+- **Description:** Add separate optimization profiles and scores for ChatGPT Search (Bing-dependent), Perplexity (recency + Reddit context), and Google AI Overviews (E-E-A-T, YouTube, structured data). Currently blocked by insufficient per-platform signal research. Ahrefs citation study shows only 11% domain overlap between ChatGPT and Perplexity — a single unified AI Readiness score obscures these divergent platform requirements. (DEC-0030)
+- **Acceptance Criteria:**
+  - [ ] Per-platform signal research documented (ChatGPT, Perplexity, Google AIO, at minimum)
+  - [ ] Platform profile selector added to analysis flow
+  - [ ] Scoring engine calculates platform-weighted scores separately
+  - [ ] UI and report updated to show platform-specific results
+  - [ ] Migration path defined for existing history entries (single score → multi-profile)
+- **Dependencies:** Per-platform signal research must be completed before implementation
+- **Related:** DEC-0030
+
 ### ROAD-0060 — Informational PageSpeed link in SEO report section
 - **Status:** Proposed
 - **Type:** Improvement

@@ -1,6 +1,6 @@
 # Changelog
 
-> **PDS Document 10** | Last Updated: 2026-03-20
+> **PDS Document 10** | Last Updated: 2026-03-23
 
 All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/). Most recent version at the top.
 
@@ -14,6 +14,32 @@ All notable changes to this project. Format follows [Keep a Changelog](https://k
 ### Changed
 - **Recommendation sort order** — replaced priority-based sort with explicit impact DESC → effort ASC across all three engines (`RecommendationEngine`, `PdpQualityRecommendationEngine`, `SeoQualityRecommendationEngine`); high-impact items always surface first; within the same impact level, lowest-effort items appear first
 - **Recommendation badge labels** — impact and effort badges in the side panel (all three tabs) now show labeled, capitalized values ("Impact: High", "Effort: Low") instead of bare lowercase values; effort badges now use color variants (green = low, amber = medium, red = high) matching the existing HTML report semantics
+
+---
+
+## [3.0.0] — 2026-03-23
+
+### Breaking Changes
+- **Review count thresholds updated** — pass ≥50 (was ≥25), warning ≥10 (was ≥5)
+- **Protocol & Meta weights redistributed** — meta description elevated (10→20 pts), og:title/og:description reduced (15→8 pts each), twitterCard reduced (10→5 pts)
+
+### Added
+- **Factual Specificity factor** (Content Quality, 10 pts) — detects percentages, quantified comparisons, named sources, and outcome statistics. GEO paper evidence: +40% AI visibility from statistics addition (`src/scoring/scoring-engine.js`, `src/scoring/weights.js`, `src/content/content-script.js`)
+- **Last-Modified scoring** (Protocol & Meta, 12 pts) — pass ≤90 days, warning >90 days. Ahrefs: 25.7% fresher content in AI citations (`src/scoring/scoring-engine.js`, `src/scoring/weights.js`)
+- **Platform Divergence Note** — informational banner in AI Visibility tab and HTML report; 11% domain overlap between ChatGPT and Perplexity citations (`src/sidepanel/sidepanel.js`, `src/sidepanel/report-template.js`)
+
+### Fixed
+- **Protocol & Meta copy** — og:title and og:description correctly framed as social sharing signals; meta description elevated to primary LLM retrieval signal (`src/recommendations/recommendation-rules.js`)
+- **Protocol & Meta weights** — lastModified added at 12 pts; robotsMeta elevated 5→10 pts; twitterCard reduced 10→5 pts (social only, zero LLM documentation) (`src/scoring/weights.js`)
+- **AI Discoverability** — llms.txt reduced 10→5 pts (no confirmed crawler adoption); entityConsistency increased 25→30 pts; og:title removed from entity check (HTML title substituted) (`src/scoring/weights.js`, `src/recommendations/recommendation-rules.js`)
+- **og:image, og:title, og:description, og:type, Twitter Card templates** — removed false LLM claims; reframed as social sharing signals (`src/recommendations/recommendation-rules.js`)
+- **entity-consistency-low** — removed og:title from alignment requirements; added HTML title tag (`src/recommendations/recommendation-rules.js`)
+- **description-quality-low** — replaced "emotional language" guidance with statistical specificity (GEO paper) (`src/recommendations/recommendation-rules.js`)
+- **factual-specificity-low** (new) — statistics addition template citing GEO paper +40% evidence (`src/recommendations/recommendation-rules.js`)
+- **last-modified-missing** (new) — content freshness template citing Ahrefs 25.7% citation data (`src/recommendations/recommendation-rules.js`)
+- **reviews-low-count** — updated threshold language to 50+ reviews (`src/recommendations/recommendation-rules.js`)
+- **llms-txt-missing** — updated to "no confirmed crawler adoption as of 2026"; impact demoted to low (`src/recommendations/recommendation-rules.js`)
+- **certifications-missing** — added specificity guidance (certification body, standard number, year) (`src/recommendations/recommendation-rules.js`)
 
 ---
 
