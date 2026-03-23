@@ -8,7 +8,7 @@
  */
 export const CATEGORY_DESCRIPTIONS = {
   structuredData: 'JSON-LD and schema.org markup that helps AI understand product data',
-  protocolMeta: 'Open Graph, Twitter Cards, and meta tags for sharing and discovery',
+  protocolMeta: 'Technical metadata governing how AI systems and social platforms retrieve and preview your product page. Meta description and robots directives are confirmed LLM retrieval signals. Open Graph and Twitter Card tags serve social link previews — they are not processed by LLM crawlers during indexing. Content freshness (Last-Modified) is one of the most strongly documented AI citation signals.',
   contentQuality: 'Product descriptions, specifications, features, and FAQ content',
   contentStructure: 'Semantic HTML, headings, accessibility, and image alt text',
   authorityTrust: 'Reviews, ratings, brand clarity, and trust signals',
@@ -94,16 +94,17 @@ export const FACTOR_WEIGHTS = {
 
   // Protocol & Meta Compliance (15% of total)
   protocolMeta: {
-    ogImage: 20,            // Critical - presence required
-    ogImageFormat: 5,       // Low - JPEG preferred for max compatibility; WebP works on all major platforms
-    ogTitle: 15,            // High - primary LLM product name signal
-    ogDescription: 15,      // High - primary LLM product context signal
-    ogType: 5,
-    twitterCard: 10,
-    twitterImage: 5,
-    canonical: 10,
-    metaDescription: 10,
-    robotsAllowsIndex: 5    // Critical if blocked
+    ogImage: 15,            // Social/preview only; no confirmed LLM chat citation role
+    ogImageFormat: 5,       // Keep — compatibility advisory for social sharing
+    ogTitle: 8,             // Social Open Graph only; <title> and H1 are LLM signals
+    ogDescription: 8,       // Social Open Graph only; <meta name="description"> is confirmed
+    ogType: 4,              // No LLM evidence; minimal social value
+    twitterCard: 5,         // Social only; zero LLM provider documentation
+    twitterImage: 3,        // Social only
+    canonical: 10,          // Keep — indirect value via Bing (powers 87% of ChatGPT Search)
+    metaDescription: 20,    // Confirmed LLM retrieval signal
+    robotsAllowsIndex: 10,  // Confirmed: OpenAI, PerplexityBot both respect noindex
+    lastModified: 12        // Ahrefs: 25.7% fresher content in AI citations
   },
 
   // Content Quality (20% of total) — must sum to 100
