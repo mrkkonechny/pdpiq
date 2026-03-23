@@ -447,16 +447,21 @@ export class ScoringEngine {
     let lastModifiedDetails = 'Last-Modified header not present or not accessible';
     if (lastModifiedData?.lastModified) {
       const modifiedDate = new Date(lastModifiedData.lastModified);
-      const now = new Date();
-      const ageInDays = (now - modifiedDate) / (1000 * 60 * 60 * 24);
-      if (ageInDays <= 90) {
-        lastModifiedScore = weights.lastModified;
-        lastModifiedStatus = 'pass';
-        lastModifiedDetails = `Last-Modified: ${modifiedDate.toLocaleDateString()} (${Math.round(ageInDays)} days ago)`;
+      if (isNaN(modifiedDate)) {
+        lastModifiedScore = 0;
+        lastModifiedStatus = 'fail';
+        lastModifiedDetails = 'Last-Modified header value could not be parsed';
       } else {
-        lastModifiedScore = Math.round(weights.lastModified * 0.5);
-        lastModifiedStatus = 'warning';
-        lastModifiedDetails = `Last-Modified: ${modifiedDate.toLocaleDateString()} (${Math.round(ageInDays)} days ago — content may be considered stale by AI systems)`;
+        const ageInDays = (Date.now() - modifiedDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (ageInDays <= 90) {
+          lastModifiedScore = weights.lastModified;
+          lastModifiedStatus = 'pass';
+          lastModifiedDetails = `Last-Modified: ${modifiedDate.toLocaleDateString()} (${Math.round(ageInDays)} days ago)`;
+        } else {
+          lastModifiedScore = Math.round(weights.lastModified * 0.5);
+          lastModifiedStatus = 'warning';
+          lastModifiedDetails = `Last-Modified: ${modifiedDate.toLocaleDateString()} (${Math.round(ageInDays)} days ago — content may be considered stale by AI systems)`;
+        }
       }
     } else if (lastModifiedData?.accessible === false) {
       lastModifiedStatus = 'fail';
@@ -579,12 +584,13 @@ export class ScoringEngine {
     } else if (statsCount >= 1) {
       factualSpecScore = Math.round(weights.factualSpecificity * 0.5);
       factualSpecStatus = 'warning';
-      factualSpecDetails = `${statsCount} quantified claim detected — add statistics and measurements for full score`;
+      factualSpecDetails = `${statsCount} quantified claim${statsCount !== 1 ? 's' : ''} detected — add statistics and measurements for full score`;
     } else {
       factualSpecScore = 0;
       factualSpecStatus = 'fail';
       factualSpecDetails = 'No statistics, percentages, or quantified claims detected in product description';
     }
+    // Context-neutral: factual specificity benefits all purchase intents equally
     factors.push({
       name: 'Factual Specificity',
       status: factualSpecStatus,
