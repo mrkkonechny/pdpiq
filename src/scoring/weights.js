@@ -12,7 +12,7 @@ export const CATEGORY_DESCRIPTIONS = {
   contentQuality: 'Product descriptions, specifications, features, and FAQ content',
   contentStructure: 'Semantic HTML, headings, accessibility, and image alt text',
   authorityTrust: 'Reviews, ratings, brand clarity, and trust signals',
-  aiDiscoverability: 'AI crawler access, entity consistency, answer-format content, product identifiers, and llms.txt for AI system discovery'
+  aiDiscoverability: 'AI crawler access, entity consistency, answer-format content, product identifiers, and llms.txt (emerging signal — no confirmed crawler adoption as of 2026)'
 };
 
 /**
@@ -156,10 +156,10 @@ export const FACTOR_WEIGHTS = {
   // AI Discoverability (20% of total)
   aiDiscoverability: {
     aiCrawlerAccess: 30,       // robots.txt rules for major AI bots
-    entityConsistency: 25,     // Product name alignment across schema, H1, og:title, meta description
+    entityConsistency: 30,     // Product name alignment across schema, H1, og:title, meta description (was 25 — well-supported signal)
     answerFormatContent: 20,   // "Best for", comparison, how-to, use case content
     productIdentifiers: 15,    // GTIN/UPC/MPN in Product schema
-    llmsTxtPresence: 10        // /llms.txt and /llms-full.txt presence
+    llmsTxtPresence: 5         // /llms.txt and /llms-full.txt presence (was 10 — no confirmed crawler adoption as of 2026)
   }
 };
 
