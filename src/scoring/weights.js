@@ -109,8 +109,9 @@ export const FACTOR_WEIGHTS = {
 
   // Content Quality (20% of total) — must sum to 100
   contentQuality: {
-    descriptionLength: 15,
-    descriptionQuality: 10,  // Contextual
+    descriptionLength: 10,   // was 15 — reduced to fund factualSpecificity
+    descriptionQuality: 5,   // was 10 — reduced to fund factualSpecificity; Contextual
+    factualSpecificity: 10,  // NEW — GEO paper (ACM SIGKDD 2024): statistics addition boosts AI visibility +40%
     specificationCount: 10,  // Contextual
     specificationDetail: 5,  // Contextual
     featureCount: 10,
@@ -404,6 +405,7 @@ export const FACTOR_RECOMMENDATIONS = {
   // Content Quality
   'Description Length': 'description-short',
   'Description Quality': 'description-quality-low',
+  'Factual Specificity': 'factual-specificity-low',
   'Specifications': 'specs-missing',
   'Specification Detail': 'spec-detail-low',
   'Features List': 'features-missing',
