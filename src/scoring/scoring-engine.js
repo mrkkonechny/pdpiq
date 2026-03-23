@@ -967,7 +967,7 @@ export class ScoringEngine {
     const reviewCap = Math.round(Math.min(weights.reviewCount * 1.5, weights.reviewCount * this.multipliers.reviewCount));
     factors.push({
       name: 'Review Count',
-      status: reviews.count >= 25 ? 'pass' : reviews.count >= 5 ? 'warning' : 'fail',
+      status: reviews.count >= 50 ? 'pass' : reviews.count >= 10 ? 'warning' : 'fail',
       points: Math.min(reviewCap, reviewCountScore),
       maxPoints: reviewCap,
       contextual: true,
