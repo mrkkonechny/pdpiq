@@ -782,22 +782,35 @@ function isCanonicalForCurrentUrl(canonicalUrl, currentUrl) {
  * Detect factual specificity signals in product content: quantified claims,
  * percentages, named sources, and quantified outcomes.
  * GEO paper (ACM SIGKDD 2024): adding statistics boosts AI visibility up to 40%.
+ * @param {string} text - Product content text (passed in to avoid a second DOM traversal)
  * @returns {{ hasStatisticalClaims: boolean, statisticsCount: number, hasNamedSources: boolean, hasQuantifiedComparisons: boolean }}
  */
-function extractFactualSpecificity() {
-  const text = getProductContentText();
+function extractFactualSpecificity(text) {
   if (!text || text.length < 50) {
     return { hasStatisticalClaims: false, statisticsCount: 0, hasNamedSources: false, hasQuantifiedComparisons: false };
   }
 
+  // Quantified comparisons: "3× faster", "2x more", "50% lighter" — restrict ×/x to comparative adjectives only
+  // (prevents dimension strings like "1920x1080" or "120x60mm" from matching)
+  const comparisonMatches = text.match(
+    /\b\d+(?:\.\d+)?[×x]\s*(?:more|less|faster|slower|lighter|heavier|stronger|longer|shorter|better|cheaper|easier|thinner|thicker)\b|\d+(?:\.\d+)?%\s+(?:more|less|faster|lighter|stronger|longer|shorter|better|cheaper|easier)/gi
+  ) || [];
+
+  // Strip comparison-context percentages and discount-context percentages before counting standalone ones
+  // — prevents "50% lighter" from being double-counted in both comparisonMatches and percentageMatches,
+  // and prevents "30% off" / "save 15%" discount labels from inflating the statistics count
+  const textForPercentages = text
+    .replace(/\d+(?:\.\d+)?%\s+(?:more|less|faster|lighter|stronger|longer|shorter|better|cheaper|easier)/gi, '')
+    .replace(/\d+(?:\.\d+)?%\s*(?:off|discount|saving|savings)/gi, '');
   // Percentage values: "47%", "200%", "up to 35%"
-  const percentageMatches = text.match(/\b\d+(?:\.\d+)?%/g) || [];
-  // Quantified comparisons: "3× faster", "50% lighter", "2x more", "10 times"
-  const comparisonMatches = text.match(/\b\d+(?:\.\d+)?[×x]\s*\w+|\d+(?:\.\d+)?%\s+(?:more|less|faster|lighter|stronger|longer|shorter|better|cheaper|easier)/gi) || [];
+  const percentageMatches = textForPercentages.match(/\b\d+(?:\.\d+)?%/g) || [];
+
   // Named sources: "according to [Org]", "[Year] [Institute] study/research/trial"
-  const sourceMatches = text.match(/according to\s+[A-Z][a-z]+|(?:19|20)\d{2}\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:study|research|trial|report|survey)/g) || [];
-  // Quantified outcomes: "saves X hours", "reduces Y by Z%"
-  const outcomeMatches = text.match(/(?:saves?|reduces?|increases?|improves?)\s+(?:\w+\s+)?(?:by\s+)?\d+/gi) || [];
+  // i flag added so sentence-starting "According to" is also matched
+  const sourceMatches = text.match(/(?:according to)\s+[A-Z][a-z]+|(?:19|20)\d{2}\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:study|research|trial|report|survey)/gi) || [];
+  // Quantified outcomes: "saves X hours", "reduces carbon emissions by 20%"
+  // {0,3} allows up to 3 optional words between the verb and "by" (e.g. "reduces carbon emissions by")
+  const outcomeMatches = text.match(/(?:saves?|reduces?|increases?|improves?)\s+(?:\w+\s+){0,3}(?:by\s+)?\d+/gi) || [];
 
   const statisticsCount = percentageMatches.length + comparisonMatches.length + sourceMatches.length + outcomeMatches.length;
 
@@ -820,7 +833,7 @@ function extractContentQuality() {
     faq: extractFaqContent(),
     productDetails: extractProductDetails(productText),
     textMetrics: analyzeTextMetrics(mainContent),
-    factualSpecificity: extractFactualSpecificity()
+    factualSpecificity: extractFactualSpecificity(productText)
   };
 }
 
