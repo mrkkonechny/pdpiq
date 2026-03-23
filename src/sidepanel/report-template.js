@@ -765,6 +765,12 @@ export function generateHtmlReport(result, pageInfo, recommendations, context, p
     </div>
   </div>
 
+  <!-- Platform Divergence Note -->
+  <div style="display:flex;gap:8px;align-items:flex-start;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:10px 14px;margin:12px 0 16px;font-size:12px;color:#0c4a6e;line-height:1.5;">
+    <span style="flex-shrink:0;font-size:14px;margin-top:1px;">ⓘ</span>
+    <p style="margin:0;"><strong>Platform context:</strong> AI platforms index content very differently — only 11% of domains cited by ChatGPT also appear in Perplexity results. ChatGPT Search relies on Bing (87% of citations); Perplexity prioritizes recency and Reddit; Google AI Overviews focuses on YouTube, LinkedIn, and Quora. This score measures cross-platform AI readiness signals.</p>
+  </div>
+
   <!-- Executive Summary -->
   <div style="margin-bottom:36px;padding:16px 18px;background:#eef2ff;border-radius:10px;border:1px solid #c7d2fe">
     <h2 style="font-size:14px;font-weight:700;color:#3730a3;margin:0 0 10px">Executive Summary</h2>

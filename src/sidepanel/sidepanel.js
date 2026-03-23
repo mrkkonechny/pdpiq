@@ -485,6 +485,10 @@ class SidePanelApp {
     const jsWarn = document.getElementById('jsDependencyWarning');
     jsWarn.classList.toggle('hidden', !this.scoreResult.jsDependent);
 
+    // Show platform divergence note
+    const platformNote = document.getElementById('platformDivergenceNote');
+    if (platformNote) platformNote.style.display = 'flex';
+
     // Show page type badge
     this.updatePageTypeBadges();
 
@@ -1390,6 +1394,8 @@ class SidePanelApp {
     document.getElementById('loadingState').classList.add('hidden');
     document.getElementById('errorState').classList.add('hidden');
     document.getElementById('historySection').classList.add('hidden');
+    const platformNote = document.getElementById('platformDivergenceNote');
+    if (platformNote) platformNote.style.display = 'none';
   }
 
   hideContextSelector() {
@@ -1404,6 +1410,8 @@ class SidePanelApp {
     document.getElementById('loadingState').classList.remove('hidden');
     document.getElementById('errorState').classList.add('hidden');
     document.getElementById('historySection').classList.add('hidden');
+    const platformNote = document.getElementById('platformDivergenceNote');
+    if (platformNote) platformNote.style.display = 'none';
   }
 
   hideLoading() {
