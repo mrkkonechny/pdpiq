@@ -117,11 +117,10 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'last-modified-missing': {
     title: 'Add Content Freshness Signal',
-    priority: 'medium',
     description: 'No Last-Modified header returned by this server. Content freshness is one of the most strongly documented AI citation signals — Ahrefs analysis of 17M+ citations found AI-cited content is 25.7% fresher than traditionally-ranked content, and 76.4% of ChatGPT citations were updated within the last 30 days.',
     impact: 'medium',
     effort: 'low',
-    category: 'technical',
+    category: 'protocolMeta',
     implementation: 'Configure your server or CDN to return a Last-Modified header on product page responses. For Shopify: this is typically handled by the platform. For custom setups: ensure HTTP headers include Last-Modified set to the page\'s actual last modification date. Also add dateModified to your Schema.org Product markup.'
   },
 
@@ -237,7 +236,6 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'factual-specificity-low': {
     title: 'Add Statistics and Quantified Claims',
-    priority: 'medium',
     impact: 'medium',
     description: 'No percentages, measurements, or quantified comparisons detected in this product\'s content. The GEO paper (ACM SIGKDD 2024) found that statistics addition is the single largest AI visibility lever — boosting citation rates by up to 40% — while persuasive language alone shows no significant improvement.',
     implementation: 'Include specific numbers: performance percentages ("47% reduction in X"), physical measurements ("2.4 kg, 30cm × 20cm"), comparative quantities ("3× more Y than leading competitor"), and outcome figures ("saves up to 2 hours per week"). Even 3–5 well-placed statistics substantially improve AI extractability.',
