@@ -1189,7 +1189,7 @@ export class ScoringEngine {
     factors.push(crawlerResult.factor);
     rawScore += crawlerResult.score;
 
-    // Entity Consistency (25 points)
+    // Entity Consistency (30 points)
     const entityResult = this.scoreEntityConsistency(extractedData, weights.entityConsistency);
     factors.push(entityResult.factor);
     rawScore += entityResult.score;
@@ -1209,7 +1209,7 @@ export class ScoringEngine {
       rawScore += identResult.score;
     }
 
-    // llms.txt Presence (10 points)
+    // llms.txt Presence (5 points)
     const llmsResult = this.scoreLlmsTxt(llms, weights.llmsTxtPresence);
     factors.push(llmsResult.factor);
     rawScore += llmsResult.score;
