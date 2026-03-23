@@ -22,6 +22,16 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 
 ## Decisions
 
+### DEC-0030 — Rebalance Protocol & Meta factor weights to reflect actual LLM signal evidence
+- **Date:** 2026-03-23
+- **Status:** Accepted
+- **Context:** Protocol & Meta factor weights were set assuming og:title and og:description are "primary LLM signals." Post-DEC-0029 research review (A9–A12) confirmed this is incorrect. OG tags and Twitter Card tags are processed by social platforms and link-preview renderers, not by LLM indexing crawlers. Meta description, robots directives, and content freshness (Last-Modified) have documented LLM retrieval impact. The existing weights inverted this priority: ogTitle and ogDescription each held 15 pts (combined 30 pts) while metaDescription held 10 pts and robotsAllowsIndex held only 5 pts.
+- **Decision:** Redistribute 100-point protocolMeta budget as follows: ogImage 20→15, ogTitle 15→8, ogDescription 15→8, ogType 5→4, twitterCard 10→5, twitterImage 5→3, canonical unchanged at 10, metaDescription 10→20, robotsAllowsIndex 5→10, lastModified (new) 12. Update `CATEGORY_DESCRIPTIONS.protocolMeta` to remove false LLM-signal claims for OG/Twitter tags and correctly identify meta description, robots directives, and freshness as the confirmed LLM signals.
+- **Rationale:** Weight magnitude signals relative importance to users. Clients acting on recommendations should prioritize writing a strong meta description over crafting og:description — the weights must reflect that. The lastModified addition is supported by Ahrefs research showing 25.7% fresher content in AI citations. All changes traceable to primary documentation from OpenAI, Anthropic, Perplexity, Microsoft/Bing.
+- **Alternatives Considered:** Weight-neutral copy change only (misleading — high weight signals high importance regardless of copy). Remove OG/Twitter factors entirely (loses the valid social-preview signal; scores already exist in extraction). Equal-weight all 11 factors (~9 pts each — ignores documented signal strength differences).
+- **Consequences:** Pages with strong OG tags but weak meta descriptions will see a lower Protocol & Meta score on re-run (correct signal). Pages with noindex robots meta will face a larger point penalty (correct — this blocks all LLM crawlers). lastModified is a new factor; scoring-engine.js must handle the new key (Task 4 scope).
+- **Related:** DEC-0029 (preceding weight audit), BUG-0084 (ogImageFormat accuracy)
+
 ### DEC-0029 — Downgrade og:image WebP from critical failure to low-priority compatibility advisory
 - **Date:** 2026-03-23
 - **Status:** Accepted
