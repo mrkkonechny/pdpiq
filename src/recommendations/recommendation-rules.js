@@ -375,11 +375,11 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'reviews-low-count': {
     title: 'Increase review count',
-    description: 'More reviews increase confidence when LLMs recommend products.',
+    description: 'Fewer than 50 reviews reduces the likelihood of AI systems including this product in recommendations. Practitioner consensus across AI search optimization research points to 50+ reviews as the threshold for consistent inclusion in AI-generated product recommendations.',
     impact: 'medium',
     effort: 'high',
     category: 'authorityTrust',
-    implementation: 'Encourage customers to leave reviews via follow-up emails, review incentives, or simplified review processes.'
+    implementation: 'Build review volume to 50+. Prioritize review programs, post-purchase email sequences, and (where permitted) reviews imported from verified purchases. Review quality and recency matter as much as count — recent reviews within 3 months signal an actively-sold product.'
   },
 
   'review-recency-low': {
@@ -424,7 +424,7 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'low',
     effort: 'low',
     category: 'authorityTrust',
-    implementation: 'List relevant certifications (safety, organic, eco-friendly) prominently on the page.'
+    implementation: 'List relevant certifications (safety, organic, eco-friendly) prominently on the page. LLMs cite verifiable claims ("CE certified to EN 60950-1:2006") significantly more readily than vague authority statements ("clinically tested"). Include the specific certification body, standard number, and year where known.'
   },
 
   'content-stale': {
@@ -466,11 +466,11 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'llms-txt-missing': {
     title: 'Add llms.txt file',
-    description: 'No llms.txt file found. This emerging standard helps AI systems understand how to interact with your site and what content is available.',
+    description: 'No llms.txt file detected. This emerging specification (September 2024) was intended to help AI systems understand site content. As of early 2026, no major LLM provider (OpenAI, Anthropic, Google, Perplexity) has officially confirmed reading llms.txt during crawling, and independent analysis found no measurable effect on citation rates.',
     impact: 'medium',
     effort: 'low',
     category: 'aiDiscoverability',
-    implementation: 'Create /llms.txt at your domain root with site description, key content areas, and AI-friendly guidelines. Optionally create /llms-full.txt with more detailed instructions. See llmstxt.org for the specification.'
+    implementation: 'Implementing llms.txt costs little but has no confirmed AI citation benefit today. If your brand has a developer-focused audience, it may help with manual AI tool usage. For eCommerce, invest in Schema.org markup, content quality, and robots.txt configuration before llms.txt.'
   },
 
   'entity-consistency-low': {
