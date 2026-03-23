@@ -455,11 +455,11 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'entity-consistency-low': {
     title: 'Align product name across page elements',
-    description: 'The product name in your schema markup doesn\'t consistently match the H1, og:title, and meta description. LLMs cross-reference these elements to verify entity identity.',
+    description: 'The product name is inconsistent across your Schema.org markup, H1 heading, and meta description. LLMs verify entity identity by comparing product names across these HTML elements — inconsistencies are a primary cause of AI-generated summaries misidentifying or misrepresenting your product.',
     impact: 'medium',
     effort: 'low',
     category: 'aiDiscoverability',
-    implementation: 'Ensure the Product schema name, H1 heading, og:title, page title, and meta description all reference the same product name consistently. Minor variations (e.g., abbreviations) are acceptable but the core product name should be identical.'
+    implementation: 'Align the product name exactly across: (1) Schema.org Product "name" property, (2) H1 heading, (3) HTML <title> tag, (4) meta description. Minor variations (e.g., trademark symbols, subtitle presence) are acceptable — avoid different names or word order that could indicate different products.'
   },
 
   'answer-format-missing': {
