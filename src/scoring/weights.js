@@ -94,10 +94,10 @@ export const FACTOR_WEIGHTS = {
 
   // Protocol & Meta Compliance (15% of total)
   protocolMeta: {
-    ogImage: 20,            // Critical - must not be WebP
-    ogImageFormat: 15,      // Critical - JPEG/PNG only
-    ogTitle: 10,
-    ogDescription: 10,
+    ogImage: 20,            // Critical - presence required
+    ogImageFormat: 5,       // Low - JPEG preferred for max compatibility; WebP works on all major platforms
+    ogTitle: 15,            // High - primary LLM product name signal
+    ogDescription: 15,      // High - primary LLM product context signal
     ogType: 5,
     twitterCard: 10,
     twitterImage: 5,

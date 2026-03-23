@@ -1,6 +1,6 @@
 # Bug Log
 
-> **PDS Document 09** | Last Updated: 2026-03-20 (BUG-0082)
+> **PDS Document 09** | Last Updated: 2026-03-23 (BUG-0086)
 
 Track all bugs encountered during development. Most recent entries at the top within each section.
 
@@ -23,7 +23,51 @@ Track all bugs encountered during development. Most recent entries at the top wi
 
 ## Active Bugs
 
-_No active bugs._
+### BUG-0086 — `hasReturnPolicy` / `hasShippingInfo` match accordion label, not policy content
+- **Status:** Open
+- **Severity:** Medium
+- **Date Found:** 2026-03-23
+- **Date Resolved:** —
+- **Found In:** `src/content/content-script.js` → `extractTrustConfidence()` within `extractPdpQualitySignals()`
+- **Root Cause:** The return policy and shipping info extractors match on the presence of the words "return" / "shipping" anywhere in visible text — including accordion heading labels. When the actual policy content is not in the initial DOM (JS-injected on accordion open), only the heading label ("Shipping & Returns") is found. Both `hasReturnPolicy` and `hasShippingInfo` score true on this label alone, awarding PDP Quality points for content an LLM crawler would never see.
+- **Fix:** —
+- **Related:** ROAD-0045
+- **Notes:** Discovered during analysis of `www.naturallife.com`. `returnPolicyText: "Shipping & Returns"` and `shippingText: "Shipping & Returns"` are identical — both matched the same accordion heading. A fix should require minimum substantive content (e.g. a policy sentence, a day count, a URL to a returns page) before awarding the flag, and/or exclude matches that are only heading elements (`<h2>`, `<h3>`, `<button>`, `<summary>`).
+
+### BUG-0085 — `hasMaterials` awards pass on sensory fragment with no fabric/material noun
+- **Status:** Open
+- **Severity:** Medium
+- **Date Found:** 2026-03-23
+- **Date Resolved:** —
+- **Found In:** `src/content/content-script.js` → `extractProductDetails()` materials regex
+- **Root Cause:** The materials regex matches any text containing a fabric/softness keyword in proximity to common adjectives. On Natural Life's page it extracted `"is so soft"` from the sentence "The fabric is so soft it feels like butter!" — a sensory claim, not a material specification. `hasMaterials` scores true, but an LLM reading "is so soft" cannot determine what the product is made of. The same issue may affect other `productDetails` signals (dimensions, care, compatibility) if their regex patterns are similarly permissive.
+- **Fix:** —
+- **Related:** ROAD-0045
+- **Notes:** A valid material match should contain an actual fabric or material noun (e.g. rayon, cotton, polyester, spandex, linen, nylon, modal, viscose, wool, silk, leather, canvas). The fix should add a noun-presence check before awarding `hasMaterials: true`, and the `materialsText` captured should be validated to be informative enough for LLM use. Consider applying the same "informational threshold" principle to other `productDetails` sub-signals.
+
+## Resolved Bugs (2026-03-23)
+
+### BUG-0084 — `og:image Format` verification returns false PASS for WebP images on Shopify CDN
+- **Status:** Fixed
+- **Severity:** Critical
+- **Date Found:** 2026-03-23
+- **Date Resolved:** 2026-03-23
+- **Found In:** `src/background/service-worker.js` → `verifyImageFormat()` CDN WebP guard
+- **Root Cause:** Shopify CDN content-negotiates by `Accept` header. The service worker's HEAD request omits `Accept: image/webp`, so Shopify returns `Content-Type: image/jpeg` even for `.webp` URLs. The CDN WebP guard that follows only tests query parameters (`auto=webp`, `fm=webp`, etc.) — it never tests the URL path extension. Since `imageVerification` is truthy, `scoreProtocolMeta` uses the result directly and skips its own URL-extension fallback. Net effect: `.webp` og:image URLs on Shopify CDN receive 15/15 points and "Format: JPEG".
+- **Fix:** Added `hasWebpExtension` check (`/\.webp(\?|$)/i`) alongside the existing `hasCdnWebpParam` check in `verifyImageFormat()`. Either condition now forces `format = 'webp'`, `isWebP = true`, `isValidFormat = false`.
+- **Related:** —
+- **Notes:** Discovered during client analysis of `www.naturallife.com`. Affects all Shopify stores using default Shopify CDN with `.webp` product images as `og:image`.
+
+### BUG-0083 — Primary image detection fails on Shopify themes using Tailwind CSS classes
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-23
+- **Date Resolved:** 2026-03-23
+- **Found In:** `src/content/content-script.js` → `analyzeImages()` primary image selector list
+- **Root Cause:** `primarySelectors` contains hardcoded Shopify/standard class names. Shopify themes using Tailwind utility classes (e.g. `aspect-[3/4]`) have no matching selector. `img.alt` is already entity-decoded by the browser — HTML entity encoding was a red herring. The image was counted correctly in `altCoverage` but `primaryImage` returned `null`, scoring the `Primary Image Alt Text` factor at 0/10 despite the image having a valid alt tag.
+- **Fix:** Added three fallbacks after the selector loop in `analyzeImages()`: (1) match by og:image filename (handles cross-CDN Shopify delivery); (2) `img[fetchpriority="high"]` (browser LCP hint); (3) first img with meaningful alt inside `main`/`article`/`[role="main"]`.
+- **Related:** —
+- **Notes:** Discovered during analysis of `www.naturallife.com` (class `aspect-[3/4]` on hero image). Fixes will also benefit any theme using utility-first CSS frameworks.
 
 ## Resolved Bugs (2026-03-20)
 

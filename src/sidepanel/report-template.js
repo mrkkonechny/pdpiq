@@ -721,7 +721,7 @@ export function generateHtmlReport(result, pageInfo, recommendations, context, p
   ${jsDependent ? `
   <!-- JS-Rendered Page Warning -->
   <div style="margin-bottom:20px;padding:10px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-size:12px;color:#92400e">
-    <strong>JS-rendered page</strong> — content behind interactions (e.g. Read More, accordions) is not captured and scores may be understated.
+    <strong>JS framework detected</strong> — LLM crawlers may see less content than shown here.
   </div>` : ''}
 
   <!-- Top 3 Priorities (cross-score) -->

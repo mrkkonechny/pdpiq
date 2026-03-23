@@ -154,7 +154,8 @@ function isSafeUrl(url) {
 
 /**
  * Verify the actual format of an image via HTTP HEAD request
- * Critical for og:image - WebP images are invisible in LLM chats
+ * Used for og:image format detection. LLM crawlers do not process image binaries;
+ * format matters primarily for link-preview compatibility in niche clients. See DEC-0029.
  *
  * @param {string} url - Image URL to verify
  * @returns {Promise<Object>} Format verification result
@@ -213,7 +214,7 @@ async function verifyImageFormat(url) {
     } else if (contentType.includes('image/webp')) {
       format = 'webp';
       isWebP = true;
-      isValidFormat = false; // WebP is NOT valid for LLM visibility
+      isValidFormat = false; // WebP: prefer JPEG for broadest link-preview compatibility
     } else if (contentType.includes('image/avif')) {
       format = 'avif';
       isValidFormat = false; // AVIF also not widely supported
@@ -232,14 +233,18 @@ async function verifyImageFormat(url) {
       }
     }
 
-    // CDN WebP parameter check: some CDNs (Imgix, Fastly, Cloudinary) serve WebP
-    // to WebP-capable clients even when our HEAD request (no Accept: image/webp) gets JPEG.
-    // If the URL contains WebP delivery params, flag as potentially serving WebP to LLMs.
+    // CDN WebP check: some CDNs (Imgix, Fastly, Cloudinary) serve WebP to WebP-capable
+    // clients even when our HEAD request (no Accept: image/webp) gets JPEG back.
+    // Shopify CDN serves the native file format regardless of Content-Type negotiation,
+    // so a .webp URL will always deliver WebP to LLM crawlers even if our HEAD got JPEG.
     if (isValidFormat && !isWebP) {
       const urlLower = url.toLowerCase();
+      // Check URL path extension first (covers Shopify CDN and any direct .webp URLs)
+      const hasWebpExtension = /\.webp(\?|$)/i.test(url);
+      // Check CDN delivery parameters (Imgix, Fastly, Cloudinary, etc.)
       const hasCdnWebpParam = /[?&](auto=webp|fm=webp|f=webp|format=webp|f_webp)(&|$)/.test(urlLower) ||
                               /[?&]auto=[^&]*webp/.test(urlLower);
-      if (hasCdnWebpParam) {
+      if (hasWebpExtension || hasCdnWebpParam) {
         format = 'webp';
         isWebP = true;
         isValidFormat = false;

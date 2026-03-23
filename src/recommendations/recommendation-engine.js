@@ -77,7 +77,7 @@ export class RecommendationEngine {
     if (!og.image) {
       recs.push(this.createRecommendation('og-image-missing'));
     } else {
-      // CRITICAL: og:image is WebP
+      // og:image is WebP — low-priority compatibility advisory (see DEC-0029)
       if (this.imageVerification?.isWebP) {
         recs.push(this.createRecommendation('og-image-webp', {
           currentUrl: og.image,

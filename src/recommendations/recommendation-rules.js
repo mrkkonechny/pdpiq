@@ -67,16 +67,16 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'high',
     effort: 'low',
     category: 'protocolMeta',
-    implementation: 'Add &lt;meta property="og:image" content="https://your-site.com/product-image.jpg"&gt; to the page head. Use JPEG or PNG format (not WebP).'
+    implementation: 'Add &lt;meta property="og:image" content="https://your-site.com/product-image.jpg"&gt; to the page head. JPEG or PNG is recommended for broadest compatibility.'
   },
 
   'og-image-webp': {
-    title: 'Convert og:image from WebP to JPEG/PNG',
-    description: 'WebP images are not rendered in LLM chat interfaces, making your product invisible when shared. Convert to JPEG or PNG format.',
-    impact: 'high',
+    title: 'Consider a JPEG fallback for og:image',
+    description: 'Your og:image is in WebP format. WebP is supported by all major platforms and LLM crawlers do not process image files at all — so this is unlikely to affect AI visibility. However, some niche link-preview clients and older automation tools have inconsistent WebP support. A JPEG fallback offers the broadest possible compatibility.',
+    impact: 'low',
     effort: 'low',
     category: 'protocolMeta',
-    implementation: 'Update your og:image to use a JPEG or PNG version. Most CDNs can serve different formats based on Accept headers - ensure a JPEG/PNG fallback exists.'
+    implementation: 'If your CDN supports format negotiation, configure a JPEG version for og:image specifically. Most page-speed optimisations recommend WebP for on-page images — this only applies to the og:image meta tag URL.'
   },
 
   'robots-blocking': {
@@ -524,7 +524,7 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'low',
     effort: 'low',
     category: 'protocolMeta',
-    implementation: 'Add &lt;meta name="twitter:image" content="https://your-site.com/product-image.jpg"&gt;. Use the same image as og:image (JPEG or PNG, not WebP). Minimum 600x314px, ideally 1200x628px.'
+    implementation: 'Add &lt;meta name="twitter:image" content="https://your-site.com/product-image.jpg"&gt;. Use the same image as og:image. Minimum 600x314px, ideally 1200x628px.'
   },
 
   'canonical-missing': {

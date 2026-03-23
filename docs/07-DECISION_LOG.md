@@ -1,6 +1,6 @@
 # Decision Log
 
-> **PDS Document 07** | Last Updated: 2026-03-20
+> **PDS Document 07** | Last Updated: 2026-03-23
 
 Track architectural, technical, and strategic decisions with their rationale. Most recent entries at the top. Never delete entries — decisions that were later reversed are valuable context.
 
@@ -21,6 +21,16 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 ---
 
 ## Decisions
+
+### DEC-0029 — Downgrade og:image WebP from critical failure to low-priority compatibility advisory
+- **Date:** 2026-03-23
+- **Status:** Accepted
+- **Context:** pdpIQ's og:image Format factor awarded 15 points, was marked Critical, and described WebP as "invisible in LLM chat interfaces." Research against primary documentation from Google, OpenAI, Anthropic, Perplexity, Microsoft, and Schema.org found this claim to be materially incorrect. LLM crawlers (GPTBot, ClaudeBot, PerplexityBot) are text-only parsers that do not process image binaries at all — format is irrelevant to indexing and citation. All major platforms (Google, social networks, LLM chat UIs) now support WebP natively. The only legitimate concern is inconsistent WebP support in niche link-preview clients, feed readers, and older automation tools.
+- **Decision:** (1) Reduce `ogImageFormat` weight from 15 → 5 points. Redistribute 10 points to `ogTitle` (10 → 15) and `ogDescription` (10 → 15), which have documented LLM impact. (2) Change WebP scoring from fail (0 pts) to warning (half points). (3) Remove "CRITICAL" label and "invisible in LLM chats" language from all factor details, recommendation copy, and code comments. (4) Reframe the recommendation from "convert immediately" to a low-priority compatibility advisory.
+- **Rationale:** Continuing to make a claim unsupported by evidence is a credibility risk in client engagements — particularly when clients do their own research. The redistribution of points to `ogTitle` and `ogDescription` better reflects where the actual LLM-visibility evidence is strongest.
+- **Alternatives Considered:** Remove the factor entirely (loses the valid minor compatibility signal). Keep weight but change copy only (inconsistent — high weight implies high importance). Reduce to warning only with no point change (still signals wrong relative priority).
+- **Consequences:** Existing analyses will show a slightly different Protocol & Meta score on re-run. Sites using JPEG og:images are unaffected. Sites using WebP og:images will no longer receive a critical flag — they'll see a low-priority advisory instead. Sites missing og:title or og:description will see a larger point penalty, which is the correct priority ordering.
+- **Related:** BUG-0084 (WebP detection fix remains valid — accurate detection still needed for the advisory)
 
 ### DEC-0028 — Build step evaluation threshold for content-script.js
 - **Date:** 2026-03-20

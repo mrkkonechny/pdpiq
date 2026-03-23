@@ -1838,6 +1838,36 @@ function analyzeImages() {
     }
   }
 
+  // Fallback 1: match by og:image filename (handles cross-CDN Shopify themes where the
+  // product image is served from a different origin than the og:image tag)
+  if (!primary && ogImage) {
+    try {
+      const ogFilename = ogImage.split('/').pop().split('?')[0];
+      if (ogFilename) {
+        primary = Array.from(images).find(img => {
+          const imgFilename = img.src.split('/').pop().split('?')[0];
+          return imgFilename === ogFilename;
+        }) || null;
+      }
+    } catch (e) { /* skip */ }
+  }
+
+  // Fallback 2: fetchpriority="high" (browser LCP hint — reliably marks the primary product image)
+  if (!primary) {
+    primary = document.querySelector('img[fetchpriority="high"]') || null;
+  }
+
+  // Fallback 3: first img with meaningful alt in main content area
+  if (!primary) {
+    for (const area of ['main', 'article', '[role="main"]', '#main', '#content']) {
+      const container = document.querySelector(area);
+      if (container) {
+        primary = Array.from(container.querySelectorAll('img')).find(img => img.alt && img.alt.length >= 5) || null;
+        if (primary) break;
+      }
+    }
+  }
+
   // Images that have a title attribute but no alt — common misunderstanding that title substitutes for alt
   const withTitleButNoAlt = Array.from(images).filter(img => (!img.alt || img.alt.length < 5) && img.title && img.title.trim().length >= 5);
 

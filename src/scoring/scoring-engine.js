@@ -278,33 +278,37 @@ export class ScoringEngine {
     });
     rawScore += ogImageScore;
 
-    // og:image format (15 points) - Critical
-    // WebP = FAIL, JPEG/PNG = PASS
+    // og:image format (5 points) — compatibility advisory
+    // JPEG/PNG = pass. WebP = warning (works on all major platforms; JPEG preferred for
+    // maximum compatibility with niche link-preview clients and older automation tools).
+    // LLM crawlers (GPTBot, ClaudeBot, PerplexityBot) are text-only parsers and do not
+    // process image binaries — format is irrelevant to indexing. Major platforms (Google,
+    // social, LLM chat UIs) all support WebP. See DEC-0029.
     let imageFormatScore = 0;
     let imageFormatStatus = 'unknown';
     let imageFormatDetails = 'Image format not verified';
 
     if (imageVerification) {
       if (imageVerification.isWebP) {
-        imageFormatScore = 0;
-        imageFormatStatus = 'fail';
-        imageFormatDetails = 'CRITICAL: WebP format - invisible in LLM chats';
+        imageFormatScore = Math.round(weights.ogImageFormat / 2);
+        imageFormatStatus = 'warning';
+        imageFormatDetails = 'WebP: works on major platforms; JPEG offers broader compatibility with niche clients';
       } else if (imageVerification.isValidFormat) {
         imageFormatScore = weights.ogImageFormat;
         imageFormatStatus = 'pass';
         imageFormatDetails = `Format: ${imageVerification.format?.toUpperCase() || 'Valid'}`;
       } else {
-        imageFormatScore = weights.ogImageFormat / 2;
+        imageFormatScore = 0;
         imageFormatStatus = 'warning';
-        imageFormatDetails = `Format: ${imageVerification.format || 'Unknown'}`;
+        imageFormatDetails = `Format: ${imageVerification.format || 'Unknown'} — verify compatibility`;
       }
     } else if (hasOgImage) {
       // Infer from URL if not verified
       const url = og.image.toLowerCase();
       if (url.endsWith('.webp') || url.includes('.webp?')) {
-        imageFormatScore = 0;
-        imageFormatStatus = 'fail';
-        imageFormatDetails = 'CRITICAL: WebP format detected in URL';
+        imageFormatScore = Math.round(weights.ogImageFormat / 2);
+        imageFormatStatus = 'warning';
+        imageFormatDetails = 'WebP detected in URL: works on major platforms; JPEG offers broader compatibility';
       } else if (url.match(/\.(jpe?g|png|gif)(\?|$)/)) {
         imageFormatScore = weights.ogImageFormat;
         imageFormatStatus = 'pass';
@@ -320,7 +324,6 @@ export class ScoringEngine {
       status: imageFormatStatus,
       points: imageFormatScore,
       maxPoints: weights.ogImageFormat,
-      critical: true,
       details: imageFormatDetails
     });
     rawScore += imageFormatScore;
