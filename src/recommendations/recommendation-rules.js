@@ -173,11 +173,11 @@ export const RECOMMENDATION_TEMPLATES = {
   // Content Quality
   'description-short': {
     title: 'Expand product description',
-    description: 'Short product descriptions provide insufficient context for LLMs to make quality recommendations.',
+    description: 'Your product description is too short to meaningfully answer user questions. AI citation research shows that section-level content density matters more than total word count — SE Ranking found sections of 120–180 words between headings receive 70% more citations than sections under 50 words.',
     impact: 'high',
     effort: 'medium',
     category: 'contentQuality',
-    implementation: 'Expand the product description to at least 200 words. Include key features, benefits, use cases, and differentiators.'
+    implementation: 'Structure your description as distinct sections, each covering one aspect of the product (Overview, Key Features, Who It\'s For, Technical Details). Each section should be 120–180 words under a clear H2 or H3 heading. Front-load the most citation-worthy content: 44% of all AI citations come from the first 30% of page content (Kevin Indig analysis of 3M ChatGPT responses).'
   },
 
   'specs-missing': {
@@ -186,7 +186,7 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'medium',
     effort: 'medium',
     category: 'contentQuality',
-    implementation: 'Add a specifications section with at least 10 key specs including dimensions, materials, compatibility, and technical details.'
+    implementation: 'Add a specifications section using proper HTML &lt;table&gt; markup with &lt;th&gt; headers and &lt;td&gt; data cells. A two-column "Spec | Value" table is the AI-optimal format — HTML tables earn 2.5× more citations than text-only equivalents (SE Ranking) and outperform all other formats for LLM structural understanding (Table Meets LLM, WSDM \'24, Microsoft Research). Include all attributes users typically compare: dimensions, weight, materials, power, compatibility, certifications. Include units on all values (150cm not 150; 2.4kg not 2.4).'
   },
 
   'faq-content-missing': {
@@ -268,7 +268,7 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'medium',
     effort: 'low',
     category: 'contentStructure',
-    implementation: 'Add a single &lt;h1&gt; tag containing the product name. This should match or closely align with the og:title.'
+    implementation: 'Add a single &lt;h1&gt; tag containing the product name. It should match your HTML &lt;title&gt; tag and your Schema.org Product name property — these three elements are the confirmed entity signals AI systems use to identify what product this page is about.'
   },
 
   'multiple-h1': {
