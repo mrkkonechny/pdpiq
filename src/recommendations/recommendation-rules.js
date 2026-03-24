@@ -121,7 +121,7 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'medium',
     effort: 'low',
     category: 'protocolMeta',
-    implementation: 'Configure your server or CDN to return a Last-Modified header on product page responses. For Shopify: this is typically handled by the platform. For custom setups: ensure HTTP headers include Last-Modified set to the page\'s actual last modification date. Also add dateModified to your Schema.org Product markup.'
+    implementation: 'Configure your server or CDN to return a Last-Modified header on product page responses. For Shopify: this is typically handled by the platform. For custom setups: ensure HTTP headers include Last-Modified set to the page\'s actual last modification date. Also add dateModified to your Schema.org Product markup. Important: substantive content updates earn 3.8× more citations than timestamp-only refreshes — update the actual content (add statistics, refresh comparisons, add FAQ questions) rather than only changing the date. SE Ranking: pages updated within 3 months average 6.0 AI citations vs 3.6 for older content (67% premium). Quarterly minimum for competitive product categories.'
   },
 
   // Structured Data
@@ -227,11 +227,11 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'description-quality-low': {
     title: 'Improve product description quality',
-    description: 'Your product description lacks the factual specificity that AI systems preferentially cite. The GEO paper (ACM SIGKDD 2024) found that content with statistics and quantified claims achieves up to 40% higher AI visibility — while persuasive/emotional tone shows no measurable improvement.',
+    description: 'Your product description lacks the factual specificity that AI systems preferentially cite. The GEO paper (ACM SIGKDD 2024) found that content with statistics and quantified claims achieves up to 40% higher AI visibility — while persuasive/emotional tone shows no measurable improvement. Kevin Indig\'s analysis of 3M ChatGPT responses found 44% of all citations come from the first 30% of page content. Entity density — specific brands, materials, standards, measurements — is 20.6% in cited content (3–4× higher than average writing). Content using definitive language ("is defined as", "is designed for", "is certified to") is 2× more likely to be cited than vague qualifiers.',
     impact: 'medium',
     effort: 'medium',
     category: 'contentQuality',
-    implementation: 'Add: (1) specific percentages and measurements ("47% more efficient", "150cm × 60cm"), (2) quantified comparisons ("3× faster charge time than previous model"), (3) named validations ("tested to ISO 9001 standards"), (4) use-case framing ("ideal for X because Y"). Replace vague superlatives ("best", "amazing") with citable specifics.'
+    implementation: 'Front-load your most citation-worthy content — the first paragraph after your H1 should contain: the primary use case, the key differentiating specification, and one specific measurable outcome. Then add: (1) specific percentages and measurements ("47% more efficient", "150cm × 60cm"), (2) quantified comparisons ("3× faster charge time than previous model"), (3) named validations ("tested to ISO 9001 standards"), (4) definitive use-case framing ("This unit removes 99.97% of particles 0.3 microns and larger" beats "This unit is very effective at air purification"). Replace vague superlatives ("best", "amazing") with citable specifics.'
   },
 
   'factual-specificity-low': {
@@ -391,11 +391,11 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'review-depth-low': {
     title: 'Encourage detailed, substantive reviews',
-    description: 'Short or minimal reviews provide little context for LLMs to extract useful product insights. Longer reviews (100+ chars) are more likely to be cited.',
+    description: 'Short or generic reviews provide minimal AI citation value. Reviews containing specific use-case details — "I used this in a 200 sq ft basement and it reduced humidity from 68% to 45% in three days" — create extractable factual claims LLMs can incorporate into product recommendations. Generic reviews ("Great product!") produce no citable content. Note: most review platforms (Yotpo, Bazaarvoice, PowerReviews) default to client-side JavaScript rendering — making review text invisible to AI crawlers unless the platform outputs server-rendered HTML or structured data.',
     impact: 'low',
     effort: 'medium',
     category: 'authorityTrust',
-    implementation: 'Ask specific questions in review prompts: "What did you use this product for?", "What surprised you?", "Who would you recommend this to?". Structured prompts consistently produce longer, more useful reviews. Display character counts as encouragement.'
+    implementation: 'Ask reviews to cover three things: (1) the specific context ("I used this for X"), (2) a measurable outcome ("after 3 weeks / in a 200 sq ft room..."), (3) a comparative observation ("compared to my previous [product]..."). These prompts produce the review specificity AI systems can extract and cite. Also verify your review platform outputs reviews in server-rendered HTML (check View Page Source — if review text is absent, AI crawlers cannot see it regardless of volume).'
   },
 
   'awards-missing': {
@@ -418,11 +418,11 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'certifications-missing': {
     title: 'Add certification information',
-    description: 'Certifications build trust that LLMs factor into recommendations.',
+    description: 'Certifications are a form of third-party citation — the highest-performing optimization in the GEO paper (SIGKDD \'24), which found that adding cited sources produces up to 115% visibility increase for lower-ranked sites. A specific, verifiable certification claim ("CE certified to EN 60950-1:2006") gives AI systems an extractable fact they can attribute; a vague claim ("clinically tested") does not.',
     impact: 'low',
     effort: 'low',
     category: 'authorityTrust',
-    implementation: 'List relevant certifications (safety, organic, eco-friendly) prominently on the page. LLMs cite verifiable claims ("CE certified to EN 60950-1:2006") significantly more readily than vague authority statements ("clinically tested"). Include the specific certification body, standard number, and year where known.'
+    implementation: 'List relevant certifications prominently with full specificity: certification body + standard number + year ("UL listed to UL 2272", "CE certified to EN 60950-1:2006", "USDA Organic certified 2024"). For clinical or test results, use this format: "Tested in a 12-week 2024 trial of 200 participants at [Lab/University], 87% showed improvement" — this gives AI systems specific numbers + named institution + time-bounded + quantified outcome, all of which are extractable citable claims. Vague authority language ("clinically tested", "professionally recommended") provides zero citation value.'
   },
 
   'content-stale': {
