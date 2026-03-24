@@ -45,6 +45,8 @@ class SidePanelApp {
     this.seoRecommendations = [];
     this.citationOpportunities = null;
     this.citationRoadmap = null;
+    this.imageVerification = null;
+    this.aiDiscoverabilityData = null;
     this.currentRequestId = null;
     this.analysisTimeoutId = null;
     this.selectedHistoryIds = [];
@@ -161,6 +163,22 @@ class SidePanelApp {
       const icon = document.querySelector('#citationRoadmapToggle .citation-toggle-icon');
       content?.classList.toggle('hidden');
       icon?.classList.toggle('expanded');
+    });
+
+    // AI Signal Inventory toggle
+    document.getElementById('aiSignalInventoryToggle')?.addEventListener('click', () => {
+      const content = document.getElementById('aiSignalInventoryContent');
+      const icon = document.querySelector('#aiSignalInventoryToggle .citation-toggle-icon');
+      content?.classList.toggle('hidden');
+      icon.innerHTML = content.classList.contains('hidden') ? '&#9654;' : '&#9660;';
+    });
+
+    // Raw Crawlable Text toggle
+    document.getElementById('rawCrawlableTextToggle')?.addEventListener('click', () => {
+      const content = document.getElementById('rawCrawlableTextContent');
+      const icon = document.querySelector('#rawCrawlableTextToggle .citation-toggle-icon');
+      content?.classList.toggle('hidden');
+      icon.innerHTML = content.classList.contains('hidden') ? '&#9654;' : '&#9660;';
     });
   }
 
@@ -296,6 +314,10 @@ class SidePanelApp {
       if (baseUrl) {
         aiDiscoverabilityData = await this.fetchAIDiscoverabilityData(baseUrl, pageUrl);
       }
+
+      // Store for use by renderAiSignalInventory
+      this.imageVerification = imageVerification;
+      this.aiDiscoverabilityData = aiDiscoverabilityData;
 
       // Score the data
       const scoringEngine = new ScoringEngine(this.selectedContext);
@@ -499,6 +521,14 @@ class SidePanelApp {
 
     // Render content-to-citation roadmap
     this.renderCitationRoadmap();
+
+    // AI Signal Inventory (AI Visibility tab only)
+    this.renderAiSignalInventory(this.currentData, this.scoreResult, this.imageVerification);
+    document.getElementById('aiSignalInventorySection')?.classList.remove('hidden');
+
+    // Raw Crawlable Text (AI Visibility tab only)
+    this.renderRawCrawlableText(this.currentData);
+    document.getElementById('rawCrawlableTextSection')?.classList.remove('hidden');
   }
 
   updatePageTypeBadges() {
@@ -642,6 +672,246 @@ class SidePanelApp {
     });
 
     content.innerHTML = html;
+  }
+
+  /**
+   * Render the AI Signal Inventory table in the AI Visibility tab.
+   * Pulls data from extractedData, scoreResult category factors, and imageVerification.
+   */
+  renderAiSignalInventory(extractedData, scoreResult, imageVerification) {
+    const container = document.getElementById('aiSignalInventoryContent');
+    if (!container) return;
+
+    const rows = [];
+
+    // 1. Product Schema
+    // schemas is a keyed object: { product: {...}, offer: {...}, faq: [...], ... }
+    const schemas = extractedData?.structuredData?.schemas || {};
+    // ProductGroup is stored under schemas.product when treated as product (see scoring-engine.js)
+    // but content-script may store it separately — check both keys
+    const productSchema = schemas.product || schemas.productgroup || null;
+    const hasProductSchema = !!(productSchema);
+    let productSchemaDetail = 'Not found in page markup';
+    if (hasProductSchema) {
+      // Infer display type from schema data
+      const schemaTypeName = schemas.productgroup && !schemas.product ? 'ProductGroup' : 'Product';
+      const variantCount = productSchema.variantCount || (Array.isArray(productSchema.hasVariant) ? productSchema.hasVariant.length : null);
+      productSchemaDetail = variantCount
+        ? `${schemaTypeName} · ${variantCount} variant${variantCount !== 1 ? 's' : ''}`
+        : schemaTypeName;
+    }
+    rows.push({
+      label: 'Product Schema',
+      tag: hasProductSchema ? 'FOUND' : 'ABSENT',
+      status: hasProductSchema ? 'pass' : 'na',
+      detail: productSchemaDetail
+    });
+
+    // 2. og:image Format
+    let imgTag = 'UNKNOWN';
+    let imgStatus = 'warn';
+    let imgDetail = 'No og:image found';
+    const ogImage = extractedData?.metaTags?.openGraph?.image;
+    if (!ogImage) {
+      imgTag = 'ABSENT';
+      imgStatus = 'na';
+      imgDetail = 'No og:image meta tag found';
+    } else if (imageVerification) {
+      if (imageVerification.isWebP) {
+        imgTag = 'WEBP';
+        imgStatus = 'fail';
+        imgDetail = 'WebP — invisible in LLM chat';
+      } else if (imageVerification.isValidFormat) {
+        imgTag = (imageVerification.format || 'valid').toUpperCase();
+        imgStatus = 'pass';
+        imgDetail = `${(imageVerification.format || 'valid').toUpperCase()} format — LLM compatible`;
+      } else {
+        imgTag = (imageVerification.format || 'UNKNOWN').toUpperCase();
+        imgStatus = 'warn';
+        imgDetail = `${imageVerification.format || 'Unknown'} — verify compatibility`;
+      }
+    } else {
+      // Infer from URL
+      const urlLower = (ogImage || '').toLowerCase();
+      if (/\.webp(\?|$)/.test(urlLower) || /[?&](auto=webp|fm=webp|f=webp|format=webp)(&|$)/.test(urlLower)) {
+        imgTag = 'WEBP';
+        imgStatus = 'fail';
+        imgDetail = 'WebP — invisible in LLM chat';
+      } else if (/\.jpe?g(\?|$)/.test(urlLower)) {
+        imgTag = 'JPEG';
+        imgStatus = 'pass';
+        imgDetail = 'JPEG format — LLM compatible';
+      } else if (/\.png(\?|$)/.test(urlLower)) {
+        imgTag = 'PNG';
+        imgStatus = 'pass';
+        imgDetail = 'PNG format — LLM compatible';
+      } else {
+        imgTag = 'UNKNOWN';
+        imgStatus = 'warn';
+        imgDetail = 'Format not verified';
+      }
+    }
+    rows.push({ label: 'og:image Format', tag: imgTag, status: imgStatus, detail: imgDetail });
+
+    // 3. Description Length
+    const wordCount = extractedData?.contentQuality?.description?.wordCount ?? 0;
+    let descTag, descStatus;
+    if (wordCount >= 150) {
+      descTag = 'SUFFICIENT';
+      descStatus = 'pass';
+    } else if (wordCount >= 50) {
+      descTag = 'THIN';
+      descStatus = 'warn';
+    } else {
+      descTag = 'MISSING';
+      descStatus = 'fail';
+    }
+    rows.push({
+      label: 'Description Length',
+      tag: descTag,
+      status: descStatus,
+      detail: `${wordCount} words · 150+ recommended`
+    });
+
+    // 4. GTIN / MPN — productSchema already resolved above
+    const hasGtin = !!(productSchema?.gtin || extractedData?.structuredData?.gtin);
+    const hasMpn = !!(productSchema?.mpn || extractedData?.structuredData?.mpn);
+    const hasIdentifier = hasGtin || hasMpn;
+    rows.push({
+      label: 'GTIN / MPN',
+      tag: hasIdentifier ? 'FOUND' : 'ABSENT',
+      status: hasIdentifier ? 'pass' : 'na',
+      detail: hasIdentifier ? 'Product identifier in schema' : 'No GTIN or MPN in schema'
+    });
+
+    // 5. AI Crawler Access — read from scoreResult factors (computed from robots networkData)
+    let crawlerTag = 'UNKNOWN';
+    let crawlerStatus = 'warn';
+    let crawlerDetail = 'robots.txt not checked';
+    const aiDiscCat = scoreResult?.categoryScores?.aiDiscoverability;
+    if (aiDiscCat) {
+      const crawlerFactor = aiDiscCat.factors?.find(f => f.name === 'AI Crawler Access');
+      if (crawlerFactor) {
+        if (crawlerFactor.status === 'pass') {
+          crawlerTag = 'ALL ALLOWED';
+          crawlerStatus = 'pass';
+          crawlerDetail = crawlerFactor.details || 'All major AI crawlers allowed';
+        } else if (crawlerFactor.status === 'fail') {
+          crawlerTag = 'BLOCKED';
+          crawlerStatus = 'fail';
+          crawlerDetail = crawlerFactor.details || 'AI crawlers blocked';
+        } else {
+          crawlerTag = 'SOME BLOCKED';
+          crawlerStatus = 'warn';
+          crawlerDetail = crawlerFactor.details || 'Partial AI crawler access';
+        }
+      }
+    }
+    rows.push({ label: 'AI Crawler Access', tag: crawlerTag, status: crawlerStatus, detail: crawlerDetail });
+
+    // 6. llms.txt — read from scoreResult factors
+    let llmsTag = 'ABSENT';
+    let llmsStatus = 'na';
+    let llmsDetail = 'No llms.txt found';
+    if (aiDiscCat) {
+      const llmsFactor = aiDiscCat.factors?.find(f => f.name === 'llms.txt Presence');
+      if (llmsFactor) {
+        if (llmsFactor.status === 'pass') {
+          llmsTag = 'FOUND';
+          llmsStatus = 'pass';
+          llmsDetail = llmsFactor.details || 'llms.txt found';
+        } else {
+          llmsTag = 'ABSENT';
+          llmsStatus = 'na';
+          llmsDetail = llmsFactor.details || 'No llms.txt found';
+        }
+      }
+    }
+    rows.push({ label: 'llms.txt', tag: llmsTag, status: llmsStatus, detail: llmsDetail });
+
+    // 7. Entity Consistency — read from scoreResult factors
+    let entityTag = 'UNKNOWN';
+    let entityStatus = 'warn';
+    let entityDetail = 'Could not check entity consistency';
+    if (aiDiscCat) {
+      const entityFactor = aiDiscCat.factors?.find(f => f.name === 'Entity Consistency');
+      if (entityFactor) {
+        if (entityFactor.status === 'pass') {
+          entityTag = 'PASS';
+          entityStatus = 'pass';
+          entityDetail = entityFactor.details || 'Product name consistent across page elements';
+        } else if (entityFactor.status === 'warning') {
+          entityTag = 'PARTIAL';
+          entityStatus = 'warn';
+          entityDetail = entityFactor.details || 'Product name partially consistent';
+        } else {
+          entityTag = 'FAIL';
+          entityStatus = 'fail';
+          entityDetail = entityFactor.details || 'Product name not consistent across page elements';
+        }
+      }
+    }
+    rows.push({ label: 'Entity Consistency', tag: entityTag, status: entityStatus, detail: entityDetail });
+
+    // 8. Answer-Format Content
+    const answerFormat = extractedData?.aiDiscoverability?.answerFormat;
+    const hasAnyAnswerFormat = !!(
+      answerFormat?.bestForCount > 0 ||
+      answerFormat?.hasComparison ||
+      answerFormat?.hasHowTo ||
+      answerFormat?.useCaseCount > 0
+    );
+    rows.push({
+      label: 'Answer-Format Content',
+      tag: hasAnyAnswerFormat ? 'FOUND' : 'MISSING',
+      status: hasAnyAnswerFormat ? 'pass' : 'fail',
+      detail: hasAnyAnswerFormat
+        ? [
+            answerFormat?.bestForCount > 0 ? `${answerFormat.bestForCount} "best for"` : null,
+            answerFormat?.hasComparison ? 'comparison' : null,
+            answerFormat?.hasHowTo ? 'how-to' : null,
+            answerFormat?.useCaseCount > 0 ? `${answerFormat.useCaseCount} use case${answerFormat.useCaseCount !== 1 ? 's' : ''}` : null
+          ].filter(Boolean).join(' · ')
+        : 'No "best for", comparison, how-to, or use case content found'
+    });
+
+    container.innerHTML = rows.map(row => `
+      <div class="ai-signal-row">
+        <div class="ai-signal-info">
+          <span class="ai-signal-label">${escapeHtml(row.label)}</span>
+          <span class="ai-signal-detail">${escapeHtml(row.detail)}</span>
+        </div>
+        <span class="ai-signal-tag ai-tag-${row.status}">${escapeHtml(row.tag)}</span>
+      </div>
+    `).join('');
+  }
+
+  /**
+   * Render the Raw Crawlable Text viewer in the AI Visibility tab.
+   */
+  renderRawCrawlableText(extractedData) {
+    const container = document.getElementById('rawCrawlableTextContent');
+    if (!container) return;
+
+    const productText = extractedData?.productContentText || '';
+    const fullText = extractedData?.rawPageText || '';
+
+    const productWordCount = productText.trim().split(/\s+/).filter(w => w.length > 0).length;
+    const fullWordCount = fullText.trim().split(/\s+/).filter(w => w.length > 0).length;
+
+    container.innerHTML = `
+      <div class="raw-text-area-label">Product area (nav &amp; footer stripped)</div>
+      <div class="raw-text-scroll">${escapeHtml(productText)}</div>
+      <div class="raw-text-word-count">~${productWordCount.toLocaleString()} words of product content detected</div>
+      <div class="raw-text-area-label">Full page (includes nav &amp; footer)</div>
+      <div class="raw-text-scroll">${escapeHtml(fullText)}</div>
+      <div class="raw-text-word-count">~${fullWordCount.toLocaleString()} words total</div>
+      <button class="raw-text-copy-btn" id="copyRawTextBtn">&#8663; Copy full page text</button>
+    `;
+
+    document.getElementById('copyRawTextBtn').addEventListener('click', () => {
+      navigator.clipboard.writeText(fullText).catch(() => {});
+    });
   }
 
   renderCategories() {
@@ -1390,6 +1660,8 @@ class SidePanelApp {
     document.getElementById('loadingState').classList.add('hidden');
     document.getElementById('errorState').classList.add('hidden');
     document.getElementById('historySection').classList.add('hidden');
+    document.getElementById('aiSignalInventorySection')?.classList.add('hidden');
+    document.getElementById('rawCrawlableTextSection')?.classList.add('hidden');
   }
 
   hideContextSelector() {
@@ -1404,6 +1676,8 @@ class SidePanelApp {
     document.getElementById('loadingState').classList.remove('hidden');
     document.getElementById('errorState').classList.add('hidden');
     document.getElementById('historySection').classList.add('hidden');
+    document.getElementById('aiSignalInventorySection')?.classList.add('hidden');
+    document.getElementById('rawCrawlableTextSection')?.classList.add('hidden');
   }
 
   hideLoading() {
