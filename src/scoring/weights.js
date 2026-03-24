@@ -7,11 +7,11 @@
  * Category descriptions for tooltips
  */
 export const CATEGORY_DESCRIPTIONS = {
-  structuredData: 'JSON-LD and schema.org markup that helps AI understand product data',
+  structuredData: 'Schema.org Product markup and FAQPage schema help search engines correctly classify and enrich this page in their knowledge graphs — the primary pathway through which AI systems identify and retrieve product data. Schema does not directly affect LLM content extraction but is confirmed to improve representation in the index-based retrieval pipelines that power ChatGPT Search (Bing-backed) and Google AI Overviews.',
   protocolMeta: 'Technical metadata governing how AI systems and social platforms retrieve and preview your product page. Meta description and robots directives are confirmed LLM retrieval signals. Open Graph and Twitter Card tags serve social link previews — they are not processed by LLM crawlers during indexing. Content freshness (Last-Modified) is one of the most strongly documented AI citation signals.',
-  contentQuality: 'Product descriptions, specifications, features, and FAQ content',
-  contentStructure: 'Semantic HTML, headings, accessibility, and image alt text',
-  authorityTrust: 'Reviews, ratings, brand clarity, and trust signals',
+  contentQuality: 'The factual content AI systems extract to answer product questions. Research consensus: statistics addition boosts AI visibility up to 40% (GEO paper, SIGKDD \'24); sections of 120–180 words between headings receive 70% more citations than sections under 50 words (SE Ranking); 44% of all citations come from the first 30% of page content. Persuasive tone without factual specificity shows no measurable improvement.',
+  contentStructure: 'How content is marked up and organised determines whether AI extraction pipelines can reliably segment, parse, and cite it. HTML table markup outperforms all other formats for LLM structural understanding (Table Meets LLM, WSDM \'24). Semantic elements (&lt;main&gt;, &lt;article&gt;, &lt;section&gt;) are the primary signals extraction libraries use to identify main content vs. boilerplate. Alt text is the only visual signal AI crawlers process.',
+  authorityTrust: 'Trust signals affect AI citation through two pathways: they feed traditional search rankings that AI retrieval pipelines draw from, and they provide extractable authority claims LLMs can incorporate into responses. Specific, verifiable claims outperform vague authority language: "UL 2272 certified" is citable; "safe and reliable" is not. The GEO paper found source citations produce up to 115% visibility gains for lower-ranked sites.',
   aiDiscoverability: 'AI crawler access, entity consistency, answer-format content, product identifiers, and llms.txt (emerging signal — no confirmed crawler adoption as of 2026)'
 };
 
