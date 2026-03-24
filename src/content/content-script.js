@@ -90,7 +90,11 @@ function performFullExtraction() {
   // Build a stripped body clone for productContentText
   const bodyClone = document.body.cloneNode(true);
   bodyClone.querySelectorAll(
-    'nav, header, footer, [role="navigation"], [role="banner"], [role="contentinfo"], script, style'
+    'nav, header, footer, [role="navigation"], [role="banner"], [role="contentinfo"], script, style, ' +
+    '.site-header, .site-footer, .site-nav, .main-nav, .header-nav, .footer-nav, ' +
+    '#header, #footer, #nav, #site-header, #site-footer, ' +
+    '.announcement-bar, .cookie-banner, .popup, .modal, ' +
+    '.cart-drawer, .mini-cart, .shopping-cart'
   ).forEach(el => el.remove());
 
   try {
