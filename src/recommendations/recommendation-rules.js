@@ -191,7 +191,7 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'faq-content-missing': {
     title: 'Add FAQ section',
-    description: 'FAQ sections are the highest-surface-area citation targets on a product page — each Q&A pair operates as an independent answerable unit, creating multiple citation opportunities across different user queries. Pages with on-page FAQ content are 3.2× more likely to appear in Google AI Overviews. Optimal answer length is 40–60 words: long enough to be complete, short enough to be a self-contained extractable chunk.',
+    description: 'FAQ sections are the highest-surface-area citation targets on a product page — each Q&A pair operates as an independent answerable unit, creating multiple citation opportunities across different user queries. FAQ-formatted content is 3.1× more likely to be directly quoted by LLMs than unstructured equivalents. Optimal answer length is 40–60 words: long enough to be complete, short enough to be a self-contained extractable chunk.',
     impact: 'medium',
     effort: 'medium',
     category: 'contentQuality',
