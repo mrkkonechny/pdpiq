@@ -1167,6 +1167,8 @@ body {
 }
 
 /* AI Signal Inventory */
+.ai-signal-inventory { margin-top: var(--space-md); margin-bottom: var(--space-md); }
+
 .ai-signal-row {
   display: flex;
   align-items: flex-start;
@@ -1195,6 +1197,8 @@ body {
 .ai-tag-unknown { background: #fef3c7; color: #92400e; }
 
 /* Raw Crawlable Text */
+.raw-crawlable-text { margin-top: var(--space-md); margin-bottom: var(--space-md); }
+
 .raw-text-area-label {
   padding: 6px 14px 3px;
   font-size: 10px;
