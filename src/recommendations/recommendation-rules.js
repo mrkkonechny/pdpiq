@@ -282,20 +282,20 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'semantic-html-missing': {
     title: 'Use semantic HTML elements',
-    description: 'Semantic HTML helps LLMs understand content structure and importance.',
+    description: 'Semantic HTML elements are the primary signals that content extraction pipelines use to distinguish product content from navigation and boilerplate. Trafilatura — the leading open-source extraction library used in LLM training data preparation — achieves F1 scores of 93–96% by analysing HTML element types as primary signals. The HtmlRAG paper (WWW \'25, Renmin University) demonstrated that semantic HTML outperforms plain text for RAG retrieval, with heading structure being a key signal lost when HTML is converted to plain text.',
     impact: 'medium',
     effort: 'medium',
     category: 'contentStructure',
-    implementation: 'Wrap main product content in &lt;main&gt; or &lt;article&gt;. Use &lt;section&gt; for distinct content areas. Use &lt;nav&gt; for navigation.'
+    implementation: 'Wrap main product content in &lt;main&gt; or &lt;article&gt;. Use &lt;section&gt; for distinct product areas (description, features, specs, FAQ). Mark navigation with &lt;nav&gt;. Wrap images with &lt;figure&gt; and &lt;figcaption&gt; — the &lt;figcaption&gt; text is one of the few non-alt-text ways to give AI crawlers editorial context about what an image shows ("The reinforced toe cap meets EN ISO 20345 safety standards"). These elements tell extraction systems: "This is primary content" versus "This is site chrome."'
   },
 
   'primary-image-alt-missing': {
     title: 'Add alt text to primary product image',
-    description: 'Missing alt text limits product visibility when LLMs describe images.',
+    description: 'Alt text is the only visual signal AI crawlers process — GPTBot, ClaudeBot, and PerplexityBot are text-only parsers that cannot process image pixels during web crawling. Your primary product image contributes zero AI visibility information without descriptive alt text.',
     impact: 'medium',
     effort: 'low',
     category: 'contentStructure',
-    implementation: 'Add descriptive alt text to the main product image. Include product name, key features, and color/variant.'
+    implementation: 'Write alt text covering: product type + color/material + key distinguishing features + size or dimension context. Example for a standing desk: alt="motorized standing desk in white oak finish, 140cm wide, with programmable height presets and built-in cable management". Avoid: alt="product image", alt="desk", or leaving alt blank. For gallery images, describe the specific aspect shown: alt="close-up of the anti-slip rubber feet and stainless steel leg joints".'
   },
 
   'images-alt-low': {
@@ -327,11 +327,11 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'table-structure-missing': {
     title: 'Use structured &lt;table&gt; for specifications',
-    description: 'Specification data in properly marked-up tables is significantly easier for LLMs to parse and cite than plain-text lists.',
+    description: '"Table Meets LLM" (Sui et al., WSDM \'24, Microsoft Research / NUS) found HTML table markup outperforms plain text by 6.76% for LLM structural understanding across 7 tasks — the highest of any tested format (HTML > XML > JSON > Markdown > natural language). SE Ranking: comparison tables earn 2.5× more citations than text-only equivalents. AirOps: tables are 2× as likely to appear in ChatGPT results compared to Google Search.',
     impact: 'medium',
     effort: 'low',
     category: 'contentStructure',
-    implementation: 'Replace plain-text spec lists with an HTML &lt;table&gt; using &lt;th&gt; headers and &lt;td&gt; data cells. Use &lt;thead&gt; and &lt;tbody&gt;. A two-column table of "Spec | Value" pairs is the ideal AI-parseable format.'
+    implementation: 'Replace any spec list — plain text paragraphs, CSS-styled divs, or visual-only layouts — with proper HTML &lt;table&gt; markup: &lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Specification&lt;/th&gt;&lt;th&gt;Value&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;...&lt;/tbody&gt;&lt;/table&gt;. CSS-styled divs that look like tables are invisible as tables to LLMs; only semantic &lt;table&gt; markup with &lt;th&gt; and &lt;td&gt; elements provides the structural signal. Each &lt;th&gt; should be a specific, searchable attribute name ("Battery Life", not "Performance").'
   },
 
   'js-dependency-high': {
@@ -603,11 +603,11 @@ export const RECOMMENDATION_TEMPLATES = {
   // Additional Content Structure
   'heading-hierarchy-broken': {
     title: 'Fix heading hierarchy',
-    description: 'Heading levels skip (e.g., H1 to H3) or are missing, making it harder for LLMs to parse the content structure and identify sections.',
+    description: 'Heading hierarchy is how content extraction systems segment your page into independently retrievable units. SE Ranking analysis of 129,000 domains found sections of 120–180 words between headings receive 70% more AI citations than sections under 50 words. Search Engine Land\'s audit of ChatGPT-cited posts found that "answer capsules" — a 120–150 character direct answer immediately after the H2 heading — were the single strongest commonality among cited content.',
     impact: 'low',
     effort: 'low',
     category: 'contentStructure',
-    implementation: 'Ensure headings follow a logical hierarchy: H1 (product name) &gt; H2 (sections like "Features", "Specifications", "Reviews") &gt; H3 (subsections). Never skip levels (e.g., H1 to H3 without H2).'
+    implementation: 'Structure headings as: H1 (product name) → H2 (major sections: Features, Specifications, Use Cases, FAQ) → H3 (subsections). Each H2 section should contain 120–180 words of substantive content. After each H2, write a 1–2 sentence direct answer as the first content (the "answer capsule"): under &lt;h2&gt;Key Specifications&lt;/h2&gt;, open with "This model weighs 2.4 kg, measures 30 × 20 × 8 cm, and runs on 12V DC — compatible with standard US/EU adapters." Never skip heading levels.'
   },
 
   'list-structure-missing': {
