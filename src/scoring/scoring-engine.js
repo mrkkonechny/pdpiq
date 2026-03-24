@@ -544,15 +544,17 @@ export class ScoringEngine {
     });
     rawScore += descScore;
 
-    // Description Quality (10 points) - Contextual
+    // Description Quality — Contextual
+    // Scores use-case benefit framing and technical terminology
+    // Note: emotional/persuasive tone alone shows no improvement (GEO paper, SIGKDD '24)
+    // hasBenefitStatements detects "ideal for X", "designed for Y" framing
     let descQualityScore = 0;
     const hasBenefits = desc.hasBenefitStatements;
     const hasEmotional = desc.hasEmotionalLanguage;
     const hasTechnical = desc.hasTechnicalTerms;
 
-    // Apply context multipliers
-    if (hasBenefits || hasEmotional) {
-      descQualityScore += (weights.descriptionQuality / 2) * this.multipliers.emotionalBenefitCopy;
+    if (hasBenefits) {
+      descQualityScore += (weights.descriptionQuality / 2) * this.multipliers.useCaseBenefitCopy;
     }
     if (hasTechnical) {
       descQualityScore += (weights.descriptionQuality / 2) * this.multipliers.technicalSpecifications;

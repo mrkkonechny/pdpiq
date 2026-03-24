@@ -33,9 +33,9 @@ export const CATEGORY_WEIGHTS = {
  */
 export const CONTEXT_MULTIPLIERS = {
   want: {
-    // "Want" context: emotional, lifestyle-driven purchases
-    // Emphasize emotional appeal, social proof
-    emotionalBenefitCopy: 1.5,
+    // "Want" context: desire-driven purchases
+    // Research: use-case framing and benefit specificity beat emotional tone (GEO paper, SIGKDD '24)
+    useCaseBenefitCopy: 1.5,
     technicalSpecifications: 0.6,
     compatibilityInfo: 0.4,
     socialProof: 1.4,
@@ -49,7 +49,7 @@ export const CONTEXT_MULTIPLIERS = {
   need: {
     // "Need" context: functional, specification-driven purchases
     // Emphasize technical details, compatibility, certifications
-    emotionalBenefitCopy: 0.5,
+    useCaseBenefitCopy: 0.5,
     technicalSpecifications: 1.5,
     compatibilityInfo: 2.0,
     socialProof: 0.8,
@@ -63,7 +63,7 @@ export const CONTEXT_MULTIPLIERS = {
   hybrid: {
     // "Hybrid" context: balanced consideration
     // Neutral multipliers
-    emotionalBenefitCopy: 1.0,
+    useCaseBenefitCopy: 1.0,
     technicalSpecifications: 1.0,
     compatibilityInfo: 1.0,
     socialProof: 1.0,

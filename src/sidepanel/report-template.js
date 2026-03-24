@@ -569,7 +569,7 @@ export function generateHtmlReport(result, pageInfo, recommendations, context, p
     : 'Hybrid Context';
 
   const contextDescriptions = {
-    want: 'Emotional, lifestyle-driven purchases — emphasizes social proof, benefit statements, and brand appeal.',
+    want: 'Desire-driven purchases — weights use-case framing, social proof, and benefit specificity over technical detail.',
     need: 'Functional, spec-driven purchases — emphasizes technical specs, compatibility, certifications, and warranty.',
     hybrid: 'Balanced consideration — all factors weighted equally.'
   };
