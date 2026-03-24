@@ -87,16 +87,6 @@ function performFullExtraction() {
   // Clear JSON-LD cache for fresh extraction
   clearJsonLdCache();
 
-  // Build a stripped body clone for productContentText
-  const bodyClone = document.body.cloneNode(true);
-  bodyClone.querySelectorAll(
-    'nav, header, footer, [role="navigation"], [role="banner"], [role="contentinfo"], script, style, ' +
-    '.site-header, .site-footer, .site-nav, .main-nav, .header-nav, .footer-nav, ' +
-    '#header, #footer, #nav, #site-header, #site-footer, ' +
-    '.announcement-bar, .cookie-banner, .popup, .modal, ' +
-    '.cart-drawer, .mini-cart, .shopping-cart'
-  ).forEach(el => el.remove());
-
   try {
     const result = {
       structuredData: extractStructuredData(),
@@ -115,7 +105,6 @@ function performFullExtraction() {
         pathname: window.location.pathname,
         extractedAt: new Date().toISOString()
       },
-      productContentText: (bodyClone.innerText || '').trim(),
       rawPageText: (document.body.innerText || '').trim()
     };
 
@@ -958,6 +947,7 @@ function analyzeDescription(content) {
 
   return {
     found: !!el || text.length > 0,
+    text: text || '',
     source: source,
     wordCount: words.length,
     hasEmotionalLanguage: /amazing|beautiful|perfect|love|best|incredible|stunning/i.test(text),

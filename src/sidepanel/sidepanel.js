@@ -894,16 +894,16 @@ class SidePanelApp {
     const container = document.getElementById('rawCrawlableTextContent');
     if (!container) return;
 
-    const productText = extractedData?.productContentText || '';
+    const descText = extractedData?.contentQuality?.description?.text || '';
     const fullText = extractedData?.rawPageText || '';
 
-    const productWordCount = productText.trim().split(/\s+/).filter(w => w.length > 0).length;
+    const descWordCount = extractedData?.contentQuality?.description?.wordCount ?? 0;
     const fullWordCount = fullText.trim().split(/\s+/).filter(w => w.length > 0).length;
 
     container.innerHTML = `
-      <div class="raw-text-area-label">Product area (nav &amp; footer stripped)</div>
-      <div class="raw-text-scroll">${escapeHtml(productText)}</div>
-      <div class="raw-text-word-count">~${productWordCount.toLocaleString()} words of product content detected</div>
+      <div class="raw-text-area-label">Product Description</div>
+      <div class="raw-text-scroll">${descText ? escapeHtml(descText) : 'No product description detected'}</div>
+      <div class="raw-text-word-count">~${descWordCount.toLocaleString()} words of product content detected</div>
       <div class="raw-text-area-label">Full page (includes nav &amp; footer)</div>
       <div class="raw-text-scroll">${escapeHtml(fullText)}</div>
       <div class="raw-text-word-count">~${fullWordCount.toLocaleString()} words total</div>
