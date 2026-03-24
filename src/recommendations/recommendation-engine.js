@@ -251,7 +251,7 @@ export class RecommendationEngine {
 
     // Description quality low — qualityScore is not produced by the extractor;
     // check the underlying signals it computes from instead
-    if (desc.wordCount >= 100 && !desc.hasBenefitStatements && !desc.hasEmotionalLanguage && !desc.hasTechnicalTerms) {
+    if (desc.wordCount >= 100 && !desc.hasBenefitStatements && !desc.hasTechnicalTerms) {
       recs.push(this.createRecommendation('description-quality-low'));
     }
 
