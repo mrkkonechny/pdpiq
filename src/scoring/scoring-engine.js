@@ -550,7 +550,6 @@ export class ScoringEngine {
     // hasBenefitStatements detects "ideal for X", "designed for Y" framing
     let descQualityScore = 0;
     const hasBenefits = desc.hasBenefitStatements;
-    const hasEmotional = desc.hasEmotionalLanguage;
     const hasTechnical = desc.hasTechnicalTerms;
 
     if (hasBenefits) {
@@ -569,7 +568,6 @@ export class ScoringEngine {
       contextual: true,
       details: [
         hasBenefits ? 'Benefits' : null,
-        hasEmotional ? 'Emotional' : null,
         hasTechnical ? 'Technical' : null
       ].filter(Boolean).join(', ') || 'Needs improvement'
     });
