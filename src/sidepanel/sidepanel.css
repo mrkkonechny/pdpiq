@@ -1166,6 +1166,7 @@ body {
 .ai-tag-fail { background: #fee2e2; color: #991b1b; }
 .ai-tag-warn { background: #fef3c7; color: #92400e; }
 .ai-tag-na   { background: #f3f4f6; color: #6b7280; }
+.ai-tag-unknown { background: #fef3c7; color: #92400e; }
 
 /* Raw Crawlable Text */
 .raw-text-area-label {

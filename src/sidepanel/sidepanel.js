@@ -170,7 +170,7 @@ class SidePanelApp {
       const content = document.getElementById('aiSignalInventoryContent');
       const icon = document.querySelector('#aiSignalInventoryToggle .citation-toggle-icon');
       content?.classList.toggle('hidden');
-      icon.innerHTML = content.classList.contains('hidden') ? '&#9654;' : '&#9660;';
+      if (icon) icon.innerHTML = content.classList.contains('hidden') ? '&#9654;' : '&#9660;';
     });
 
     // Raw Crawlable Text toggle
@@ -178,7 +178,7 @@ class SidePanelApp {
       const content = document.getElementById('rawCrawlableTextContent');
       const icon = document.querySelector('#rawCrawlableTextToggle .citation-toggle-icon');
       content?.classList.toggle('hidden');
-      icon.innerHTML = content.classList.contains('hidden') ? '&#9654;' : '&#9660;';
+      if (icon) icon.innerHTML = content.classList.contains('hidden') ? '&#9654;' : '&#9660;';
     });
   }
 
@@ -702,8 +702,8 @@ class SidePanelApp {
     }
     rows.push({
       label: 'Product Schema',
-      tag: hasProductSchema ? 'FOUND' : 'ABSENT',
-      status: hasProductSchema ? 'pass' : 'na',
+      tag: hasProductSchema ? 'FOUND' : 'MISSING',
+      status: hasProductSchema ? 'pass' : 'fail',
       detail: productSchemaDetail
     });
 
@@ -774,8 +774,8 @@ class SidePanelApp {
     });
 
     // 4. GTIN / MPN — productSchema already resolved above
-    const hasGtin = !!(productSchema?.gtin || extractedData?.structuredData?.gtin);
-    const hasMpn = !!(productSchema?.mpn || extractedData?.structuredData?.mpn);
+    const hasGtin = !!(productSchema?.gtin);
+    const hasMpn = !!(productSchema?.mpn);
     const hasIdentifier = hasGtin || hasMpn;
     rows.push({
       label: 'GTIN / MPN',
@@ -909,9 +909,8 @@ class SidePanelApp {
       <button class="raw-text-copy-btn" id="copyRawTextBtn">&#8663; Copy full page text</button>
     `;
 
-    document.getElementById('copyRawTextBtn').addEventListener('click', () => {
-      navigator.clipboard.writeText(fullText).catch(() => {});
-    });
+    const copyBtn = document.getElementById('copyRawTextBtn');
+    if (copyBtn) copyBtn.onclick = () => { navigator.clipboard.writeText(fullText).catch(() => {}); };
   }
 
   renderCategories() {
