@@ -87,6 +87,12 @@ function performFullExtraction() {
   // Clear JSON-LD cache for fresh extraction
   clearJsonLdCache();
 
+  // Build a stripped body clone for productContentText
+  const bodyClone = document.body.cloneNode(true);
+  bodyClone.querySelectorAll(
+    'nav, header, footer, [role="navigation"], [role="banner"], [role="contentinfo"], script, style'
+  ).forEach(el => el.remove());
+
   try {
     const result = {
       structuredData: extractStructuredData(),
@@ -104,7 +110,9 @@ function performFullExtraction() {
         domain: window.location.hostname,
         pathname: window.location.pathname,
         extractedAt: new Date().toISOString()
-      }
+      },
+      productContentText: (bodyClone.innerText || '').trim(),
+      rawPageText: (document.body.innerText || '').trim()
     };
 
     // Clear cache after extraction to free memory
