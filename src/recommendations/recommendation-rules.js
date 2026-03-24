@@ -127,7 +127,7 @@ export const RECOMMENDATION_TEMPLATES = {
   // Structured Data
   'product-schema-missing': {
     title: 'Add Product schema markup',
-    description: 'Product schema is essential for LLMs to understand this is a product page with purchasable items.',
+    description: 'Product schema is critical for helping search engines correctly classify this page as a product — and those enriched index entries are what AI systems draw from when assembling recommendations. The SearchVIU experiment (October 2025) confirmed that LLM crawlers tokenize schema as raw text rather than parsing it semantically; the value flows indirectly through Googlebot and BingBot\'s indexing pipelines.',
     impact: 'high',
     effort: 'medium',
     category: 'structuredData',
@@ -145,7 +145,7 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'rating-schema-missing': {
     title: 'Add AggregateRating schema',
-    description: 'Rating schema helps LLMs provide review information when recommending products.',
+    description: 'AggregateRating schema ensures your product\'s star rating and review count appear in Google\'s knowledge graph and rich results — which AI systems draw from when recommending products. Without it, AI systems pulling from Bing\'s index (which powers ~92% of ChatGPT Search queries) may not surface your rating data at all.',
     impact: 'medium',
     effort: 'low',
     category: 'structuredData',
@@ -154,11 +154,11 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'faq-schema-missing': {
     title: 'Add FAQ schema markup',
-    description: 'FAQ schema makes your product Q&A content more accessible to LLMs for answering user questions.',
+    description: 'FAQPage schema reinforces your visible on-page Q&A content in search engine knowledge graphs — which AI systems draw from indirectly. The more important signal is having visible, server-rendered FAQ content with question-based headings; schema amplifies that signal for index-based AI systems like Google AI Overviews.',
     impact: 'medium',
     effort: 'medium',
     category: 'structuredData',
-    implementation: 'Add FAQPage schema with mainEntity containing Question/Answer pairs. Include at least 5 relevant product questions.'
+    implementation: 'Add FAQPage schema with mainEntity containing Question/Answer pairs. Important: ensure the FAQ content is also visible in the page HTML — schema alone without visible on-page content provides minimal AI citation value. Frase.io analysis: pages with FAQ schema are 3.2× more likely to appear in Google AI Overviews.'
   },
 
   'breadcrumb-schema-missing': {
@@ -191,11 +191,11 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'faq-content-missing': {
     title: 'Add FAQ section',
-    description: 'FAQ content helps LLMs answer common customer questions about your product.',
+    description: 'FAQ sections are the highest-surface-area citation targets on a product page — each Q&A pair operates as an independent answerable unit, creating multiple citation opportunities across different user queries. Pages with on-page FAQ content are 3.2× more likely to appear in Google AI Overviews. Optimal answer length is 40–60 words: long enough to be complete, short enough to be a self-contained extractable chunk.',
     impact: 'medium',
     effort: 'medium',
     category: 'contentQuality',
-    implementation: 'Add 5+ frequently asked questions with detailed answers (50+ characters each). Cover shipping, returns, compatibility, and product-specific questions.'
+    implementation: 'Add 5+ product-specific questions with 40–60 word answers. Use question-based H2 or H3 headings (e.g., &lt;h3&gt;Does this work with 240V outlets?&lt;/h3&gt;). Start each answer with the direct answer first — \'Yes, this product works with 240V outlets\' — then provide supporting detail. This BLUF (Bottom Line Up Front) format increases AI citation rates 40–60%. Avoid general FAQ (shipping, returns) — product-specific content is what gets cited.'
   },
 
   'faq-not-product-specific': {
@@ -273,7 +273,7 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'multiple-h1': {
     title: 'Use single H1 heading',
-    description: 'Multiple H1 headings confuse content hierarchy for LLMs.',
+    description: 'Multiple H1 headings create an ambiguous structure for content extraction systems that use heading hierarchy as a topic-boundary signal. Google\'s John Mueller has confirmed multiple H1s don\'t affect search ranking, but a single H1 for the product name is best practice for clean extraction.',
     impact: 'low',
     effort: 'low',
     category: 'contentStructure',
@@ -364,11 +364,11 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'review-platform-no-schema': {
     title: 'Configure your review platform to output structured data',
-    description: 'A third-party review platform is detected on this page but it is not outputting aggregateRating structured data. Search engines and AI systems read review counts and ratings from JSON-LD schema — not from JavaScript-rendered widgets. Without it, your reviews are invisible to Google and LLMs regardless of how many you have.',
+    description: 'A third-party review platform is detected but may not be outputting review data in a way AI crawlers can access. The Vercel/MERJ analysis of 500M+ AI crawler requests confirmed that GPTBot, ClaudeBot, and PerplexityBot execute zero JavaScript — meaning reviews loaded via JS widgets (Yotpo, Bazaarvoice, PowerReviews, Okendo by default) are invisible to these crawlers regardless of review volume. AggregateRating JSON-LD fixes the schema signal for search indexes; server-side rendering fixes the content visibility problem for AI crawlers.',
     impact: 'high',
     effort: 'low',
     category: 'authorityTrust',
-    implementation: 'Enable the structured data / schema markup option in your review platform settings. Most platforms (Klaviyo, Judge.me, Yotpo, Okendo, Stamped, Loox) support this natively — look for "Rich Snippets", "SEO Schema", or "Google Schema" in the platform dashboard. Once enabled, re-run this analysis to confirm aggregateRating appears in the AI Readiness score.'
+    implementation: 'Enable the structured data / schema markup option in your review platform settings. Most platforms (Klaviyo, Judge.me, Yotpo, Okendo, Stamped, Loox) support this natively — look for "Rich Snippets", "SEO Schema", or "Google Schema" in the platform dashboard. Also verify that review text appears in the initial server-rendered HTML by checking View Page Source (Ctrl+U) — if reviews are not visible there, schema alone will not make them visible to most AI crawlers.'
   },
 
   'reviews-low-count': {
