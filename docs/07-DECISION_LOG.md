@@ -22,6 +22,25 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 
 ## Decisions
 
+## DEC-0031 — v3.1.0 Guidance Accuracy & Research Integration
+**Date:** 2026-03-24
+**Status:** Decided
+
+**Decision:** Second-pass audit of all recommendation templates and scoring logic identified 10 remaining contradictions and 12 templates with correct principles but no research evidence. v3.1.0 corrects all contradictions and upgrades each affected template with specific research citations, statistics, and implementation examples.
+
+**Key changes:**
+- Scoring: Removed `hasEmotionalLanguage` from `descriptionQuality` AI Readiness factor (GEO paper: emotional tone shows no improvement); renamed multiplier `useCaseBenefitCopy`; removed stale guard from recommendation-engine.js
+- Templates: Fixed mechanism descriptions in product-schema, faq-schema, review-platform, rating-schema (indirect via index pipelines, not direct LLM parsing)
+- Templates: Removed 200-word description threshold and 10-spec threshold (both unsupported); replaced with section density guidance (120–180 words, SE Ranking)
+- Templates: Added Table Meets LLM (WSDM '24) evidence to table-structure, Trafilatura/HtmlRAG evidence to semantic-html, BLUF/40–60 word guidance to FAQ templates, fan-out mechanism to comparison/answer-format templates
+- Templates: Added front-loading (44% from first 30%), entity density, definitive language guidance to description-quality
+- Context: Removed "emotional" framing from Want context descriptions in report-template.js and weights.js
+- CATEGORY_DESCRIPTIONS: All four AI Readiness category descriptions updated with research-accurate mechanisms
+
+**Research base:** GEO paper (SIGKDD '24), Table Meets LLM (WSDM '24), HtmlRAG (WWW '25), SE Ranking 129K domain study, Kevin Indig 3M response analysis, AirOps 548K page fan-out study, Vercel/MERJ 500M fetch study, SearchVIU schema test, Frase.io AIO study.
+
+---
+
 ### DEC-0030 — v3.0.0 Scoring Accuracy Overhaul
 - **Date:** 2026-03-23
 - **Status:** Accepted

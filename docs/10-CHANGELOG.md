@@ -4,6 +4,40 @@
 
 All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/). Most recent version at the top.
 
+## v3.1.0 — 2026-03-24
+### Scoring Changes
+- `descriptionQuality` factor: Removed `hasEmotionalLanguage` from scoring — emotional tone has no measurable AI visibility impact (GEO paper). Factor now scores use-case benefit framing and technical terms only. Renamed internal multiplier `emotionalBenefitCopy` → `useCaseBenefitCopy`.
+- Removed stale `hasEmotionalLanguage` guard from `description-quality-low` recommendation check in recommendation-engine.js.
+- Products relying solely on emotional language (no technical terms, no benefit statements) may see a slight `descriptionQuality` score decrease.
+
+### Guidance Copy Corrections
+- `product-schema-missing`: Corrected mechanism — indirect via search index pipelines, not direct LLM parsing
+- `review-platform-no-schema`: Corrected to lead with JS rendering problem (Vercel/MERJ 500M request study); schema is secondary
+- `faq-schema-missing`: Clarified schema amplifies search index representation; visible FAQ is primary extraction source
+- `rating-schema-missing`: Corrected to indirect mechanism via Google Knowledge Graph / Bing index
+- `faq-content-missing`: Added 3.1× citation rate, 40–60 word optimal answer length, BLUF guidance
+- `multiple-h1`: Softened "confuse LLMs" — no evidence; Mueller confirmed no limit
+- `description-short`: Replaced 200-word threshold with section density guidance (120–180 words, SE Ranking: +70% citations)
+- `specs-missing`: Replaced 10-spec threshold with HTML table guidance (Table Meets LLM, WSDM '24)
+- `h1-missing`: Removed og:title reference; aligned to `<title>` tag and schema Product name
+- Want context description: Removed "emotional, lifestyle-driven" framing
+
+### Guidance Copy Upgrades (Research Evidence Added)
+- `table-structure-missing`: Table Meets LLM (WSDM '24) 6.76% improvement; SE Ranking 2.5× citation rate; AirOps 2×
+- `heading-hierarchy-broken`: 120–180 words/section (+70% citations); answer capsule pattern (SEL audit)
+- `semantic-html-missing`: Trafilatura F1 93–96%; HtmlRAG (WWW '25); figcaption editorial context
+- `primary-image-alt-missing`: AI crawlers are text-only; ideal alt text format with standing desk example
+- `faq-not-product-specific`: Fan-out mechanism (AirOps 32.9% of citations from fan-out); Q-based heading format
+- `comparison-missing`: 43.8% of ChatGPT citations are "best X" format (Ahrefs); 34% brand comparison pages cited
+- `answer-format-missing`: Answer capsule pattern (Search Engine Land); fan-out expansion (AirOps 89.6%)
+- `description-quality-low`: Front-loading (Kevin Indig 44% from first 30%); entity density 20.6%; definitive language 2× citation rate
+- `certifications-missing`: GEO paper 115% visibility from source citations; clinical trial format example
+- `review-depth-low`: Specific use-case review format; JS rendering risk for review platforms
+- `last-modified-missing`: Substantive vs cosmetic update distinction (3.8× difference, SE Ranking)
+- CATEGORY_DESCRIPTIONS: structuredData, contentQuality, contentStructure, authorityTrust updated with research-accurate mechanisms
+
+---
+
 ## [Unreleased]
 
 ### Fixed
