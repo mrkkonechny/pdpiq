@@ -200,11 +200,11 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'faq-not-product-specific': {
     title: 'Add product-specific FAQ questions',
-    description: 'A page-level FAQ (general site questions) provides limited AI citation value. Product-specific FAQs — questions about this product\'s features, compatibility, use cases, and setup — are far more likely to be cited by LLMs when users ask about this product.',
+    description: 'A page-level FAQ (general site questions) provides limited AI citation value. Product-specific FAQs create citation opportunities across multiple user queries through AI fan-out expansion — AirOps found that 32.9% of all cited pages appear only in fan-out results (sub-questions the AI generates around the main query). A product FAQ that answers "Does this work with X?" covers fan-out queries that a description block never would.',
     impact: 'medium',
     effort: 'medium',
     category: 'contentQuality',
-    implementation: 'Add a FAQ section directly on this product page with 5+ questions specific to this product (e.g. "What range does the base unit cover?", "Does it work without a phone line?"). Mark it up with FAQPage schema nested under the Product schema or as a standalone FAQPage on the product page.'
+    implementation: 'Add a FAQ section directly on this product page with 5–8 questions specific to this product. Use question-based headings (&lt;h3&gt; or &lt;h2&gt;): "Does this work with 240V outlets?" rather than "Compatibility". Write 40–60 word answers that lead with the direct answer: "Yes — this model supports 110V and 240V dual voltage, making it suitable for international use." Cover: compatibility, setup requirements, use-case fit ("Who is this best for?"), common concern pre-emptions, and maintenance. Add FAQPage schema for each Q&amp;A pair.'
   },
 
   'features-missing': {
@@ -482,11 +482,11 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'answer-format-missing': {
     title: 'Add AI-citable answer-format content',
-    description: 'Your page lacks "best for" statements, comparison content, how-to guidance, or use case descriptions that LLMs extract when answering user questions.',
+    description: 'Your page lacks the direct-answer content structure that AI systems preferentially extract. Search Engine Land\'s audit of ChatGPT-cited content found that "answer capsules" — concise 120–150 character explanations immediately after H2 headings — were the single strongest commonality among cited posts. AI systems process queries through fan-out expansion: 89.6% of prompts trigger multiple sub-queries (AirOps, 548K pages), and 32.9% of cited pages appear only in fan-out results.',
     impact: 'medium',
     effort: 'medium',
     category: 'aiDiscoverability',
-    implementation: 'Add content that directly answers common questions: "Best for [use case]" statements, "vs." comparison sections, "How to [use/install/set up]" guides, and specific use case descriptions (e.g., "Perfect for small apartments"). These patterns are what LLMs cite in responses.'
+    implementation: 'After each H2 section heading, add a 1–2 sentence direct answer as the first content (the "answer capsule"). Example: under &lt;h2&gt;Who is this for?&lt;/h2&gt;, write "This filter is ideal for allergy sufferers in rooms up to 500 sq ft — it removes 99.97% of particles including pollen, pet dander, and dust mites." Then expand with supporting detail. Also add: "Best for [use case]" statements, specific use-case descriptions ("Ideal for studio apartments because it operates at 24dB"), and "How to [use/set up]" guides — these match the sub-questions AI systems generate around product recommendation queries.'
   },
 
   'product-identifiers-missing': {
@@ -593,11 +593,11 @@ export const RECOMMENDATION_TEMPLATES = {
 
   'comparison-missing': {
     title: 'Add product comparison content',
-    description: 'Comparison content ("vs.", "compared to", "alternative to") helps LLMs recommend your product in competitive queries like "X vs Y" or "best alternative to Z".',
+    description: 'Comparison and "best for" content is the single most-cited page format in AI search — Ahrefs analysis of ChatGPT citations found 43.8% of all cited pages are "best X" comparison formats. When AI systems recommend products, brands\' own comparison pages account for 34% of citations. Pages that answer both the main query and fan-out queries are 161% more likely to be cited overall.',
     impact: 'medium',
     effort: 'medium',
     category: 'contentQuality',
-    implementation: 'Add a "How It Compares" or "Why Choose This" section that positions your product against alternatives. Use phrases like "compared to", "unlike", "vs.", or "better than". A comparison table with competing features is the most LLM-friendly format.'
+    implementation: 'Add a "Why Choose This / How It Compares" section with: (1) "Best for" statements backed by specific evidence — "Best for small apartments: removes 99.97% of particles in rooms up to 465 sq ft in 12 minutes"; (2) an HTML comparison table against 1–2 named alternatives covering the attributes users actually compare; (3) a "Who this is not for" note — honest positioning increases trust and citation likelihood. Use specific figures: "3× faster charge" beats "charges quickly". A comparison table with &lt;th&gt; headers and &lt;td&gt; data earns 2.5× more citations than text-only equivalents.'
   },
 
   // Additional Content Structure
