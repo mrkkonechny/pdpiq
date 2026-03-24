@@ -689,16 +689,13 @@ class SidePanelApp {
     const schemas = extractedData?.structuredData?.schemas || {};
     // ProductGroup is stored under schemas.product when treated as product (see scoring-engine.js)
     // but content-script may store it separately — check both keys
-    const productSchema = schemas.product || schemas.productgroup || null;
+    const productSchema = schemas.product || null;
     const hasProductSchema = !!(productSchema);
     let productSchemaDetail = 'Not found in page markup';
     if (hasProductSchema) {
       // Infer display type from schema data
-      const schemaTypeName = schemas.productgroup && !schemas.product ? 'ProductGroup' : 'Product';
-      const variantCount = productSchema.variantCount || (Array.isArray(productSchema.hasVariant) ? productSchema.hasVariant.length : null);
-      productSchemaDetail = variantCount
-        ? `${schemaTypeName} · ${variantCount} variant${variantCount !== 1 ? 's' : ''}`
-        : schemaTypeName;
+      const schemaTypeName = productSchema?.isProductGroup ? 'ProductGroup' : 'Product';
+      productSchemaDetail = schemaTypeName;
     }
     rows.push({
       label: 'Product Schema',
