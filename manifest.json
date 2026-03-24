@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "pdpIQ",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Triple-score PDP analyzer: AI citation readiness, consumer shopping experience, and SEO quality for eCommerce product pages",
   "icons": {
     "16": "icons/icon16.png",

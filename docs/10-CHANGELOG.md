@@ -4,6 +4,14 @@
 
 All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/). Most recent version at the top.
 
+## v3.2.0 — 2026-03-24
+### New Features
+- **What AI Sees** — Two new collapsible sections at the bottom of the AI Visibility tab:
+  - *AI Signal Inventory*: 8 key AI signals (Product Schema, og:image format, description length, GTIN/MPN, AI crawler access, llms.txt, entity consistency, answer-format content) shown with pass/fail/warn tags drawn from already-extracted data — no additional network requests
+  - *Raw Crawlable Text*: Two scrollable windows showing (1) product content with nav/footer stripped and (2) full page body text as AI crawlers see it, with word counts and a copy-to-clipboard button
+
+---
+
 ## v3.1.0 — 2026-03-24
 ### Scoring Changes
 - `descriptionQuality` factor: Removed `hasEmotionalLanguage` from scoring — emotional tone has no measurable AI visibility impact (GEO paper). Factor now scores use-case benefit framing and technical terms only. Renamed internal multiplier `emotionalBenefitCopy` → `useCaseBenefitCopy`.
