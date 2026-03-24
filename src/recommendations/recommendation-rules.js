@@ -477,7 +477,7 @@ export const RECOMMENDATION_TEMPLATES = {
     impact: 'medium',
     effort: 'low',
     category: 'aiDiscoverability',
-    implementation: 'Align the product name exactly across: (1) Schema.org Product "name" property, (2) H1 heading, (3) HTML <title> tag, (4) meta description. Minor variations (e.g., trademark symbols, subtitle presence) are acceptable — avoid different names or word order that could indicate different products.'
+    implementation: 'Align the product name exactly across: (1) Schema.org Product "name" property, (2) H1 heading, (3) HTML &lt;title&gt; tag, (4) meta description. Minor variations (e.g., trademark symbols, subtitle presence) are acceptable — avoid different names or word order that could indicate different products.'
   },
 
   'answer-format-missing': {
