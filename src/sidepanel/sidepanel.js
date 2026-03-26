@@ -296,6 +296,12 @@ class SidePanelApp {
 
   async processResults() {
     try {
+      // Guard against extraction errors
+      if (this.currentData?.error) {
+        this.showError('Could not analyze this page: ' + (this.currentData.error || 'unknown error'));
+        return;
+      }
+
       // Get current page URL for network fetches
       const pageUrl = this.currentData.pageInfo?.url;
       let baseUrl = null;
