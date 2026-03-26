@@ -99,11 +99,24 @@ class SidePanelApp {
     });
 
     // Clear history button
-    document.getElementById('clearHistoryBtn').addEventListener('click', async () => {
-      if (confirm('Clear all analysis history?')) {
+    document.getElementById('clearHistoryBtn').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      if (btn.dataset.confirming === 'true') {
         await clearHistory();
         this.selectedHistoryIds = [];
         await this.loadHistory();
+        btn.dataset.confirming = 'false';
+        btn.title = 'Clear History';
+        btn.style.color = '';
+      } else {
+        btn.dataset.confirming = 'true';
+        btn.title = 'Click again to confirm';
+        btn.style.color = '#ef4444';
+        setTimeout(() => {
+          btn.dataset.confirming = 'false';
+          btn.title = 'Clear History';
+          btn.style.color = '';
+        }, 3000);
       }
     });
 
