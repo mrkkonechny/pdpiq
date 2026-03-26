@@ -1533,7 +1533,7 @@ class SidePanelApp {
           const cat = entry.categoryScores[k];
           const score = Math.round(cat.score);
           const cls = score >= 80 ? 'high' : score >= 60 ? 'medium' : 'low';
-          const shortName = (cat.name || k).replace(/&|and/gi, '&').split(' ').slice(0, 2).join(' ');
+          const shortName = (cat.name || k).replace(/&|and/gi, '&');
           return `
             <div class="compare-cat-row">
               <span class="compare-cat-name" title="${escapeHtml(cat.name)}">${escapeHtml(shortName)}</span>
@@ -1551,7 +1551,7 @@ class SidePanelApp {
             const cat = entry.pdpCategoryScores[k];
             const score = Math.round(cat.score);
             const cls = score >= 80 ? 'high' : score >= 60 ? 'medium' : 'low';
-            const shortName = (cat.name || k).replace(/&|and/gi, '&').split(' ').slice(0, 2).join(' ');
+            const shortName = (cat.name || k).replace(/&|and/gi, '&');
             return `
               <div class="compare-cat-row">
                 <span class="compare-cat-name" title="${escapeHtml(cat.name)}">${escapeHtml(shortName)}</span>
@@ -1584,7 +1584,7 @@ class SidePanelApp {
             const cat = entry.seoCategoryScores[k];
             const score = Math.round(cat.score);
             const cls = score >= 80 ? 'high' : score >= 60 ? 'medium' : 'low';
-            const shortName = (cat.name || k).replace(/&|and/gi, '&').split(' ').slice(0, 2).join(' ');
+            const shortName = (cat.name || k).replace(/&|and/gi, '&');
             return `
               <div class="compare-cat-row">
                 <span class="compare-cat-name" title="${escapeHtml(cat.name)}">${escapeHtml(shortName)}</span>
