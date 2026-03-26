@@ -904,12 +904,15 @@ class SidePanelApp {
       <div class="raw-text-area-label">Product Description</div>
       <div class="raw-text-scroll">${descText ? escapeHtml(descText) : 'No product description detected'}</div>
       <div class="raw-text-word-count">~${descWordCount.toLocaleString()} words of product content detected</div>
+      ${descText ? '<button class="raw-text-copy-btn" id="copyDescTextBtn">&#8663; Copy product description</button>' : ''}
       <div class="raw-text-area-label">Full page (includes nav &amp; footer)</div>
       <div class="raw-text-scroll">${escapeHtml(fullText)}</div>
       <div class="raw-text-word-count">~${fullWordCount.toLocaleString()} words total</div>
       <button class="raw-text-copy-btn" id="copyRawTextBtn">&#8663; Copy full page text</button>
     `;
 
+    const copyDescBtn = document.getElementById('copyDescTextBtn');
+    if (copyDescBtn) copyDescBtn.onclick = () => { navigator.clipboard.writeText(descText).catch(() => {}); };
     const copyBtn = document.getElementById('copyRawTextBtn');
     if (copyBtn) copyBtn.onclick = () => { navigator.clipboard.writeText(fullText).catch(() => {}); };
   }
