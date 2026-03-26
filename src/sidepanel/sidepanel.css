@@ -331,6 +331,14 @@ body {
   cursor: pointer;
   user-select: none;
 }
+button.citation-header {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+}
 .citation-header:hover {
   opacity: 0.8;
 }

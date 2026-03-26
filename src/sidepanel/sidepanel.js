@@ -147,38 +147,43 @@ class SidePanelApp {
     });
 
     // Citation Opportunity Map toggle
-    const citationToggle = document.getElementById('citationToggle');
-    if (citationToggle) {
-      citationToggle.addEventListener('click', () => {
-        const content = document.getElementById('citationContent');
-        const icon = citationToggle.querySelector('.citation-toggle-icon');
-        content?.classList.toggle('hidden');
-        icon?.classList.toggle('expanded');
-      });
-    }
+    document.getElementById('citationToggle')?.addEventListener('click', () => {
+      const content = document.getElementById('citationContent');
+      const btn = document.getElementById('citationToggle');
+      const isExpanded = !content.classList.contains('hidden');
+      content.classList.toggle('hidden', isExpanded);
+      btn?.setAttribute('aria-expanded', String(!isExpanded));
+      btn?.querySelector('.citation-toggle-icon')?.classList.toggle('expanded', !isExpanded);
+    });
 
     // Content-to-Citation Roadmap toggle
     document.getElementById('citationRoadmapToggle')?.addEventListener('click', () => {
       const content = document.getElementById('citationRoadmapContent');
-      const icon = document.querySelector('#citationRoadmapToggle .citation-toggle-icon');
-      content?.classList.toggle('hidden');
-      icon?.classList.toggle('expanded');
+      const btn = document.getElementById('citationRoadmapToggle');
+      const isExpanded = !content.classList.contains('hidden');
+      content.classList.toggle('hidden', isExpanded);
+      btn?.setAttribute('aria-expanded', String(!isExpanded));
+      btn?.querySelector('.citation-toggle-icon')?.classList.toggle('expanded', !isExpanded);
     });
 
     // AI Signal Inventory toggle
     document.getElementById('aiSignalInventoryToggle')?.addEventListener('click', () => {
       const content = document.getElementById('aiSignalInventoryContent');
-      const icon = document.querySelector('#aiSignalInventoryToggle .citation-toggle-icon');
-      content?.classList.toggle('hidden');
-      if (icon) icon.innerHTML = content.classList.contains('hidden') ? '&#9654;' : '&#9660;';
+      const btn = document.getElementById('aiSignalInventoryToggle');
+      const isExpanded = !content.classList.contains('hidden');
+      content.classList.toggle('hidden', isExpanded);
+      btn?.setAttribute('aria-expanded', String(!isExpanded));
+      btn?.querySelector('.citation-toggle-icon')?.classList.toggle('expanded', !isExpanded);
     });
 
     // Raw Crawlable Text toggle
     document.getElementById('rawCrawlableTextToggle')?.addEventListener('click', () => {
       const content = document.getElementById('rawCrawlableTextContent');
-      const icon = document.querySelector('#rawCrawlableTextToggle .citation-toggle-icon');
-      content?.classList.toggle('hidden');
-      if (icon) icon.innerHTML = content.classList.contains('hidden') ? '&#9654;' : '&#9660;';
+      const btn = document.getElementById('rawCrawlableTextToggle');
+      const isExpanded = !content.classList.contains('hidden');
+      content.classList.toggle('hidden', isExpanded);
+      btn?.setAttribute('aria-expanded', String(!isExpanded));
+      btn?.querySelector('.citation-toggle-icon')?.classList.toggle('expanded', !isExpanded);
     });
   }
 
