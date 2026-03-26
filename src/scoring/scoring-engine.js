@@ -1439,13 +1439,18 @@ export class ScoringEngine {
       score = maxPoints;
     } else if (robotsData.accessible) {
       const blockedCount = robotsData.blockedCrawlers?.length || 0;
+      const partialCount = robotsData.partiallyBlockedCrawlers?.length || 0;
       const allowedCount = robotsData.allowedCrawlers?.length || 0;
-      const totalMajor = blockedCount + allowedCount;
+      const totalMajor = blockedCount + partialCount + allowedCount;
 
-      if (blockedCount === 0) {
+      if (blockedCount === 0 && partialCount === 0) {
         status = 'pass';
         details = `All major AI crawlers allowed`;
         score = maxPoints;
+      } else if (blockedCount === 0 && partialCount > 0) {
+        status = 'warning';
+        details = `${partialCount}/${totalMajor} AI crawlers partially blocked (path-level): ${robotsData.partiallyBlockedCrawlers.slice(0, 3).join(', ')}`;
+        score = Math.round(maxPoints * 0.7);
       } else if (blockedCount < totalMajor) {
         status = 'warning';
         details = `${blockedCount}/${totalMajor} AI crawlers blocked: ${robotsData.blockedCrawlers.slice(0, 3).join(', ')}`;

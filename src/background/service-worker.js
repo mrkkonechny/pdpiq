@@ -455,15 +455,16 @@ function parseRobotsTxt(content) {
     }
   }
 
-  // Determine which AI crawlers are blocked
+  // Determine which AI crawlers are blocked, partially blocked, or allowed
   const blockedCrawlers = [];
+  const partiallyBlockedCrawlers = [];
   const allowedCrawlers = [];
 
   for (const crawler of MAJOR_AI_CRAWLERS) {
     const crawlerLower = crawler.toLowerCase();
     const rules = crawlerRules[crawlerLower];
 
-    // Check if explicitly blocked
+    // Check if explicitly fully blocked (Disallow: / or Disallow: /*)
     if (rules && rules.disallow.some(path => path === '/' || path === '/*')) {
       // Check if there's an allow rule that might override
       if (!rules.allow.some(path => path === '/' || path === '/*')) {
@@ -478,6 +479,13 @@ function parseRobotsTxt(content) {
       continue;
     }
 
+    // Check for partial path blocks (e.g. Disallow: /products/)
+    const effectiveRules = rules || crawlerRules['*'];
+    if (effectiveRules && effectiveRules.disallow.some(path => path !== '' && path !== '/' && path !== '/*')) {
+      partiallyBlockedCrawlers.push(crawler);
+      continue;
+    }
+
     allowedCrawlers.push(crawler);
   }
 
@@ -485,6 +493,7 @@ function parseRobotsTxt(content) {
     accessible: true,
     crawlerRules,
     blockedCrawlers,
+    partiallyBlockedCrawlers,
     allowedCrawlers,
     hasWildcardDisallowAll
   };
