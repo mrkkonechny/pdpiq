@@ -1085,6 +1085,18 @@ button.citation-header {
   color: var(--text-tertiary);
   transition: color 0.2s;
   min-width: 0;
+  position: relative;
+}
+
+.nav-btn[data-has-results]::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: calc(50% - 14px);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4f46e5;
 }
 
 .nav-btn:hover {

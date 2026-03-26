@@ -394,6 +394,11 @@ class SidePanelApp {
       this.displayPdpResults();
       this.displaySeoResults();
 
+      // Mark nav tabs as having results
+      document.querySelector('.nav-btn[data-tab="results"]')?.setAttribute('data-has-results', 'true');
+      document.querySelector('.nav-btn[data-tab="pdp"]')?.setAttribute('data-has-results', 'true');
+      document.querySelector('.nav-btn[data-tab="seo"]')?.setAttribute('data-has-results', 'true');
+
       // Save to history
       await saveAnalysis({
         url: this.currentData.pageInfo?.url,
@@ -1767,6 +1772,7 @@ class SidePanelApp {
   }
 
   showContextSelector() {
+    document.querySelectorAll('.nav-btn[data-has-results]').forEach(btn => btn.removeAttribute('data-has-results'));
     document.getElementById('contextSelector').classList.remove('hidden');
     document.getElementById('results').classList.add('hidden');
     document.getElementById('pdpView').classList.add('hidden');
