@@ -562,6 +562,7 @@ body {
 .factor.pass .factor-status { color: var(--grade-a); }
 .factor.fail .factor-status { color: var(--grade-f); }
 .factor.warning .factor-status { color: var(--grade-c); }
+.factor.na .factor-status { color: var(--text-secondary); }
 
 .factor-points {
   font-size: 11px;

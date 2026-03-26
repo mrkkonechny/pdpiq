@@ -974,7 +974,8 @@ class SidePanelApp {
   renderFactors(factors) {
     return factors.map(f => {
       const statusIcon = f.status === 'pass' ? '✓' :
-                         f.status === 'fail' ? '✗' : '⚠';
+                         f.status === 'fail' ? '✗' :
+                         f.status === 'na'   ? '–' : '⚠';
       const contextualLabel = f.contextual ? '<span class="multiplier">CTX</span>' : '';
 
       // Get recommendation if factor has a mapping
@@ -1106,7 +1107,8 @@ class SidePanelApp {
   renderPdpFactors(factors) {
     return factors.map(f => {
       const statusIcon = f.status === 'pass' ? '✓' :
-                         f.status === 'fail' ? '✗' : '⚠';
+                         f.status === 'fail' ? '✗' :
+                         f.status === 'na'   ? '–' : '⚠';
       const contextualLabel = f.contextual ? '<span class="multiplier">CTX</span>' : '';
 
       const recId = PDP_FACTOR_RECOMMENDATIONS[f.name];
@@ -1223,7 +1225,8 @@ class SidePanelApp {
   renderSeoFactors(factors) {
     return factors.map(f => {
       const statusIcon = f.status === 'pass' ? '✓' :
-                         f.status === 'fail' ? '✗' : '⚠';
+                         f.status === 'fail' ? '✗' :
+                         f.status === 'na'   ? '–' : '⚠';
 
       const recId = SEO_FACTOR_RECOMMENDATIONS[f.name];
       const rec = recId ? SEO_RECOMMENDATION_TEMPLATES[recId] : null;
