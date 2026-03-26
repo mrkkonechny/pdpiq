@@ -332,7 +332,7 @@ export class ScoringEngine {
     const hasOgTitle = !!og.title && og.title.length > 0;
     const titleLength = og.title?.length || 0;
     const titleOptimal = titleLength > 0 && titleLength <= 60;
-    const ogTitleScore = hasOgTitle ? (titleOptimal ? weights.ogTitle : weights.ogTitle * 0.7) : 0;
+    const ogTitleScore = hasOgTitle ? (titleOptimal ? weights.ogTitle : Math.round(weights.ogTitle * 0.7)) : 0;
     factors.push({
       name: 'og:title',
       status: hasOgTitle ? (titleOptimal ? 'pass' : 'warning') : 'fail',
@@ -346,7 +346,7 @@ export class ScoringEngine {
     const hasOgDesc = !!og.description && og.description.length > 0;
     const descLength = og.description?.length || 0;
     const descOptimal = descLength >= 100 && descLength <= 200;
-    const ogDescScore = hasOgDesc ? (descOptimal ? weights.ogDescription : weights.ogDescription * 0.7) : 0;
+    const ogDescScore = hasOgDesc ? (descOptimal ? weights.ogDescription : Math.round(weights.ogDescription * 0.7)) : 0;
     factors.push({
       name: 'og:description',
       status: hasOgDesc ? (descOptimal ? 'pass' : 'warning') : 'fail',
@@ -371,7 +371,7 @@ export class ScoringEngine {
     // Twitter Card (10 points)
     const hasTwitterCard = !!twitter.card;
     const isLargeImage = twitter.card === 'summary_large_image';
-    const twitterScore = hasTwitterCard ? (isLargeImage ? weights.twitterCard : weights.twitterCard * 0.7) : 0;
+    const twitterScore = hasTwitterCard ? (isLargeImage ? weights.twitterCard : Math.round(weights.twitterCard * 0.7)) : 0;
     factors.push({
       name: 'Twitter Card',
       status: hasTwitterCard ? (isLargeImage ? 'pass' : 'warning') : 'fail',
@@ -399,7 +399,7 @@ export class ScoringEngine {
     const isProductCanonical = data?.canonical?.isProductCanonical;
     // Pass if canonical matches current URL or is a valid parent canonical (e.g. Shopify collection → product)
     const canonicalIsValid = canonicalMatches || isProductCanonical;
-    const canonicalScore = hasCanonical ? (canonicalIsValid ? weights.canonical : weights.canonical * 0.7) : 0;
+    const canonicalScore = hasCanonical ? (canonicalIsValid ? weights.canonical : Math.round(weights.canonical * 0.7)) : 0;
     factors.push({
       name: 'Canonical URL',
       status: hasCanonical ? (canonicalIsValid ? 'pass' : 'warning') : 'fail',
@@ -417,7 +417,7 @@ export class ScoringEngine {
     const hasMetaDesc = !!data?.standard?.description;
     const metaDescLength = data?.standard?.description?.length || 0;
     const metaDescOptimal = metaDescLength >= 120 && metaDescLength <= 160;
-    const metaDescScore = hasMetaDesc ? (metaDescOptimal ? weights.metaDescription : weights.metaDescription * 0.7) : 0;
+    const metaDescScore = hasMetaDesc ? (metaDescOptimal ? weights.metaDescription : Math.round(weights.metaDescription * 0.7)) : 0;
     factors.push({
       name: 'Meta Description',
       status: hasMetaDesc ? (metaDescOptimal ? 'pass' : 'warning') : 'fail',
@@ -604,7 +604,6 @@ export class ScoringEngine {
     const specCount = specs.count || 0;
     let specScore = specs.countScore ? Math.round((specs.countScore / 100) * weights.specificationCount) : 0;
     specScore = Math.round(specScore * this.multipliers.technicalSpecifications);
-    specScore = Math.min(weights.specificationCount * 1.5, specScore); // Cap at 150% of base
     const specSource = specs.source ? ` (${specs.source})` : '';
 
     factors.push({
@@ -703,7 +702,7 @@ export class ScoringEngine {
       name: 'Warranty Information',
       status: warrantyNA ? 'pass' : (details.hasWarranty ? 'pass' : 'fail'),
       points: Math.min(weights.warrantyInfo, warrantyScore),
-      maxPoints: weights.warrantyInfo,
+      maxPoints: Math.round(weights.warrantyInfo * (this.multipliers.warrantyInfo || 1.0)),
       contextual: true,
       details: warrantyNA ? 'N/A for apparel'
         : details.hasWarranty ? (details.warrantyText || 'Warranty found')
@@ -719,7 +718,7 @@ export class ScoringEngine {
       name: 'Compatibility Information',
       status: compatNA ? 'pass' : (details.hasCompatibility ? 'pass' : 'fail'),
       points: Math.min(weights.compatibilityInfo, compatScore),
-      maxPoints: weights.compatibilityInfo,
+      maxPoints: Math.round(weights.compatibilityInfo * (this.multipliers.compatibilityInfo || 1.0)),
       contextual: true,
       details: compatNA ? 'N/A for apparel'
         : details.hasCompatibility ? (details.compatibilityText || 'Compatibility info found')
@@ -964,7 +963,7 @@ export class ScoringEngine {
     // Review Count (25 points) - Contextual
     let reviewCountScore = reviews.countScore ? Math.round((reviews.countScore / 100) * weights.reviewCount) : 0;
     reviewCountScore = Math.round(reviewCountScore * this.multipliers.reviewCount);
-    const reviewCap = Math.round(Math.min(weights.reviewCount * 1.5, weights.reviewCount * this.multipliers.reviewCount));
+    const reviewCap = Math.round(weights.reviewCount * this.multipliers.reviewCount);
     factors.push({
       name: 'Review Count',
       status: reviews.count >= 50 ? 'pass' : reviews.count >= 10 ? 'warning' : 'fail',
