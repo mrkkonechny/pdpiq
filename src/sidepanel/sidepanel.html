@@ -95,6 +95,11 @@
       <div id="platformDivergenceNote" class="platform-divergence-note" style="display:none;">
         <span class="platform-note-icon" aria-hidden="true">ⓘ</span>
         <p><strong>Platform note:</strong> AI platforms index content differently — only 11% of domains cited by ChatGPT also appear in Perplexity. ChatGPT Search relies on Bing (87% of citations); Perplexity prioritizes recency and Reddit; Google AI Overviews cites YouTube, LinkedIn, and Quora. This score measures cross-platform AI readiness signals.</p>
+        <button id="dismissPlatformNote" class="btn-icon platform-note-dismiss" title="Dismiss" aria-label="Dismiss this note" style="margin-left:auto;opacity:0.5;flex-shrink:0;">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
       </div>
 
       <!-- Category Breakdown -->
@@ -116,10 +121,10 @@
 
       <!-- Citation Opportunities (AI Readiness only) -->
       <div id="citationOpportunitiesSection" class="citation-opportunities hidden">
-        <div class="section-header citation-header" id="citationToggle">
+        <button class="section-header citation-header" id="citationToggle" aria-expanded="false" aria-controls="citationContent">
           <h3>Citation Opportunities</h3>
-          <span class="citation-toggle-icon">&#9654;</span>
-        </div>
+          <span class="citation-toggle-icon" aria-hidden="true">&#9654;</span>
+        </button>
         <div class="citation-content hidden" id="citationContent">
           <!-- Dynamically populated -->
         </div>
@@ -127,10 +132,10 @@
 
       <!-- Content-to-Citation Roadmap (AI Readiness only) -->
       <div id="citationRoadmapSection" class="citation-roadmap hidden">
-        <div class="section-header citation-header" id="citationRoadmapToggle">
+        <button class="section-header citation-header" id="citationRoadmapToggle" aria-expanded="false" aria-controls="citationRoadmapContent">
           <h3>Content-to-Citation Roadmap</h3>
-          <span class="citation-toggle-icon">&#9654;</span>
-        </div>
+          <span class="citation-toggle-icon" aria-hidden="true">&#9654;</span>
+        </button>
         <div class="citation-content hidden" id="citationRoadmapContent">
           <!-- Dynamically populated -->
         </div>
@@ -138,10 +143,10 @@
 
       <!-- AI Signal Inventory Section (AI Readiness only) -->
       <div id="aiSignalInventorySection" class="ai-signal-inventory hidden">
-        <div class="section-header citation-header" id="aiSignalInventoryToggle">
+        <button class="section-header citation-header" id="aiSignalInventoryToggle" aria-expanded="false" aria-controls="aiSignalInventoryContent">
           <h3>AI Signal Inventory</h3>
-          <span class="citation-toggle-icon">&#9654;</span>
-        </div>
+          <span class="citation-toggle-icon" aria-hidden="true">&#9654;</span>
+        </button>
         <div class="citation-content hidden" id="aiSignalInventoryContent">
           <!-- Dynamically populated -->
         </div>
@@ -149,10 +154,10 @@
 
       <!-- Raw Crawlable Text Section (AI Readiness only) -->
       <div id="rawCrawlableTextSection" class="raw-crawlable-text hidden">
-        <div class="section-header citation-header" id="rawCrawlableTextToggle">
+        <button class="section-header citation-header" id="rawCrawlableTextToggle" aria-expanded="false" aria-controls="rawCrawlableTextContent">
           <h3>Raw Crawlable Text</h3>
-          <span class="citation-toggle-icon">&#9654;</span>
-        </div>
+          <span class="citation-toggle-icon" aria-hidden="true">&#9654;</span>
+        </button>
         <div class="citation-content hidden" id="rawCrawlableTextContent">
           <!-- Dynamically populated -->
         </div>

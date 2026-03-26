@@ -88,6 +88,10 @@ function performFullExtraction() {
   clearJsonLdCache();
 
   try {
+    // Shared stripped clone for rawDomText (avoids repeated cloneNode calls)
+    const _strippedBody = document.body.cloneNode(true);
+    _strippedBody.querySelectorAll('script, style, noscript').forEach(el => el.remove());
+
     const result = {
       structuredData: extractStructuredData(),
       metaTags: extractMetaTags(),
@@ -106,11 +110,7 @@ function performFullExtraction() {
         extractedAt: new Date().toISOString()
       },
       rawPageText: (document.body.innerText || '').trim(),
-      rawDomText: (() => {
-        const clone = document.body.cloneNode(true);
-        clone.querySelectorAll('script, style, noscript').forEach(el => el.remove());
-        return clone.textContent.replace(/\s{2,}/g, ' ').trim();
-      })()
+      rawDomText: _strippedBody.textContent.replace(/\s{2,}/g, ' ').trim()
     };
 
     // Clear cache after extraction to free memory
@@ -149,7 +149,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       url: window.location.href,
       timestamp: Date.now(),
       requestId: message.requestId
-    });
+    }).catch(() => {}); // panel may have closed before extraction completed
 
     sendResponse({ success: true });
   }
@@ -1122,36 +1122,25 @@ function extractSpecsFromListItems(container, specs) {
 }
 
 function extractSpecsFromSchema(specs) {
-  document.querySelectorAll('script[type="application/ld+json"]').forEach(script => {
-    try {
-      const data = JSON.parse(script.textContent.trim());
-      const items = data['@graph'] || [data];
-      items.forEach(item => {
-        if (!item) return;
-        const type = (Array.isArray(item['@type']) ? item['@type'][0] : item['@type'] || '').toLowerCase();
-        if (type === 'product' || type === 'productgroup') {
-          // Extract from additionalProperty
-          if (item.additionalProperty && Array.isArray(item.additionalProperty)) {
-            item.additionalProperty.forEach(prop => {
-              if (prop.name && prop.value) {
-                specs.push({ name: prop.name, value: String(prop.value), hasUnit: hasUnitPattern(String(prop.value)), source: 'schema' });
-              }
-            });
-          }
-          // Extract common spec fields
-          const specFields = ['weight', 'width', 'height', 'depth', 'color', 'material', 'model', 'mpn', 'gtin', 'gtin13', 'gtin14', 'isbn'];
-          specFields.forEach(field => {
-            if (item[field]) {
-              const value = typeof item[field] === 'object' ? (item[field].value || JSON.stringify(item[field])) : String(item[field]);
-              specs.push({ name: field.charAt(0).toUpperCase() + field.slice(1), value, hasUnit: hasUnitPattern(value), source: 'schema' });
-            }
-          });
+  const specFields = ['weight', 'width', 'height', 'depth', 'color', 'material', 'model', 'mpn', 'gtin', 'gtin13', 'gtin14', 'isbn'];
+  for (const item of iterateSchemaItems(['product', 'productgroup'])) {
+    // Extract from additionalProperty
+    if (item.additionalProperty) {
+      const props = Array.isArray(item.additionalProperty) ? item.additionalProperty : [item.additionalProperty];
+      props.forEach(prop => {
+        if (prop.name && prop.value) {
+          specs.push({ name: prop.name, value: String(prop.value), hasUnit: hasUnitPattern(String(prop.value)), source: 'schema' });
         }
       });
-    } catch (e) {
-      // Invalid JSON, skip
     }
-  });
+    // Extract common spec fields
+    specFields.forEach(field => {
+      if (item[field]) {
+        const value = typeof item[field] === 'object' ? (item[field].value || JSON.stringify(item[field])) : String(item[field]);
+        specs.push({ name: field.charAt(0).toUpperCase() + field.slice(1), value, hasUnit: hasUnitPattern(value), source: 'schema' });
+      }
+    });
+  }
 }
 
 function hasUnitPattern(text) {
@@ -2697,38 +2686,22 @@ function extractSchemaDateSignals() {
     source: null
   };
 
-  // Check JSON-LD
-  document.querySelectorAll('script[type="application/ld+json"]').forEach(script => {
-    if (result.dateModified) return; // Already found
-
-    try {
-      const data = JSON.parse(script.textContent.trim());
-      const items = data['@graph'] || (Array.isArray(data) ? data : [data]);
-
-      items.forEach(item => {
-        if (!item || result.dateModified) return;
-
-        // Check Product, Article, WebPage types
-        const type = (Array.isArray(item['@type']) ? item['@type'][0] : item['@type'] || '').toLowerCase();
-        if (['product', 'article', 'webpage', 'newsarticle', 'blogposting'].includes(type)) {
-          if (item.dateModified) {
-            result.dateModified = item.dateModified;
-            result.source = 'json-ld';
-          }
-          if (item.datePublished && !result.datePublished) {
-            result.datePublished = item.datePublished;
-            result.source = result.source || 'json-ld';
-          }
-          if (item.dateCreated && !result.dateCreated) {
-            result.dateCreated = item.dateCreated;
-            result.source = result.source || 'json-ld';
-          }
-        }
-      });
-    } catch (e) {
-      // Invalid JSON, skip
+  // Check JSON-LD via cache
+  for (const item of iterateSchemaItems(['product', 'article', 'webpage', 'newsarticle', 'blogposting'])) {
+    if (item.dateModified && !result.dateModified) {
+      result.dateModified = item.dateModified;
+      result.source = 'json-ld';
     }
-  });
+    if (item.datePublished && !result.datePublished) {
+      result.datePublished = item.datePublished;
+      result.source = result.source || 'json-ld';
+    }
+    if (item.dateCreated && !result.dateCreated) {
+      result.dateCreated = item.dateCreated;
+      result.source = result.source || 'json-ld';
+    }
+    if (result.dateModified) break; // Found everything we need
+  }
 
   // Check microdata
   if (!result.dateModified) {

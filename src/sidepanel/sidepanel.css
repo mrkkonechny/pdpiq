@@ -3,11 +3,11 @@
   /* Colors */
   --grade-a: #22c55e;
   --grade-a-bg: #dcfce7;
-  --grade-b: #84cc16;
+  --grade-b: #4d7c0f;
   --grade-b-bg: #ecfccb;
-  --grade-c: #eab308;
+  --grade-c: #a16207;
   --grade-c-bg: #fef9c3;
-  --grade-d: #f97316;
+  --grade-d: #c2410c;
   --grade-d-bg: #ffedd5;
   --grade-f: #ef4444;
   --grade-f-bg: #fee2e2;
@@ -147,7 +147,7 @@ body {
 
 .context-options {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: var(--space-sm);
 }
 
@@ -155,7 +155,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--space-md);
+  flex: 1;
+  padding: var(--space-sm);
   border: 2px solid var(--border-color);
   border-radius: var(--border-radius);
   background: var(--bg-primary);
@@ -330,6 +331,14 @@ body {
 .citation-header {
   cursor: pointer;
   user-select: none;
+}
+button.citation-header {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
 }
 .citation-header:hover {
   opacity: 0.8;
@@ -562,6 +571,7 @@ body {
 .factor.pass .factor-status { color: var(--grade-a); }
 .factor.fail .factor-status { color: var(--grade-f); }
 .factor.warning .factor-status { color: var(--grade-c); }
+.factor.na .factor-status { color: var(--text-secondary); }
 
 .factor-points {
   font-size: 11px;
@@ -744,6 +754,12 @@ body {
   border-top: 1px dashed var(--border-color);
 }
 
+.show-more-recs {
+  display: block;
+  width: calc(100% - 28px);
+  margin: 8px 14px;
+}
+
 /* Actions */
 .actions {
   display: flex;
@@ -891,6 +907,15 @@ body {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
+}
+
+.history-view-btn {
+  flex-shrink: 0;
+  margin-left: var(--space-xs);
+  opacity: 0.5;
+}
+.history-item:hover .history-view-btn {
+  opacity: 1;
 }
 
 .empty-state {
@@ -1060,6 +1085,18 @@ body {
   color: var(--text-tertiary);
   transition: color 0.2s;
   min-width: 0;
+  position: relative;
+}
+
+.nav-btn[data-has-results]::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: calc(50% - 14px);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4f46e5;
 }
 
 .nav-btn:hover {
@@ -1210,7 +1247,10 @@ body {
   border-top: 1px solid var(--border-color, #f3f4f6);
 }
 .raw-text-scroll {
-  height: 120px;
+  height: 180px;
+  resize: vertical;
+  min-height: 80px;
+  max-height: 400px;
   overflow-y: auto;
   padding: 6px 14px;
   font-size: 11px;

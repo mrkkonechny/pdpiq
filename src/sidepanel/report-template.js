@@ -125,8 +125,8 @@ function factorRows(factors) {
   return factors.map((f, i) => {
     const isPass = f.status === 'pass';
     const bg = i % 2 === 0 ? '#ffffff' : '#f9fafb';
-    const textColor = isPass ? '#9ca3af' : '#374151';
-    const detailColor = isPass ? '#c4c8cf' : '#6b7280';
+    const textColor = isPass ? '#6b7280' : '#374151';
+    const detailColor = isPass ? '#9ca3af' : '#6b7280';
     return `
     <tr style="border-bottom:1px solid #f3f4f6;background:${bg}">
       <td style="padding:6px 8px;font-size:12px;color:${textColor}">${esc(f.name)}</td>
@@ -700,7 +700,7 @@ export function generateHtmlReport(result, pageInfo, recommendations, context, p
   <div class="header-flex" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #e5e7eb">
     <div>
       <div style="font-size:22px;font-weight:800;color:#111827;letter-spacing:-0.5px">pdp<span style="color:#4f46e5">IQ</span></div>
-      <div style="font-size:11px;color:#6b7280;margin-top:2px">AI Citation Readiness &amp; PDP Quality for eCommerce Product Pages</div>
+      <div style="font-size:11px;color:#6b7280;margin-top:2px">AI Readiness, PDP Quality &amp; SEO for eCommerce Product Pages</div>
       <div style="font-size:11px;color:#6b7280;margin-top:6px">Generated ${esc(reportDate)}</div>
       <div style="font-size:11px;color:#9ca3af;margin-top:2px">${esc(contextLabel)} · Report #${reportId}</div>
     </div>

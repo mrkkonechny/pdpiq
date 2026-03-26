@@ -99,12 +99,31 @@ class SidePanelApp {
     });
 
     // Clear history button
-    document.getElementById('clearHistoryBtn').addEventListener('click', async () => {
-      if (confirm('Clear all analysis history?')) {
+    document.getElementById('clearHistoryBtn').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      if (btn.dataset.confirming === 'true') {
         await clearHistory();
         this.selectedHistoryIds = [];
         await this.loadHistory();
+        btn.dataset.confirming = 'false';
+        btn.title = 'Clear History';
+        btn.style.color = '';
+      } else {
+        btn.dataset.confirming = 'true';
+        btn.title = 'Click again to confirm';
+        btn.style.color = '#ef4444';
+        setTimeout(() => {
+          btn.dataset.confirming = 'false';
+          btn.title = 'Clear History';
+          btn.style.color = '';
+        }, 3000);
       }
+    });
+
+    // Dismiss platform divergence note
+    document.getElementById('dismissPlatformNote')?.addEventListener('click', () => {
+      document.getElementById('platformDivergenceNote').style.display = 'none';
+      chrome.storage.local.set({ platformNoteDismissed: true });
     });
 
     // Compare button
@@ -147,38 +166,43 @@ class SidePanelApp {
     });
 
     // Citation Opportunity Map toggle
-    const citationToggle = document.getElementById('citationToggle');
-    if (citationToggle) {
-      citationToggle.addEventListener('click', () => {
-        const content = document.getElementById('citationContent');
-        const icon = citationToggle.querySelector('.citation-toggle-icon');
-        content?.classList.toggle('hidden');
-        icon?.classList.toggle('expanded');
-      });
-    }
+    document.getElementById('citationToggle')?.addEventListener('click', () => {
+      const content = document.getElementById('citationContent');
+      const btn = document.getElementById('citationToggle');
+      const isExpanded = !content.classList.contains('hidden');
+      content.classList.toggle('hidden', isExpanded);
+      btn?.setAttribute('aria-expanded', String(!isExpanded));
+      btn?.querySelector('.citation-toggle-icon')?.classList.toggle('expanded', !isExpanded);
+    });
 
     // Content-to-Citation Roadmap toggle
     document.getElementById('citationRoadmapToggle')?.addEventListener('click', () => {
       const content = document.getElementById('citationRoadmapContent');
-      const icon = document.querySelector('#citationRoadmapToggle .citation-toggle-icon');
-      content?.classList.toggle('hidden');
-      icon?.classList.toggle('expanded');
+      const btn = document.getElementById('citationRoadmapToggle');
+      const isExpanded = !content.classList.contains('hidden');
+      content.classList.toggle('hidden', isExpanded);
+      btn?.setAttribute('aria-expanded', String(!isExpanded));
+      btn?.querySelector('.citation-toggle-icon')?.classList.toggle('expanded', !isExpanded);
     });
 
     // AI Signal Inventory toggle
     document.getElementById('aiSignalInventoryToggle')?.addEventListener('click', () => {
       const content = document.getElementById('aiSignalInventoryContent');
-      const icon = document.querySelector('#aiSignalInventoryToggle .citation-toggle-icon');
-      content?.classList.toggle('hidden');
-      if (icon) icon.innerHTML = content.classList.contains('hidden') ? '&#9654;' : '&#9660;';
+      const btn = document.getElementById('aiSignalInventoryToggle');
+      const isExpanded = !content.classList.contains('hidden');
+      content.classList.toggle('hidden', isExpanded);
+      btn?.setAttribute('aria-expanded', String(!isExpanded));
+      btn?.querySelector('.citation-toggle-icon')?.classList.toggle('expanded', !isExpanded);
     });
 
     // Raw Crawlable Text toggle
     document.getElementById('rawCrawlableTextToggle')?.addEventListener('click', () => {
       const content = document.getElementById('rawCrawlableTextContent');
-      const icon = document.querySelector('#rawCrawlableTextToggle .citation-toggle-icon');
-      content?.classList.toggle('hidden');
-      if (icon) icon.innerHTML = content.classList.contains('hidden') ? '&#9654;' : '&#9660;';
+      const btn = document.getElementById('rawCrawlableTextToggle');
+      const isExpanded = !content.classList.contains('hidden');
+      content.classList.toggle('hidden', isExpanded);
+      btn?.setAttribute('aria-expanded', String(!isExpanded));
+      btn?.querySelector('.citation-toggle-icon')?.classList.toggle('expanded', !isExpanded);
     });
   }
 
@@ -296,6 +320,12 @@ class SidePanelApp {
 
   async processResults() {
     try {
+      // Guard against extraction errors
+      if (this.currentData?.error) {
+        this.showError('Could not analyze this page: ' + (this.currentData.error || 'unknown error'));
+        return;
+      }
+
       // Get current page URL for network fetches
       const pageUrl = this.currentData.pageInfo?.url;
       let baseUrl = null;
@@ -363,6 +393,11 @@ class SidePanelApp {
       this.displayResults();
       this.displayPdpResults();
       this.displaySeoResults();
+
+      // Mark nav tabs as having results
+      document.querySelector('.nav-btn[data-tab="results"]')?.setAttribute('data-has-results', 'true');
+      document.querySelector('.nav-btn[data-tab="pdp"]')?.setAttribute('data-has-results', 'true');
+      document.querySelector('.nav-btn[data-tab="seo"]')?.setAttribute('data-has-results', 'true');
 
       // Save to history
       await saveAnalysis({
@@ -507,9 +542,13 @@ class SidePanelApp {
     const jsWarn = document.getElementById('jsDependencyWarning');
     jsWarn.classList.toggle('hidden', !this.scoreResult.jsDependent);
 
-    // Show platform divergence note
-    const platformNote = document.getElementById('platformDivergenceNote');
-    if (platformNote) platformNote.style.display = 'flex';
+    // Show platform divergence note (unless dismissed)
+    chrome.storage.local.get('platformNoteDismissed', (result) => {
+      if (!result.platformNoteDismissed) {
+        const platformNote = document.getElementById('platformDivergenceNote');
+        if (platformNote) platformNote.style.display = 'flex';
+      }
+    });
 
     // Show page type badge
     this.updatePageTypeBadges();
@@ -951,7 +990,7 @@ class SidePanelApp {
 
       card.innerHTML = `
         <div class="category-header" data-expanded="false">
-          <span class="category-name" title="${CATEGORY_DESCRIPTIONS[key]}">${data.categoryName}</span>
+          <span class="category-name" title="${escapeHtml(CATEGORY_DESCRIPTIONS[key] || '')}">${data.categoryName}</span>
           <span class="category-score ${scoreClass}">${Math.round(data.score)}</span>
           <span class="expand-icon">+</span>
         </div>
@@ -968,7 +1007,8 @@ class SidePanelApp {
   renderFactors(factors) {
     return factors.map(f => {
       const statusIcon = f.status === 'pass' ? '✓' :
-                         f.status === 'fail' ? '✗' : '⚠';
+                         f.status === 'fail' ? '✗' :
+                         f.status === 'na'   ? '–' : '⚠';
       const contextualLabel = f.contextual ? '<span class="multiplier">CTX</span>' : '';
 
       // Get recommendation if factor has a mapping
@@ -978,8 +1018,8 @@ class SidePanelApp {
       const expandBtn = rec ? '<button class="factor-expand-btn">▶</button>' : '';
       const recSection = rec ? `
         <div class="factor-recommendation hidden">
-          <p class="factor-rec-text">${rec.description}</p>
-          <p class="factor-rec-impl">${rec.implementation}</p>
+          <p class="factor-rec-text">${escapeHtml(rec.description || '')}</p>
+          <p class="factor-rec-impl">${escapeHtml(rec.implementation || '')}</p>
         </div>
       ` : '';
 
@@ -1004,11 +1044,9 @@ class SidePanelApp {
     // Update count
     document.getElementById('recCount').textContent = this.recommendations.length;
 
-    // Show top 10 recommendations
-    this.recommendations.slice(0, 10).forEach(rec => {
+    const buildAiRecCard = (rec) => {
       const item = document.createElement('div');
       item.className = `recommendation impact-${rec.impact}`;
-
       item.innerHTML = `
         <div class="rec-header">
           <span class="rec-title">${escapeHtml(rec.title)}</span>
@@ -1020,9 +1058,23 @@ class SidePanelApp {
         <p class="rec-description">${escapeHtml(rec.description)}</p>
         ${rec.implementation ? `<p class="rec-implementation">${escapeHtml(rec.implementation)}</p>` : ''}
       `;
+      return item;
+    };
 
-      container.appendChild(item);
-    });
+    // Show top 10 recommendations
+    this.recommendations.slice(0, 10).forEach(rec => container.appendChild(buildAiRecCard(rec)));
+
+    const hiddenAi = this.recommendations.length - 10;
+    if (hiddenAi > 0) {
+      const showMore = document.createElement('button');
+      showMore.className = 'btn btn-secondary show-more-recs';
+      showMore.textContent = `Show ${hiddenAi} more recommendation${hiddenAi === 1 ? '' : 's'}`;
+      showMore.addEventListener('click', () => {
+        showMore.remove();
+        this.recommendations.slice(10).forEach(rec => container.appendChild(buildAiRecCard(rec)));
+      });
+      container.appendChild(showMore);
+    }
 
     if (this.recommendations.length === 0) {
       container.innerHTML = '<p class="empty-state">No recommendations - great job!</p>';
@@ -1084,7 +1136,7 @@ class SidePanelApp {
 
       card.innerHTML = `
         <div class="category-header" data-expanded="false">
-          <span class="category-name" title="${PDP_CATEGORY_DESCRIPTIONS[key] || ''}">${data.categoryName}</span>
+          <span class="category-name" title="${escapeHtml(PDP_CATEGORY_DESCRIPTIONS[key] || '')}">${data.categoryName}</span>
           <span class="category-score ${scoreClass}">${Math.round(data.score)}</span>
           <span class="expand-icon">+</span>
         </div>
@@ -1100,7 +1152,8 @@ class SidePanelApp {
   renderPdpFactors(factors) {
     return factors.map(f => {
       const statusIcon = f.status === 'pass' ? '✓' :
-                         f.status === 'fail' ? '✗' : '⚠';
+                         f.status === 'fail' ? '✗' :
+                         f.status === 'na'   ? '–' : '⚠';
       const contextualLabel = f.contextual ? '<span class="multiplier">CTX</span>' : '';
 
       const recId = PDP_FACTOR_RECOMMENDATIONS[f.name];
@@ -1109,8 +1162,8 @@ class SidePanelApp {
       const expandBtn = rec ? '<button class="factor-expand-btn">▶</button>' : '';
       const recSection = rec ? `
         <div class="factor-recommendation hidden">
-          <p class="factor-rec-text">${rec.description}</p>
-          <p class="factor-rec-impl">${rec.implementation}</p>
+          <p class="factor-rec-text">${escapeHtml(rec.description || '')}</p>
+          <p class="factor-rec-impl">${escapeHtml(rec.implementation || '')}</p>
         </div>
       ` : '';
 
@@ -1134,10 +1187,9 @@ class SidePanelApp {
 
     document.getElementById('pdpRecCount').textContent = this.pdpRecommendations.length;
 
-    this.pdpRecommendations.slice(0, 10).forEach(rec => {
+    const buildPdpRecCard = (rec) => {
       const item = document.createElement('div');
       item.className = `recommendation impact-${rec.impact}`;
-
       item.innerHTML = `
         <div class="rec-header">
           <span class="rec-title">${escapeHtml(rec.title)}</span>
@@ -1149,9 +1201,22 @@ class SidePanelApp {
         <p class="rec-description">${escapeHtml(rec.description)}</p>
         ${rec.implementation ? `<p class="rec-implementation">${escapeHtml(rec.implementation)}</p>` : ''}
       `;
+      return item;
+    };
 
-      container.appendChild(item);
-    });
+    this.pdpRecommendations.slice(0, 10).forEach(rec => container.appendChild(buildPdpRecCard(rec)));
+
+    const hiddenPdp = this.pdpRecommendations.length - 10;
+    if (hiddenPdp > 0) {
+      const showMore = document.createElement('button');
+      showMore.className = 'btn btn-secondary show-more-recs';
+      showMore.textContent = `Show ${hiddenPdp} more recommendation${hiddenPdp === 1 ? '' : 's'}`;
+      showMore.addEventListener('click', () => {
+        showMore.remove();
+        this.pdpRecommendations.slice(10).forEach(rec => container.appendChild(buildPdpRecCard(rec)));
+      });
+      container.appendChild(showMore);
+    }
 
     if (this.pdpRecommendations.length === 0) {
       container.innerHTML = '<p class="empty-state">No recommendations - great job!</p>';
@@ -1201,7 +1266,7 @@ class SidePanelApp {
 
       card.innerHTML = `
         <div class="category-header" data-expanded="false">
-          <span class="category-name" title="${SEO_CATEGORY_DESCRIPTIONS[key] || ''}">${data.categoryName}</span>
+          <span class="category-name" title="${escapeHtml(SEO_CATEGORY_DESCRIPTIONS[key] || '')}">${data.categoryName}</span>
           <span class="category-score ${scoreClass}">${Math.round(data.score)}</span>
           <span class="expand-icon">+</span>
         </div>
@@ -1217,7 +1282,8 @@ class SidePanelApp {
   renderSeoFactors(factors) {
     return factors.map(f => {
       const statusIcon = f.status === 'pass' ? '✓' :
-                         f.status === 'fail' ? '✗' : '⚠';
+                         f.status === 'fail' ? '✗' :
+                         f.status === 'na'   ? '–' : '⚠';
 
       const recId = SEO_FACTOR_RECOMMENDATIONS[f.name];
       const rec = recId ? SEO_RECOMMENDATION_TEMPLATES[recId] : null;
@@ -1225,8 +1291,8 @@ class SidePanelApp {
       const expandBtn = rec ? '<button class="factor-expand-btn">▶</button>' : '';
       const recSection = rec ? `
         <div class="factor-recommendation hidden">
-          <p class="factor-rec-text">${rec.description}</p>
-          <p class="factor-rec-impl">${rec.implementation}</p>
+          <p class="factor-rec-text">${escapeHtml(rec.description || '')}</p>
+          <p class="factor-rec-impl">${escapeHtml(rec.implementation || '')}</p>
         </div>
       ` : '';
 
@@ -1250,10 +1316,9 @@ class SidePanelApp {
 
     document.getElementById('seoRecCount').textContent = this.seoRecommendations.length;
 
-    this.seoRecommendations.slice(0, 10).forEach(rec => {
+    const buildSeoRecCard = (rec) => {
       const item = document.createElement('div');
       item.className = `recommendation impact-${rec.impact}`;
-
       item.innerHTML = `
         <div class="rec-header">
           <span class="rec-title">${escapeHtml(rec.title)}</span>
@@ -1271,9 +1336,22 @@ class SidePanelApp {
         </div>` : ''}
         ${rec.implementation ? `<p class="rec-implementation">${escapeHtml(rec.implementation)}</p>` : ''}
       `;
+      return item;
+    };
 
-      container.appendChild(item);
-    });
+    this.seoRecommendations.slice(0, 10).forEach(rec => container.appendChild(buildSeoRecCard(rec)));
+
+    const hiddenSeo = this.seoRecommendations.length - 10;
+    if (hiddenSeo > 0) {
+      const showMore = document.createElement('button');
+      showMore.className = 'btn btn-secondary show-more-recs';
+      showMore.textContent = `Show ${hiddenSeo} more recommendation${hiddenSeo === 1 ? '' : 's'}`;
+      showMore.addEventListener('click', () => {
+        showMore.remove();
+        this.seoRecommendations.slice(10).forEach(rec => container.appendChild(buildSeoRecCard(rec)));
+      });
+      container.appendChild(showMore);
+    }
 
     if (this.seoRecommendations.length === 0) {
       container.innerHTML = '<p class="empty-state">No recommendations - great job!</p>';
@@ -1324,10 +1402,20 @@ class SidePanelApp {
           <div class="history-title" title="${escapeHtml(entry.title)}">${escapeHtml(entry.title)}</div>
           <div class="history-meta">${escapeHtml(entry.domain)} · ${escapeHtml(timeAgo)}</div>
         </div>
-        <div class="history-score">${escapeHtml(entry.score)}</div>
+        <button class="history-view-btn btn-icon" title="View this analysis" data-history-id="${escapeHtml(entry.id)}" aria-label="View analysis for ${escapeHtml(entry.title)}">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M13 4L7 10l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="scale(-1,1) translate(-20,0)"/>
+          </svg>
+        </button>
       `;
 
       item.addEventListener('click', () => this.toggleHistorySelection(entry.id));
+      item.querySelector('.history-view-btn')?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const history = await getHistory();
+        const found = history.find(h => h.id === item.dataset.historyId);
+        if (found) this.showHistoryDetail(found);
+      });
       container.appendChild(item);
     });
 
@@ -1355,6 +1443,26 @@ class SidePanelApp {
     });
 
     this.updateCompareButton();
+  }
+
+  showHistoryDetail(entry) {
+    this.switchTab('results');
+    const scoreEl = document.getElementById('scoreValue');
+    const gradeEl = document.getElementById('gradeDisplay');
+    if (scoreEl && gradeEl && entry.score != null && entry.grade) {
+      document.getElementById('results')?.classList.remove('hidden');
+      document.getElementById('contextSelector')?.classList.add('hidden');
+      gradeEl.textContent = entry.grade;
+      const validGrades = ['A', 'B', 'C', 'D', 'F'];
+      const safeGrade = validGrades.includes(entry.grade) ? entry.grade : 'F';
+      gradeEl.className = `grade grade-${safeGrade}`;
+      scoreEl.textContent = entry.score;
+      document.getElementById('gradeDescription').textContent = `Viewed from history · ${entry.domain}`;
+      document.getElementById('contextLabel').textContent = entry.context || '';
+      document.getElementById('categoryList').innerHTML = '<p style="padding:12px 14px;color:var(--text-secondary);font-size:12px">Re-analyze the page to see full factor breakdown.</p>';
+      document.getElementById('recommendationList').innerHTML = '';
+      document.getElementById('recCount').textContent = '';
+    }
   }
 
   updateCompareButton() {
@@ -1425,7 +1533,7 @@ class SidePanelApp {
           const cat = entry.categoryScores[k];
           const score = Math.round(cat.score);
           const cls = score >= 80 ? 'high' : score >= 60 ? 'medium' : 'low';
-          const shortName = (cat.name || k).replace(/&|and/gi, '&').split(' ').slice(0, 2).join(' ');
+          const shortName = (cat.name || k).replace(/&|and/gi, '&');
           return `
             <div class="compare-cat-row">
               <span class="compare-cat-name" title="${escapeHtml(cat.name)}">${escapeHtml(shortName)}</span>
@@ -1443,7 +1551,7 @@ class SidePanelApp {
             const cat = entry.pdpCategoryScores[k];
             const score = Math.round(cat.score);
             const cls = score >= 80 ? 'high' : score >= 60 ? 'medium' : 'low';
-            const shortName = (cat.name || k).replace(/&|and/gi, '&').split(' ').slice(0, 2).join(' ');
+            const shortName = (cat.name || k).replace(/&|and/gi, '&');
             return `
               <div class="compare-cat-row">
                 <span class="compare-cat-name" title="${escapeHtml(cat.name)}">${escapeHtml(shortName)}</span>
@@ -1476,7 +1584,7 @@ class SidePanelApp {
             const cat = entry.seoCategoryScores[k];
             const score = Math.round(cat.score);
             const cls = score >= 80 ? 'high' : score >= 60 ? 'medium' : 'low';
-            const shortName = (cat.name || k).replace(/&|and/gi, '&').split(' ').slice(0, 2).join(' ');
+            const shortName = (cat.name || k).replace(/&|and/gi, '&');
             return `
               <div class="compare-cat-row">
                 <span class="compare-cat-name" title="${escapeHtml(cat.name)}">${escapeHtml(shortName)}</span>
@@ -1664,6 +1772,7 @@ class SidePanelApp {
   }
 
   showContextSelector() {
+    document.querySelectorAll('.nav-btn[data-has-results]').forEach(btn => btn.removeAttribute('data-has-results'));
     document.getElementById('contextSelector').classList.remove('hidden');
     document.getElementById('results').classList.add('hidden');
     document.getElementById('pdpView').classList.add('hidden');

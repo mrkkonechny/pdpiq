@@ -21,7 +21,7 @@ export async function saveAnalysis(analysis) {
   let history = await getHistory();
 
   const entry = {
-    id: Date.now().toString(),
+    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     url: analysis.url || analysis.pageInfo?.url,
     title: analysis.pageInfo?.title || 'Unknown Page',
     domain: analysis.pageInfo?.domain || (() => { try { return new URL(analysis.url || analysis.pageInfo?.url).hostname; } catch { return 'unknown'; } })(),

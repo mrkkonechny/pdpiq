@@ -65,19 +65,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return;
 
   switch (message.type) {
-    case 'EXTRACT_DATA':
-      // Forward extraction request to content script
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]) {
-          chrome.tabs.sendMessage(tabs[0].id, { type: 'EXTRACT_DATA', requestId: message.requestId });
-        }
-      });
-      break;
-
     case 'EXTRACTION_COMPLETE':
-      // Verify content script origin
+      // Side panel sends ANALYZE_PAGE directly to content script (via chrome.tabs.sendMessage).
+      // Content script responds here; service worker forwards to side panel.
       if (!sender.tab) return;
-      // Forward extracted data to side panel
       chrome.runtime.sendMessage(message);
       break;
 
@@ -464,15 +455,16 @@ function parseRobotsTxt(content) {
     }
   }
 
-  // Determine which AI crawlers are blocked
+  // Determine which AI crawlers are blocked, partially blocked, or allowed
   const blockedCrawlers = [];
+  const partiallyBlockedCrawlers = [];
   const allowedCrawlers = [];
 
   for (const crawler of MAJOR_AI_CRAWLERS) {
     const crawlerLower = crawler.toLowerCase();
     const rules = crawlerRules[crawlerLower];
 
-    // Check if explicitly blocked
+    // Check if explicitly fully blocked (Disallow: / or Disallow: /*)
     if (rules && rules.disallow.some(path => path === '/' || path === '/*')) {
       // Check if there's an allow rule that might override
       if (!rules.allow.some(path => path === '/' || path === '/*')) {
@@ -487,6 +479,13 @@ function parseRobotsTxt(content) {
       continue;
     }
 
+    // Check for partial path blocks (e.g. Disallow: /products/)
+    const effectiveRules = rules || crawlerRules['*'];
+    if (effectiveRules && effectiveRules.disallow.some(path => path !== '' && path !== '/' && path !== '/*')) {
+      partiallyBlockedCrawlers.push(crawler);
+      continue;
+    }
+
     allowedCrawlers.push(crawler);
   }
 
@@ -494,6 +493,7 @@ function parseRobotsTxt(content) {
     accessible: true,
     crawlerRules,
     blockedCrawlers,
+    partiallyBlockedCrawlers,
     allowedCrawlers,
     hasWildcardDisallowAll
   };
