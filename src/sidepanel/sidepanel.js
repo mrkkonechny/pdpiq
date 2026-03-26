@@ -957,7 +957,7 @@ class SidePanelApp {
 
       card.innerHTML = `
         <div class="category-header" data-expanded="false">
-          <span class="category-name" title="${CATEGORY_DESCRIPTIONS[key]}">${data.categoryName}</span>
+          <span class="category-name" title="${escapeHtml(CATEGORY_DESCRIPTIONS[key] || '')}">${data.categoryName}</span>
           <span class="category-score ${scoreClass}">${Math.round(data.score)}</span>
           <span class="expand-icon">+</span>
         </div>
@@ -1090,7 +1090,7 @@ class SidePanelApp {
 
       card.innerHTML = `
         <div class="category-header" data-expanded="false">
-          <span class="category-name" title="${PDP_CATEGORY_DESCRIPTIONS[key] || ''}">${data.categoryName}</span>
+          <span class="category-name" title="${escapeHtml(PDP_CATEGORY_DESCRIPTIONS[key] || '')}">${data.categoryName}</span>
           <span class="category-score ${scoreClass}">${Math.round(data.score)}</span>
           <span class="expand-icon">+</span>
         </div>
@@ -1207,7 +1207,7 @@ class SidePanelApp {
 
       card.innerHTML = `
         <div class="category-header" data-expanded="false">
-          <span class="category-name" title="${SEO_CATEGORY_DESCRIPTIONS[key] || ''}">${data.categoryName}</span>
+          <span class="category-name" title="${escapeHtml(SEO_CATEGORY_DESCRIPTIONS[key] || '')}">${data.categoryName}</span>
           <span class="category-score ${scoreClass}">${Math.round(data.score)}</span>
           <span class="expand-icon">+</span>
         </div>
