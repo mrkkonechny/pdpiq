@@ -909,6 +909,15 @@ button.citation-header {
   color: var(--text-secondary);
 }
 
+.history-view-btn {
+  flex-shrink: 0;
+  margin-left: var(--space-xs);
+  opacity: 0.5;
+}
+.history-item:hover .history-view-btn {
+  opacity: 1;
+}
+
 .empty-state {
   text-align: center;
   padding: var(--space-xl);

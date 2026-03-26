@@ -1387,10 +1387,20 @@ class SidePanelApp {
           <div class="history-title" title="${escapeHtml(entry.title)}">${escapeHtml(entry.title)}</div>
           <div class="history-meta">${escapeHtml(entry.domain)} · ${escapeHtml(timeAgo)}</div>
         </div>
-        <div class="history-score">${escapeHtml(entry.score)}</div>
+        <button class="history-view-btn btn-icon" title="View this analysis" data-history-id="${escapeHtml(entry.id)}" aria-label="View analysis for ${escapeHtml(entry.title)}">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M13 4L7 10l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="scale(-1,1) translate(-20,0)"/>
+          </svg>
+        </button>
       `;
 
       item.addEventListener('click', () => this.toggleHistorySelection(entry.id));
+      item.querySelector('.history-view-btn')?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const history = await getHistory();
+        const found = history.find(h => h.id === item.dataset.historyId);
+        if (found) this.showHistoryDetail(found);
+      });
       container.appendChild(item);
     });
 
@@ -1418,6 +1428,26 @@ class SidePanelApp {
     });
 
     this.updateCompareButton();
+  }
+
+  showHistoryDetail(entry) {
+    this.switchTab('results');
+    const scoreEl = document.getElementById('scoreValue');
+    const gradeEl = document.getElementById('gradeDisplay');
+    if (scoreEl && gradeEl && entry.score != null && entry.grade) {
+      document.getElementById('results')?.classList.remove('hidden');
+      document.getElementById('contextSelector')?.classList.add('hidden');
+      gradeEl.textContent = entry.grade;
+      const validGrades = ['A', 'B', 'C', 'D', 'F'];
+      const safeGrade = validGrades.includes(entry.grade) ? entry.grade : 'F';
+      gradeEl.className = `grade grade-${safeGrade}`;
+      scoreEl.textContent = entry.score;
+      document.getElementById('gradeDescription').textContent = `Viewed from history · ${entry.domain}`;
+      document.getElementById('contextLabel').textContent = entry.context || '';
+      document.getElementById('categoryList').innerHTML = '<p style="padding:12px 14px;color:var(--text-secondary);font-size:12px">Re-analyze the page to see full factor breakdown.</p>';
+      document.getElementById('recommendationList').innerHTML = '';
+      document.getElementById('recCount').textContent = '';
+    }
   }
 
   updateCompareButton() {
