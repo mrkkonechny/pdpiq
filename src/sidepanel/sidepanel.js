@@ -1016,11 +1016,9 @@ class SidePanelApp {
     // Update count
     document.getElementById('recCount').textContent = this.recommendations.length;
 
-    // Show top 10 recommendations
-    this.recommendations.slice(0, 10).forEach(rec => {
+    const buildAiRecCard = (rec) => {
       const item = document.createElement('div');
       item.className = `recommendation impact-${rec.impact}`;
-
       item.innerHTML = `
         <div class="rec-header">
           <span class="rec-title">${escapeHtml(rec.title)}</span>
@@ -1032,9 +1030,23 @@ class SidePanelApp {
         <p class="rec-description">${escapeHtml(rec.description)}</p>
         ${rec.implementation ? `<p class="rec-implementation">${escapeHtml(rec.implementation)}</p>` : ''}
       `;
+      return item;
+    };
 
-      container.appendChild(item);
-    });
+    // Show top 10 recommendations
+    this.recommendations.slice(0, 10).forEach(rec => container.appendChild(buildAiRecCard(rec)));
+
+    const hiddenAi = this.recommendations.length - 10;
+    if (hiddenAi > 0) {
+      const showMore = document.createElement('button');
+      showMore.className = 'btn btn-secondary show-more-recs';
+      showMore.textContent = `Show ${hiddenAi} more recommendation${hiddenAi === 1 ? '' : 's'}`;
+      showMore.addEventListener('click', () => {
+        showMore.remove();
+        this.recommendations.slice(10).forEach(rec => container.appendChild(buildAiRecCard(rec)));
+      });
+      container.appendChild(showMore);
+    }
 
     if (this.recommendations.length === 0) {
       container.innerHTML = '<p class="empty-state">No recommendations - great job!</p>';
@@ -1147,10 +1159,9 @@ class SidePanelApp {
 
     document.getElementById('pdpRecCount').textContent = this.pdpRecommendations.length;
 
-    this.pdpRecommendations.slice(0, 10).forEach(rec => {
+    const buildPdpRecCard = (rec) => {
       const item = document.createElement('div');
       item.className = `recommendation impact-${rec.impact}`;
-
       item.innerHTML = `
         <div class="rec-header">
           <span class="rec-title">${escapeHtml(rec.title)}</span>
@@ -1162,9 +1173,22 @@ class SidePanelApp {
         <p class="rec-description">${escapeHtml(rec.description)}</p>
         ${rec.implementation ? `<p class="rec-implementation">${escapeHtml(rec.implementation)}</p>` : ''}
       `;
+      return item;
+    };
 
-      container.appendChild(item);
-    });
+    this.pdpRecommendations.slice(0, 10).forEach(rec => container.appendChild(buildPdpRecCard(rec)));
+
+    const hiddenPdp = this.pdpRecommendations.length - 10;
+    if (hiddenPdp > 0) {
+      const showMore = document.createElement('button');
+      showMore.className = 'btn btn-secondary show-more-recs';
+      showMore.textContent = `Show ${hiddenPdp} more recommendation${hiddenPdp === 1 ? '' : 's'}`;
+      showMore.addEventListener('click', () => {
+        showMore.remove();
+        this.pdpRecommendations.slice(10).forEach(rec => container.appendChild(buildPdpRecCard(rec)));
+      });
+      container.appendChild(showMore);
+    }
 
     if (this.pdpRecommendations.length === 0) {
       container.innerHTML = '<p class="empty-state">No recommendations - great job!</p>';
@@ -1264,10 +1288,9 @@ class SidePanelApp {
 
     document.getElementById('seoRecCount').textContent = this.seoRecommendations.length;
 
-    this.seoRecommendations.slice(0, 10).forEach(rec => {
+    const buildSeoRecCard = (rec) => {
       const item = document.createElement('div');
       item.className = `recommendation impact-${rec.impact}`;
-
       item.innerHTML = `
         <div class="rec-header">
           <span class="rec-title">${escapeHtml(rec.title)}</span>
@@ -1285,9 +1308,22 @@ class SidePanelApp {
         </div>` : ''}
         ${rec.implementation ? `<p class="rec-implementation">${escapeHtml(rec.implementation)}</p>` : ''}
       `;
+      return item;
+    };
 
-      container.appendChild(item);
-    });
+    this.seoRecommendations.slice(0, 10).forEach(rec => container.appendChild(buildSeoRecCard(rec)));
+
+    const hiddenSeo = this.seoRecommendations.length - 10;
+    if (hiddenSeo > 0) {
+      const showMore = document.createElement('button');
+      showMore.className = 'btn btn-secondary show-more-recs';
+      showMore.textContent = `Show ${hiddenSeo} more recommendation${hiddenSeo === 1 ? '' : 's'}`;
+      showMore.addEventListener('click', () => {
+        showMore.remove();
+        this.seoRecommendations.slice(10).forEach(rec => container.appendChild(buildSeoRecCard(rec)));
+      });
+      container.appendChild(showMore);
+    }
 
     if (this.seoRecommendations.length === 0) {
       container.innerHTML = '<p class="empty-state">No recommendations - great job!</p>';

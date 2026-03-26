@@ -147,7 +147,7 @@ body {
 
 .context-options {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: var(--space-sm);
 }
 
@@ -155,7 +155,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--space-md);
+  flex: 1;
+  padding: var(--space-sm);
   border: 2px solid var(--border-color);
   border-radius: var(--border-radius);
   background: var(--bg-primary);
@@ -751,6 +752,12 @@ button.citation-header {
   margin-top: var(--space-sm);
   padding-top: var(--space-sm);
   border-top: 1px dashed var(--border-color);
+}
+
+.show-more-recs {
+  display: block;
+  width: calc(100% - 28px);
+  margin: 8px 14px;
 }
 
 /* Actions */
