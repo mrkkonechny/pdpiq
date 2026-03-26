@@ -149,7 +149,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       url: window.location.href,
       timestamp: Date.now(),
       requestId: message.requestId
-    });
+    }).catch(() => {}); // panel may have closed before extraction completed
 
     sendResponse({ success: true });
   }
