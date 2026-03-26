@@ -1,6 +1,6 @@
 # Roadmap
 
-> **PDS Document 08** | Last Updated: 2026-03-23 (14 new items added from PM & competitive review)
+> **PDS Document 08** | Last Updated: 2026-03-26 (12 new items ROAD-0063–ROAD-0074 from strategic review)
 
 Strategic feature plan and working backlog. Combines the "what's planned" view with the "what's in the queue" view. Most recent entries at the top within each section.
 
@@ -222,6 +222,228 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** DEC-0015
 
 ## Proposed (Needs Review)
+
+### ROAD-0074 — Vertical benchmarks in side panel ("Your score vs. category average")
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-26
+- **Requested By:** Strategic review (public launch + data flywheel)
+- **Scope:** Medium (1-3 days)
+- **Description:** Once opt-in telemetry data reaches a statistically meaningful sample (target: 500+ analyses per vertical), surface a comparison card in the side panel: "Fashion avg: 71 / Your score: 58." Contextualizes a user's score without requiring a competitor URL. High client-facing value — clients immediately understand whether they are above or below their market. Requires detecting the eCommerce vertical from existing schema/breadcrumb/URL data.
+- **Acceptance Criteria:**
+  - [ ] Vertical detection heuristic identifies at least 5 categories (Fashion, Electronics, Home, Health, Food)
+  - [ ] Benchmark card appears in side panel when sample size is sufficient for the detected vertical
+  - [ ] Shows AI Readiness, PDP Quality, and SEO Quality averages for the vertical
+  - [ ] Card is hidden or shows "Insufficient data" when sample < threshold
+  - [ ] Benchmark data fetched from the telemetry backend (not hard-coded)
+- **Dependencies:** ROAD-0073 (needs data flowing first); ROAD-0039 (vertical detection); ROAD-0070 (telemetry infrastructure)
+- **Related:** DEC-0039, ROAD-0070
+
+### ROAD-0073 — Internal benchmark dashboard (aggregate data consumer)
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-26
+- **Requested By:** Strategic review (public launch + data flywheel)
+- **Scope:** Medium (1-3 days)
+- **Description:** Internal Tribbute dashboard querying the telemetry backend. Views: score distributions by detected platform (Shopify/WooCommerce/etc.), factor pass rates by vertical, JS dependency levels across domains, top/bottom performing domains. Enables "State of eCommerce AI Readiness" market reports as a Tribbute content asset and informs empirical feature prioritization. Retool, Metabase, or a custom simple read-only frontend are all suitable.
+- **Acceptance Criteria:**
+  - [ ] Dashboard reads from the telemetry backend (read-only access, separate credentials from write path)
+  - [ ] Score distribution chart filterable by vertical and platform
+  - [ ] Factor pass rate table showing % pass/fail/warning per factor across all analyzed domains
+  - [ ] Refresh cadence: at-rest data (daily batch or live query)
+  - [ ] Access restricted to Tribbute team
+- **Dependencies:** ROAD-0070 (telemetry infrastructure must be live and collecting data first)
+- **Related:** DEC-0039, ROAD-0074
+
+### ROAD-0072 — Chrome Web Store listing (gated beta)
+- **Status:** Proposed
+- **Type:** Launch
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-26
+- **Requested By:** Strategic review (public launch)
+- **Scope:** Medium (1-3 days)
+- **Description:** Publish pdpIQ to the Chrome Web Store as an unlisted listing initially (invite-only distribution via direct link). Store listing copy targets consultant and agency audiences. Privacy angle ("all processing local — zero data transmission by default") is a key differentiator vs. general SEO tools. Screenshots: side panel with triple scores and grades, citation opportunity map, HTML report preview.
+- **Acceptance Criteria:**
+  - [ ] CWS developer account configured for Tribbute
+  - [ ] Extension packaged with correct manifest version, icons, and description
+  - [ ] Unlisted listing published and accessible via direct link
+  - [ ] Privacy policy URL present in CWS listing (links to ROAD-0071 page)
+  - [ ] Onboarding flow (first-run experience) explains context selector and opt-in toggle
+  - [ ] CWS review passed (typically 1–3 business days)
+- **Dependencies:** ROAD-0070 (telemetry infrastructure), ROAD-0071 (privacy policy)
+- **Related:** DEC-0039, DEC-0040
+
+### ROAD-0071 — Privacy policy and data disclosure page (tribbute.com)
+- **Status:** Proposed
+- **Type:** Marketing / Legal
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-26
+- **Requested By:** Strategic review (public launch prerequisite)
+- **Scope:** Small (< 1 day)
+- **Description:** Short privacy policy page hosted on tribbute.com covering pdpIQ specifically. Contents: (1) what is never transmitted — page content, product text, review text, prices, URLs with query strings; (2) what is transmitted when opt-in is enabled — domain, page path, scores, boolean factor results, JS dependency level, extension version; (3) how to opt out; (4) contact email. Required by Chrome Web Store policy. Referenced from the extension settings UI.
+- **Acceptance Criteria:**
+  - [ ] Page live at tribbute.com/legal/pdpiq-privacy (or similar)
+  - [ ] Covers all fields in the telemetry payload allowlist
+  - [ ] Clear "opt-in only" framing — default state explicitly described
+  - [ ] Contact email present
+  - [ ] URL provided to CWS listing and referenced in extension settings UI
+- **Dependencies:** ROAD-0070 (telemetry payload must be finalized before writing the policy)
+- **Related:** DEC-0039, ROAD-0072
+
+### ROAD-0070 — Opt-in aggregate telemetry infrastructure
+- **Status:** Proposed
+- **Type:** Infrastructure + Feature
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-26
+- **Requested By:** Strategic review (public launch + benchmark data)
+- **Scope:** Large (3+ days)
+- **Description:** End-to-end opt-in telemetry system. Client side: settings toggle in side panel ("Share anonymous analysis data to help improve pdpIQ benchmarks") stored in chrome.storage.local as `{ telemetryOptIn: false }` (default off). When enabled, service worker fires `sendTelemetry()` post-analysis — non-blocking, failures silently ignored. Payload is allowlist-filtered: domain, pathname, pageType, scores (numbers only), grade letters, boolean factor results, JS dependency level, context, extension version, UTC date (no time). No text content fields. Server side: HTTPS endpoint (Cloudflare Worker + D1, or Supabase) receives POST, validates against allowlist schema (rejects unrecognized or text-type fields), writes to append-only table. No additional Chrome manifest permissions needed — fetch() in service worker already permitted under `<all_urls>`.
+- **Acceptance Criteria:**
+  - [ ] Settings UI toggle visible and persistent (survives extension reload)
+  - [ ] Default state: opt-in = false (no transmission without explicit consent)
+  - [ ] When opt-in = true, POST fires after each analysis completion
+  - [ ] Payload contains no text content fields (strict allowlist enforced client-side)
+  - [ ] Server-side schema validation rejects any payload with unrecognized or text-type fields
+  - [ ] Server writes to append-only table (no update/delete paths)
+  - [ ] POST failure (network error, server error) is silently ignored — does not affect analysis flow
+  - [ ] Privacy policy URL linked from settings toggle UI
+- **Dependencies:** DEC-0039 (decision confirmed); ROAD-0071 (privacy policy URL needed for settings UI link)
+- **Related:** DEC-0039, ROAD-0071, ROAD-0072, ROAD-0073
+
+### ROAD-0069 — JS-gated content detection for high-risk factors
+- **Status:** Proposed
+- **Type:** Research + Feature
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-26
+- **Requested By:** Strategic review (crawler visibility gap — ROAD-0045 partial implementation)
+- **Scope:** Medium (1-3 days)
+- **Description:** For the factors most at risk of scoring JS-rendered content as visible to LLM crawlers (returns, shipping, reviews, accordion-locked specs), add a detection heuristic: does the element containing the matched content live inside a JS framework root (`#root`, `#__next`, `[data-v-app]`, `#___gatsby`, `[ng-version]`)? If yes, downgrade the factor from 'pass' to 'warning' with details: "Content may be JavaScript-rendered and not visible to LLM crawlers." This is a scoped partial implementation of the ROAD-0045 confidence layer vision, targeting the highest-risk factors first.
+- **Acceptance Criteria:**
+  - [ ] JS-root ancestor check added to extractTrustConfidence() for `hasReturnPolicy` and `hasShippingInfo`
+  - [ ] Same check added to review extraction when review count > 0 but elements are inside JS roots
+  - [ ] Factor status set to 'warning' (not 'fail') when content is present but JS-gated
+  - [ ] Warning details text distinguishes "JS-gated" from other warning causes
+  - [ ] No change to scoring for sites with low JS dependency (low/none)
+- **Dependencies:** ROAD-0068 (substantive content thresholds fix should land first); ROAD-0001 (test suite helps validate changes)
+- **Related:** ROAD-0045, DEC-0037, BUG-0085, BUG-0086
+
+### ROAD-0068 — Fix BUG-0085 and BUG-0086: substantive content thresholds
+- **Status:** Proposed
+- **Type:** Bug Fix
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-26
+- **Requested By:** Strategic review (client trust / accuracy)
+- **Scope:** Small (< 1 day)
+- **Description:** Fix two active extraction bugs that inflate scores on accordion-heavy and SPA pages. BUG-0086: `hasReturnPolicy` and `hasShippingInfo` match accordion heading labels ("Shipping & Returns") that contain no actual policy content. BUG-0085: `hasMaterials` matches sensory fragments ("is so soft") that contain no material noun. Fix: require ≥ 20-character match for policy/shipping outside heading elements (`<h2>`, `<h3>`, `<button>`, `<summary>`); require at least one fabric/material noun alongside sensory keywords for materials.
+- **Acceptance Criteria:**
+  - [ ] "Shipping & Returns" as a lone accordion heading label scores `hasShippingInfo: false`
+  - [ ] "Free shipping on orders over $75" in body text scores `hasShippingInfo: true`
+  - [ ] "is so soft" fragment scores `hasMaterials: false`
+  - [ ] "Made from 100% organic cotton" scores `hasMaterials: true`
+  - [ ] Existing tests (once ROAD-0001 exists) cover positive and negative cases
+- **Dependencies:** DEC-0038
+- **Related:** BUG-0085, BUG-0086, ROAD-0045, ROAD-0069
+
+### ROAD-0067 — Schema-backed factor confidence badges
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-26
+- **Requested By:** Strategic review (client trust / crawler visibility gap)
+- **Scope:** Medium (1-3 days)
+- **Description:** Add a data-source confidence badge to each factor row in the side panel and HTML report. Badge values: "Schema" (sourced from JSON-LD/microdata — LLM crawlers always parse this), "DOM" (sourced from rendered DOM — may be JS-injected and invisible to crawlers), "Inferred" (heuristic detection). Most extractors already return a `source` field ('dom', 'schema', 'product-nested', 'microdata'). The badge directly addresses the client trust gap: "why does pdpIQ score a factor I can't see on the raw page?" The answer becomes visible — if it says "Schema," it's because the information exists in structured data the crawler can read even without JS execution.
+- **Acceptance Criteria:**
+  - [ ] Each factor row in the side panel shows a source badge (Schema / DOM / Inferred)
+  - [ ] HTML report factor table includes a source column
+  - [ ] Existing `source` field on extractor return values is used (no new extraction work)
+  - [ ] Mixed-source factors (DOM first, schema fallback) display the actual source used for that analysis
+  - [ ] Badge has tooltip or legend explaining what each value means
+- **Dependencies:** DEC-0037; ROAD-0001 (test suite helps validate changes to extractor source fields)
+- **Related:** DEC-0037, ROAD-0045, ROAD-0069
+
+### ROAD-0066 — HTML data table factor (AI Readiness — Content Quality)
+- **Status:** Proposed
+- **Type:** Scoring Change
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-26
+- **Requested By:** Strategic review (competitive positioning — research-driven scoring)
+- **Scope:** Small (< 1 day)
+- **Description:** Add `hasDataTable` as a scored Content Quality factor. Qualify as data table: `<table>` with > 2 rows AND > 1 column in the product content area (excludes layout tables). Weight: ~8 pts. Recommendation: "Present specifications in an HTML table — research shows 2.5–6.76× higher AI citation rate vs. prose (Table Meets LLM, WSDM '24; HtmlRAG, WWW '25)."
+- **Acceptance Criteria:**
+  - [ ] `hasDataTable` extracted from product content area (not nav/header/footer tables)
+  - [ ] Scored as separate factor from existing `tables` semantic HTML signal
+  - [ ] Pass: ≥ 1 qualifying data table; Fail: none found
+  - [ ] Recommendation template added with WSDM '24 / WWW '25 citations
+  - [ ] No double-counting with existing table-structure factor
+- **Dependencies:** DEC-0036
+- **Related:** DEC-0036, DEC-0031
+
+### ROAD-0065 — Statistics/numerical claims factor (AI Readiness — Content Quality)
+- **Status:** Proposed
+- **Type:** Scoring Change
+- **Priority:** P2 (Medium)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-26
+- **Requested By:** Strategic review (competitive positioning — research-driven scoring)
+- **Scope:** Small (< 1 day)
+- **Description:** Add `hasStatistics` extraction and scoring in Content Quality. Detect numerical claims with units or percentages in product description and features text. Pattern: number adjacent to %, lbs, kg, oz, mm, cm, in, ft, W, V, A, RPM, Hz, and similar measurable units. Score: pass if ≥ 2 statistical claims, warning if 1, fail if 0. Weight: ~10 pts. Recommendation references +22–40% citation boost (GEO paper, SIGKDD '24; Perplexity study; AirOps 548K page analysis — three independent sources). First audit whether this overlaps with existing `factualSpecificity` factor before implementation.
+- **Acceptance Criteria:**
+  - [ ] Extraction regex correctly identifies numerical claims with units (not bare numbers)
+  - [ ] Scored factor appears in Content Quality category
+  - [ ] Pass/warning/fail thresholds (2+/1/0 claims) apply
+  - [ ] Recommendation copy cites at least one primary research source
+  - [ ] No duplicate scoring with `factualSpecificity` if they measure the same signal
+- **Dependencies:** DEC-0034; audit of `factualSpecificity` overlap
+- **Related:** DEC-0034, DEC-0031
+
+### ROAD-0064 — Content freshness factor (dateModified scoring — AI Discoverability)
+- **Status:** Proposed
+- **Type:** Scoring Change
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-26
+- **Requested By:** Strategic review (competitive positioning — research-driven scoring)
+- **Scope:** Small (< 1 day)
+- **Description:** Promote `dateModified` from a display-only signal to a scored AI Discoverability factor. Extraction already exists (JSON-LD/microdata schema date signals). Scoring: pass if < 30 days, warning if 30–180 days, fail if > 180 days or absent. Schema source preferred over visible DOM date. Weight: ~10 pts. Recommendation: "Update product content and set schema dateModified — 76.4% of Perplexity citations are pages updated within 30 days (SE Ranking, 129K domain study)."
+- **Acceptance Criteria:**
+  - [ ] `dateModified` factor appears in AI Discoverability category with correct thresholds
+  - [ ] Schema date (JSON-LD/microdata) takes precedence over visible DOM date
+  - [ ] Pass/warning/fail status and details correctly reflect days-since-modified
+  - [ ] Recommendation template added with SE Ranking study citation
+  - [ ] No double-scoring with existing `lastModified` HTTP header factor in Protocol & Meta
+- **Dependencies:** DEC-0033
+- **Related:** DEC-0033, DEC-0031
+
+### ROAD-0063 — AI Platform context selector (ChatGPT / Perplexity / Google AIO)
+- **Status:** Proposed
+- **Type:** Feature
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** Unscheduled
+- **Date Added:** 2026-03-26
+- **Requested By:** Strategic review (competitive positioning — platform divergence)
+- **Scope:** Medium (1-3 days)
+- **Description:** Add "AI Platform" as a second context dimension alongside Want/Need/Hybrid. Options: ChatGPT, Perplexity, Google AIO, Unified (current default). Extends the existing multiplier architecture — no scoring engine rewrite required. Platform multiplier profiles based on research: ChatGPT profile upweights authority signals, entity consistency, structured data; Perplexity profile upweights content freshness, FAQ format, statistics; Google AIO profile upweights E-E-A-T signals, structured data, heading hierarchy. Unified keeps current weights (backward-compatible default). History entries record both buyer context and platform context. Report and side panel display active platform context.
+- **Acceptance Criteria:**
+  - [ ] Platform context selector added to UI (alongside or combined with Want/Need/Hybrid)
+  - [ ] Three platform multiplier profiles defined in weights.js
+  - [ ] Scoring engine applies platform multipliers on top of (or combined with) buyer context multipliers
+  - [ ] "Unified" default produces identical results to current scoring (backward compatible)
+  - [ ] History entries record platform context
+  - [ ] Side panel displays active platform context in results header
+  - [ ] HTML report shows active platform context
+- **Dependencies:** DEC-0032
+- **Related:** DEC-0032, ROAD-0061, ROAD-0064, ROAD-0065
 
 ### ROAD-0061 — Platform-Specific AI Readiness Profiles
 - **Status:** Proposed

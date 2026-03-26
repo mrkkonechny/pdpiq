@@ -1,6 +1,6 @@
 # Decision Log
 
-> **PDS Document 07** | Last Updated: 2026-03-23
+> **PDS Document 07** | Last Updated: 2026-03-26
 
 Track architectural, technical, and strategic decisions with their rationale. Most recent entries at the top. Never delete entries — decisions that were later reversed are valuable context.
 
@@ -21,6 +21,96 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 ---
 
 ## Decisions
+
+### DEC-0040 — Public launch scope: gated beta vs. open listing
+- **Date:** 2026-03-26
+- **Status:** Proposed
+- **Context:** pdpIQ is ready for public distribution. Two options: (A) open Chrome Web Store listing discoverable by any user, or (B) unlisted CWS listing distributed via invite link only. The gated beta approach lets Tribbute validate onboarding, data collection, and support burden before full exposure.
+- **Decision:** TBD — requires explicit decision from product owner. Recommended: gated beta (unlisted listing, invite link) for 30–60 days, then open listing once onboarding flow and telemetry are validated.
+- **Rationale:** Gated beta limits unpredictable support volume and ensures data collection is functioning before public announcement. CWS unlisted listings are fully functional — distribution is simply invite-only.
+- **Alternatives Considered:** Open listing immediately (higher risk, zero control over early adopter quality). No CWS listing (limits discoverability and trust). TestFlight-style limited beta (not a Chrome concept — unlisted listing achieves the same goal).
+- **Consequences:** Gated beta delays public SEO/brand exposure by 30–60 days. Full launch requires CWS review (typically 1–3 days). Tribbute must maintain an invite-link distribution mechanism.
+- **Related:** DEC-0039, ROAD-0070, ROAD-0071, ROAD-0072
+
+### DEC-0039 — Opt-in aggregate telemetry (supersedes DEC-0009 zero-telemetry constraint for public build)
+- **Date:** 2026-03-26
+- **Status:** Proposed
+- **Context:** DEC-0009 established zero telemetry as a non-negotiable constraint for the internal tool. The rationale was privacy-as-moat: consultants can analyze competitor pages without data leaving the browser. That constraint was appropriate for an internal tool but is incompatible with building a proprietary benchmark dataset as a public product. Opt-in telemetry is standard practice among tools like Ahrefs Webmaster Tools and Semrush.
+- **Decision:** For the public build, replace "zero telemetry" with "zero telemetry by default; opt-in aggregate analytics permitted." The privacy core remains intact: no PII, no page content, no product text. Only anonymized domain, page path, scores, and boolean factor results are transmitted — and only when the user explicitly enables the toggle. The zero-transmission promise for page content analysis is unaffected.
+- **Rationale:** Aggregate data enables vertical benchmarks, market reports ("State of eCommerce AI Readiness"), and empirical feature prioritization. These are high-value consulting assets that competitors cannot replicate without the same install base. The tradeoff (opt-in toggle) is trivial to implement and well-understood by users.
+- **Alternatives Considered:** Keep zero-telemetry for public build (loses benchmark data opportunity entirely). Opt-out model (stronger data collection but worse trust signal). Server-side analysis pipeline (breaks privacy promise for page content).
+- **Consequences:** Requires backend endpoint (ROAD-0070), privacy policy page (ROAD-0071), and settings UI. No additional Chrome manifest permissions needed — `fetch()` from the service worker is already permitted under `<all_urls>`. History entries for opted-in users will be mirrored to the remote store.
+- **Related:** DEC-0009, ROAD-0070, ROAD-0071, ROAD-0072
+
+### DEC-0038 — Substantive content threshold required for policy/shipping/materials extractors
+- **Date:** 2026-03-26
+- **Status:** Proposed
+- **Context:** BUG-0085 and BUG-0086 both fail the same way: extraction regexes match short, non-informative text fragments that satisfy the pattern (a keyword appears) but provide zero useful content to an LLM crawler. "Shipping & Returns" in an accordion heading satisfies the shipping regex but contains no policy information. "is so soft" satisfies the materials regex but names no material. The tool awards full points for these matches, inflating scores and undermining client trust.
+- **Decision:** Require minimum substantive content for `hasReturnPolicy`, `hasShippingInfo`, and `hasMaterials`: (1) minimum 20-character match for policy/shipping, (2) fabric/material noun presence required for materials, (3) exclude matches found only inside `<h2>`, `<h3>`, `<button>`, `<summary>` elements (these are navigation/heading elements, not content).
+- **Rationale:** An LLM crawler ingesting "Shipping & Returns" learns nothing about the actual policy. The factor should measure whether actionable policy content exists, not whether the word appears. The heading exclusion also begins to address the ROAD-0045 JS-gated content problem for the specific case of accordion heading labels.
+- **Alternatives Considered:** Minimum word count only (misses the heading-as-label pattern). DOM-position check only (misses short prose fragments that still aren't informative).
+- **Consequences:** Sites with accordion-only policy labels will see `hasReturnPolicy` and `hasShippingInfo` drop from pass to fail — a correct outcome. Sites with "is so soft" style materials claims will see `hasMaterials` drop. May require communication in release notes.
+- **Related:** BUG-0085, BUG-0086, ROAD-0068, ROAD-0045
+
+### DEC-0037 — Schema-backed confidence badges per factor
+- **Date:** 2026-03-26
+- **Status:** Proposed
+- **Context:** pdpIQ's most common client objection is "that's not what I see on my page." The underlying cause is that pdpIQ runs in a fully-rendered Chrome DOM, while LLM crawlers (GPTBot, ClaudeBot, PerplexityBot) execute no JavaScript and see raw HTML only. A factor scored from JSON-LD structured data is reliable — crawlers always parse JSON-LD as raw text. The same factor scored from a JS-rendered DOM element may be invisible to crawlers. Currently there is no way for a client or consultant to distinguish these cases.
+- **Decision:** Add a data-source confidence badge to each factor in the side panel and HTML report. Badge values: "Schema" (sourced from JSON-LD/microdata — high confidence, crawlers always see this), "DOM" (sourced from rendered DOM — medium confidence, may be JS-injected), "Inferred" (heuristic detection — lower confidence). Most extractors already return a `source` field; wire it to the UI.
+- **Rationale:** Directly addresses the client trust gap without requiring a full server-rendered HTML comparison (which has auth/CORS constraints). Gives consultants a clear talking point: "Schema-backed signals are visible to all LLM crawlers; these DOM-only signals may not be."
+- **Alternatives Considered:** Generic per-category warning banner (less precise — doesn't identify specific factors at risk). Full raw HTML fetch for comparison (deferred in ROAD-0045 due to auth/CORS caveats). No action (continues to erode client trust).
+- **Consequences:** UI changes required in side panel and report-template.js. Some factors with mixed source (e.g., description: DOM first, schema fallback) need a clear rule for which badge applies. `source` field already exists on most extractors — minimal new extraction work needed.
+- **Related:** ROAD-0067, ROAD-0045, BUG-0085, BUG-0086
+
+### DEC-0036 — Add HTML data table as a scored AI Readiness factor
+- **Date:** 2026-03-26
+- **Status:** Proposed
+- **Context:** Three independent studies (Table Meets LLM, WSDM '24; HtmlRAG, WWW '25; Trafilatura benchmarks) show HTML tables are 2.5–6.76× more effective than equivalent prose or CSV for AI citation and extraction. pdpIQ already extracts `contentStructure.tables.count` but uses it only for semantic HTML scoring, not as a standalone factor.
+- **Decision:** Add `hasDataTable` as a scored factor in Content Quality (AI Readiness). Qualify as "data table" only: > 2 rows AND > 1 column within the product content area (excludes layout tables and single-column lists). Score: pass if ≥ 1 data table, fail otherwise. Weight: ~8 pts.
+- **Rationale:** This is one of the strongest multi-source evidence signals in the research. Most eCommerce product pages use prose specs, not tables. This factor directly translates to actionable advice for content and dev teams.
+- **Alternatives Considered:** Count all tables (too broad — includes nav/layout tables). Weight by table size (adds complexity with marginal improvement). Keep as informational only (wastes a strong scoring signal).
+- **Consequences:** Pages with specs in HTML table format will see a score increase in Content Quality. Pages with specs in prose/list will lose points (by having 0/8 where they previously had n/a). Content strategy recommendation becomes very concrete: "Convert your spec list to an HTML table."
+- **Related:** ROAD-0066, DEC-0031
+
+### DEC-0035 — Demote Twitter Cards from scored AI Readiness factor to not-applicable
+- **Date:** 2026-03-26
+- **Status:** Proposed
+- **Context:** Twitter Cards are currently scored at 5 pts in Protocol & Meta. Research review found zero documentation of any LLM system (ChatGPT, Claude, Perplexity, Google AI Overviews) using Twitter Card metadata for AI visibility. Twitter Cards are an X/Twitter-only social sharing protocol with no cross-platform SEO or AI search value. After the v3.0.0 OG signal demotion and v3.1.0 guidance corrections, Twitter Cards remain an anomaly.
+- **Decision:** Move Twitter Cards to `'na'` status for AI Readiness scoring (score full points regardless of presence, same as hreflang on monolingual sites). Retain the factor in PDP Quality context if a social sharing signal is relevant there. Redistribute the 5 pts within Protocol & Meta.
+- **Rationale:** Scoring a signal at 5 pts signals it has importance. Recommending users "add Twitter Card meta tags" when it has zero LLM visibility impact is noise in the recommendation list and a credibility risk. N/A is the correct status for a signal that is irrelevant in this scoring context.
+- **Alternatives Considered:** Remove factor entirely (loses future optionality if Twitter/X integrates with AI search). Keep at 5 pts but change copy (still signals importance; inconsistent with "evidence-based scoring" principle).
+- **Consequences:** Sites without Twitter Cards will no longer lose 5 pts in AI Readiness. The `twitterCard` recommendation will be removed or suppressed. Points redistributed — may slightly affect protocol & meta category scores.
+- **Related:** ROAD-0063, DEC-0030
+
+### DEC-0034 — Add statistics/numerical claims as scored AI Readiness factor
+- **Date:** 2026-03-26
+- **Status:** Proposed
+- **Context:** Three independent research sources confirm statistics addition as a high-impact AI visibility signal: GEO paper (SIGKDD '24) found +22% for Perplexity, +30–40% for custom engines; Kevin Indig 3M response analysis confirmed numerical claims correlate with citation; AirOps 548K page fan-out study found factual specificity (numbers, measurements, percentages) as top predictor. pdpIQ added `factualSpecificity` as a factor in DEC-0030 but the extraction logic may not fully capture numerical claim density.
+- **Decision:** Add or enhance `hasStatistics` extraction in Content Quality: detect numerical claims with units or percentages in product description and features text. Pattern: numbers adjacent to %, lbs, kg, oz, mm, cm, in, ft, W, V, A, RPM, and other measurable units. Score: pass if ≥ 2 statistical claims, warning if 1, fail if 0. Weight: ~10 pts. Recommendation references the +22–40% citation boost with source citation.
+- **Rationale:** Three-source convergence on a single signal is unusually strong in this research area. The extraction is straightforward regex work. The recommendation ("add specific measurements and statistics") is concrete and actionable for content teams.
+- **Alternatives Considered:** Rely on existing `factualSpecificity` factor (may already capture this — needs audit before adding a duplicate). Weight by claim count (adds precision but also complexity).
+- **Consequences:** Products with specific measurements/stats will score better. Products with purely descriptive copy will be penalized — and correctly so. May overlap with existing `factualSpecificity` implementation; needs audit before or during implementation.
+- **Related:** ROAD-0065, DEC-0031
+
+### DEC-0033 — Add content freshness (dateModified) as scored AI Readiness factor
+- **Date:** 2026-03-26
+- **Status:** Proposed
+- **Context:** Multiple research sources confirm strong recency bias in AI citation systems: 76.4% of Perplexity citations are content updated within 30 days (SE Ranking 129K domain study); freshness is one of the top 3 Perplexity ranking signals; ChatGPT also shows measurable recency preference. pdpIQ already extracts `dateModified` from JSON-LD/microdata and `visibleDate` from DOM text, but these are used only as display signals — they are not scored.
+- **Decision:** Promote `dateModified` to a scored factor in AI Discoverability. Scoring thresholds: pass if < 30 days, warning if 30–180 days, fail if > 180 days or absent. Schema source preferred over visible date. Weight: ~10 pts. Recommendation: "Update product content and set schema dateModified — 76.4% of Perplexity citations are pages updated within 30 days."
+- **Rationale:** High-confidence signal (multiple independent sources), actionable advice (content teams can update pages and schema), and directly maps to the Perplexity platform profile (ROAD-0063). The extraction infrastructure already exists.
+- **Alternatives Considered:** Score visible date only (less reliable — schema date is authoritative). Use lastModified HTTP header instead (already a factor in the Protocol & Meta category — this would be a duplicate). No scoring, informational only (wastes a strong signal; contradicts evidence-based scoring principle).
+- **Consequences:** Sites with stale or missing schema dateModified will lose points. Sites that proactively maintain fresh schema dates will score higher — correct incentive. New factor means existing history entries won't have this score; slight category score changes on re-run.
+- **Related:** ROAD-0064, DEC-0031
+
+### DEC-0032 — Platform context selector for AI Readiness (ChatGPT / Perplexity / Google AIO)
+- **Date:** 2026-03-26
+- **Status:** Proposed
+- **Context:** DEC-0030 noted platform divergence as a deferred concern: ChatGPT and Perplexity cite only 11% of the same domains. Research now provides sufficient per-platform signal data to define multiplier profiles. The current Want/Need/Hybrid context selector already demonstrates that the architecture supports multiplier-based scoring variants. ROAD-0061 proposed platform-specific profiles as a v4.0 full redesign, but a lower-friction option exists: a second context axis using the existing multiplier pattern.
+- **Decision:** Add "AI Platform" as a second context dimension alongside Want/Need/Hybrid. Options: ChatGPT, Perplexity, Google AIO, Unified (current default). Each platform has a distinct multiplier profile: ChatGPT — upweight authority signals, entity consistency, structured data, Bing-indexability signals; Perplexity — upweight content freshness, FAQ format, statistics presence, recency; Google AIO — upweight E-E-A-T signals, structured data, heading hierarchy, content depth. Unified keeps existing weights (backward-compatible default).
+- **Rationale:** Option A (multiplier profiles) is architecturally identical to the existing context pattern — it requires adding a new multiplier set and a UI selector, not a full scoring engine rewrite. This ships real client value in days rather than the weeks required for a full v4.0 redesign (ROAD-0061). The full redesign (showing three sub-scores simultaneously) remains the v4.0 goal.
+- **Alternatives Considered:** Full v4.0 multi-score redesign (ROAD-0061) — deferred due to scope; shows all three scores simultaneously. No change (loses competitive differentiation; leaves the 11% overlap insight unused). Separate tool per platform (operationally untenable).
+- **Consequences:** Adds a second context selector to the UI (needs design consideration — two independent dropdowns or a combined picker). Existing Want/Need/Hybrid multipliers remain unchanged. History entries will need to record the platform context alongside the buyer context. Report and side panel need to display the active platform context.
+- **Related:** ROAD-0061, ROAD-0063, DEC-0030
 
 ## DEC-0031 — v3.1.0 Guidance Accuracy & Research Integration
 **Date:** 2026-03-24
