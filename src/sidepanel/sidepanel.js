@@ -120,6 +120,12 @@ class SidePanelApp {
       }
     });
 
+    // Dismiss platform divergence note
+    document.getElementById('dismissPlatformNote')?.addEventListener('click', () => {
+      document.getElementById('platformDivergenceNote').style.display = 'none';
+      chrome.storage.local.set({ platformNoteDismissed: true });
+    });
+
     // Compare button
     document.getElementById('compareBtn').addEventListener('click', () => {
       this.showCompareView();
@@ -531,9 +537,13 @@ class SidePanelApp {
     const jsWarn = document.getElementById('jsDependencyWarning');
     jsWarn.classList.toggle('hidden', !this.scoreResult.jsDependent);
 
-    // Show platform divergence note
-    const platformNote = document.getElementById('platformDivergenceNote');
-    if (platformNote) platformNote.style.display = 'flex';
+    // Show platform divergence note (unless dismissed)
+    chrome.storage.local.get('platformNoteDismissed', (result) => {
+      if (!result.platformNoteDismissed) {
+        const platformNote = document.getElementById('platformDivergenceNote');
+        if (platformNote) platformNote.style.display = 'flex';
+      }
+    });
 
     // Show page type badge
     this.updatePageTypeBadges();
