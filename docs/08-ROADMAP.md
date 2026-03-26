@@ -33,7 +33,7 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Status:** In Progress
 - **Type:** Tech Debt
 - **Priority:** P0 (Critical)
-- **Target Phase/Sprint:** v1.2.0 — Foundation Hardening
+- **Target Phase/Sprint:** Unscheduled
 - **Date Added:** 2026-03-01
 - **Requested By:** PDS Process (05-TEST_PLAN)
 - **Scope:** Large (3+ days)
@@ -51,11 +51,12 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 ## Approved (Queued)
 
 ### ROAD-0036 — Elevate HTML report (executive summary, Tribbute CTA)
-- **Status:** Approved
+- **Status:** Done
 - **Type:** Improvement
 - **Priority:** P0 (Critical)
 - **Target Phase/Sprint:** v2.3.0 — Consulting Practice
 - **Date Added:** 2026-03-18
+- **Date Completed:** 2026-03-20
 - **Requested By:** Product strategy (consulting practice tool)
 - **Scope:** Medium (1-3 days)
 - **Description:** The HTML report is the primary consulting deliverable and sales hook. Currently jumps straight into scores. Needs a "3 things to fix first" executive summary that a CMO can read in 30 seconds, and a Tribbute CTA ("Schedule a consultation" or "Get a full content audit") to convert report recipients into consulting leads.
@@ -67,11 +68,12 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** —
 
 ### ROAD-0034 — Page type auto-detection and display (PDP vs PLP — Phase 1)
-- **Status:** Approved
+- **Status:** Done
 - **Type:** Feature
 - **Priority:** P1 (High)
 - **Target Phase/Sprint:** v2.3.0 — Consulting Practice
 - **Date Added:** 2026-03-18
+- **Date Completed:** 2026-03-20
 - **Requested By:** Product strategy (client engagement need)
 - **Scope:** Medium (1-3 days)
 - **Description:** Auto-detect whether the analyzed page is a PDP or PLP/collection page using schema type, URL patterns, DOM structure, and og:type signals. Display page type badge in side panel header and HTML report header. Auto-mark clearly inapplicable factors as "N/A — Collection Page" using the proven apparel detection pattern. Enables clients to see pdpIQ is collection-page aware.
@@ -85,11 +87,12 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** DEC-0025, ROAD-0038
 
 ### ROAD-0035 — Citation Opportunity Map (AI Visibility tab + report)
-- **Status:** Approved
+- **Status:** Done
 - **Type:** Feature
 - **Priority:** P1 (High)
 - **Target Phase/Sprint:** v2.3.0 — Consulting Practice
 - **Date Added:** 2026-03-18
+- **Date Completed:** 2026-03-20
 - **Requested By:** Product strategy (consulting deliverable differentiator)
 - **Scope:** Medium (1-3 days)
 - **Description:** Rule-based engine mapping failing AI Readiness factors to specific conversational query patterns the page cannot answer. Personalized with extracted product name, brand, and category. Displayed as a collapsible "Citation Opportunities" section in the AI Visibility tab only and the AI Readiness section of the HTML report only. Groups: high-value queries missing → partially covered → well-positioned. Creates a powerful consulting sales moment.
@@ -107,7 +110,7 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Status:** Approved
 - **Type:** Feature
 - **Priority:** P1 (High)
-- **Target Phase/Sprint:** v2.3.0 — Consulting Practice
+- **Target Phase/Sprint:** Unscheduled
 - **Date Added:** 2026-03-18
 - **Requested By:** Product strategy (ops team efficiency)
 - **Scope:** Medium (1-3 days)
@@ -125,7 +128,7 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Status:** Approved
 - **Type:** Improvement
 - **Priority:** P1 (High)
-- **Target Phase/Sprint:** v1.2.0 — Foundation Hardening
+- **Target Phase/Sprint:** Unscheduled
 - **Date Added:** 2026-03-01
 - **Requested By:** PDS Process (07-DECISION_LOG DEC-0004)
 - **Scope:** Small (< 1 day)
@@ -158,7 +161,7 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Status:** Approved
 - **Type:** Tech Debt
 - **Priority:** P2 (Medium)
-- **Target Phase/Sprint:** v1.2.0 — Foundation Hardening
+- **Target Phase/Sprint:** Unscheduled
 - **Date Added:** 2026-03-01
 - **Requested By:** PDS Process (tech debt review)
 - **Scope:** Small (< 1 day)
@@ -174,7 +177,7 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Status:** Approved
 - **Type:** Tech Debt
 - **Priority:** P2 (Medium)
-- **Target Phase/Sprint:** v1.2.0 — Foundation Hardening
+- **Target Phase/Sprint:** Unscheduled
 - **Date Added:** 2026-03-01
 - **Requested By:** PDS Process (tech debt review)
 - **Scope:** Small (< 1 day)
@@ -190,7 +193,7 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Status:** Approved
 - **Type:** Improvement
 - **Priority:** P2 (Medium)
-- **Target Phase/Sprint:** v1.2.0 — Foundation Hardening
+- **Target Phase/Sprint:** Unscheduled
 - **Date Added:** 2026-03-01
 - **Requested By:** PDS Process (UX review)
 - **Scope:** Small (< 1 day)
@@ -206,7 +209,7 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Status:** Approved
 - **Type:** Improvement
 - **Priority:** P2 (Medium)
-- **Target Phase/Sprint:** v1.2.0 — Foundation Hardening
+- **Target Phase/Sprint:** Unscheduled
 - **Date Added:** 2026-03-01
 - **Requested By:** PDS Process (DEC-0015 revisit condition)
 - **Scope:** Small (< 1 day)
@@ -534,7 +537,7 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
   - [ ] Consider adding a "raw HTML simulation mode" that filters the DOM to only elements present in the initial server response
 - **Dependencies:** ROAD-0001 (test suite — needed to safely refactor extraction)
 - **Related:** BUG-0085, BUG-0086
-- **Notes:** The most concrete near-term action is fixing BUG-0085 and BUG-0086 to require substantive content before awarding flags. The broader question of JS-rendered vs. server-rendered detection is a larger research and architecture project. Schema-backed signals (JSON-LD) are the gold standard for LLM visibility and should be weighted accordingly in any future confidence model. **Partial progress 2026-03-23:** The JS-dependency warning shown in the side panel and report was reworded from "scores may be understated" (incorrect direction) to "scores may reflect more than LLM crawlers actually see" (correct direction). The old copy also described the issue as pdpIQ's extraction limitation, which was wrong — pdpIQ runs in Chrome after full JS execution and captures accordion/collapsed content. The real risk is the inverse: pdpIQ sees more than LLM crawlers do.
+- **Notes:** The most concrete near-term action is fixing BUG-0085 and BUG-0086 to require substantive content before awarding flags. The broader question of JS-rendered vs. server-rendered detection is a larger research and architecture project. Schema-backed signals (JSON-LD) are the gold standard for LLM visibility and should be weighted accordingly in any future confidence model. **Partial progress 2026-03-23:** The JS-dependency warning shown in the side panel and report was reworded from "scores may be understated" (incorrect direction) to "scores may reflect more than LLM crawlers actually see" (correct direction). The old copy also described the issue as pdpIQ's extraction limitation, which was wrong — pdpIQ runs in Chrome after full JS execution and captures accordion/collapsed content. The real risk is the inverse: pdpIQ sees more than LLM crawlers do. **Partial progress 2026-03-26 (v3.2.0):** Added Raw Crawlable Text section exposing three views: product description, full page (`innerText` — CSS-visible only), and raw HTML parser view (`textContent` with script/style stripped — includes hidden elements). The third view is the closest current approximation of what LLM crawlers ingest. Surfaced to users with word counts and copy buttons. The word count gap between the second and third views gives a rough signal of how much CSS-hidden content exists on the page. True server-rendered vs. JS-injected distinction remains unresolved — would require a service worker HTML fetch, deferred due to auth/CORS caveats.
 
 ### ROAD-0044 — Pass `isPlp` to remaining AI Readiness scoring methods
 - **Status:** Proposed

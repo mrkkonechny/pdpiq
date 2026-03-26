@@ -105,7 +105,12 @@ function performFullExtraction() {
         pathname: window.location.pathname,
         extractedAt: new Date().toISOString()
       },
-      rawPageText: (document.body.innerText || '').trim()
+      rawPageText: (document.body.innerText || '').trim(),
+      rawDomText: (() => {
+        const clone = document.body.cloneNode(true);
+        clone.querySelectorAll('script, style, noscript').forEach(el => el.remove());
+        return clone.textContent.replace(/\s{2,}/g, ' ').trim();
+      })()
     };
 
     // Clear cache after extraction to free memory

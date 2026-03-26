@@ -896,9 +896,11 @@ class SidePanelApp {
 
     const descText = extractedData?.contentQuality?.description?.text || '';
     const fullText = extractedData?.rawPageText || '';
+    const domText = extractedData?.rawDomText || '';
 
     const descWordCount = extractedData?.contentQuality?.description?.wordCount ?? 0;
     const fullWordCount = fullText.trim().split(/\s+/).filter(w => w.length > 0).length;
+    const domWordCount = domText.trim().split(/\s+/).filter(w => w.length > 0).length;
 
     container.innerHTML = `
       <div class="raw-text-area-label">Product Description</div>
@@ -909,12 +911,18 @@ class SidePanelApp {
       <div class="raw-text-scroll">${escapeHtml(fullText)}</div>
       <div class="raw-text-word-count">~${fullWordCount.toLocaleString()} words total</div>
       <button class="raw-text-copy-btn" id="copyRawTextBtn">&#8663; Copy full page text</button>
+      <div class="raw-text-area-label">Full page (raw HTML parser view)</div>
+      <div class="raw-text-scroll">${escapeHtml(domText)}</div>
+      <div class="raw-text-word-count">~${domWordCount.toLocaleString()} words (includes hidden elements)</div>
+      <button class="raw-text-copy-btn" id="copyDomTextBtn">&#8663; Copy text-only DOM</button>
     `;
 
     const copyDescBtn = document.getElementById('copyDescTextBtn');
     if (copyDescBtn) copyDescBtn.onclick = () => { navigator.clipboard.writeText(descText).catch(() => {}); };
     const copyBtn = document.getElementById('copyRawTextBtn');
     if (copyBtn) copyBtn.onclick = () => { navigator.clipboard.writeText(fullText).catch(() => {}); };
+    const copyDomBtn = document.getElementById('copyDomTextBtn');
+    if (copyDomBtn) copyDomBtn.onclick = () => { navigator.clipboard.writeText(domText).catch(() => {}); };
   }
 
   renderCategories() {

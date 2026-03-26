@@ -1,14 +1,25 @@
 # Changelog
 
-> **PDS Document 10** | Last Updated: 2026-03-23
+> **PDS Document 10** | Last Updated: 2026-03-26
 
 All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/). Most recent version at the top.
 
-## v3.2.0 — 2026-03-24
+## v3.2.0 — 2026-03-26
 ### New Features
 - **What AI Sees** — Two new collapsible sections at the bottom of the AI Visibility tab:
   - *AI Signal Inventory*: 8 key AI signals (Product Schema, og:image format, description length, GTIN/MPN, AI crawler access, llms.txt, entity consistency, answer-format content) shown with pass/fail/warn tags drawn from already-extracted data — no additional network requests
-  - *Raw Crawlable Text*: Two scrollable windows showing (1) product content with nav/footer stripped and (2) full page body text as AI crawlers see it, with word counts and a copy-to-clipboard button
+  - *Raw Crawlable Text*: Three scrollable views — (1) product description with copy button (hidden when no description detected), (2) full page `innerText` (CSS-visible text, includes nav/footer), (3) raw HTML parser view (`textContent` with script/style/noscript stripped, whitespace normalised) — closest approximation of what LLM crawlers ingest; each view shows word count
+- **Copy Product Description button** — copies product description text to clipboard; only shown when a description is detected (`src/sidepanel/sidepanel.js`)
+- **Copy Text-Only DOM button** — copies the raw HTML parser view to clipboard; `rawDomText` field added to extraction output (`src/content/content-script.js`, `src/sidepanel/sidepanel.js`)
+
+### Fixed
+- **BUG-0080: Hreflang status always 'pass'** — `scoreNavigationDiscovery()` ternary had both branches returning `'pass'`; monolingual sites now correctly show status `'na'` with updated details string "Not applicable — monolingual site (no hreflang needed)" (`src/scoring/scoring-engine.js`)
+- **BUG-0081: Social Proof Depth context multiplier not applied** — `scoreAuthorityTrust()` was scoring Social Proof Depth at face value regardless of Want/Need/Hybrid context; now applies `this.multipliers.socialProof` and sets `contextual: true` on the factor (`src/scoring/scoring-engine.js`)
+- **BUG-0082: `isProductType` field uses exact match only** — `og.type === 'product'` missed Shopify variants `'og:product'` and `'product.item'`/`'product.group'`; updated to match all product og:type patterns; no scoring impact (scoring engine was correct), fixes JSON export accuracy (`src/content/content-script.js`)
+
+### Changed
+- **Recommendation sort order** — replaced priority-based sort with explicit impact DESC → effort ASC across all three engines (`RecommendationEngine`, `PdpQualityRecommendationEngine`, `SeoQualityRecommendationEngine`); high-impact items always surface first; within the same impact level, lowest-effort items appear first
+- **Recommendation badge labels** — impact and effort badges in the side panel (all three tabs) now show labeled, capitalized values ("Impact: High", "Effort: Low") instead of bare lowercase values; effort badges now use color variants (green = low, amber = medium, red = high) matching the existing HTML report semantics
 
 ---
 
@@ -43,19 +54,6 @@ All notable changes to this project. Format follows [Keep a Changelog](https://k
 - `review-depth-low`: Specific use-case review format; JS rendering risk for review platforms
 - `last-modified-missing`: Substantive vs cosmetic update distinction (3.8× difference, SE Ranking)
 - CATEGORY_DESCRIPTIONS: structuredData, contentQuality, contentStructure, authorityTrust updated with research-accurate mechanisms
-
----
-
-## [Unreleased]
-
-### Fixed
-- **BUG-0080: Hreflang status always 'pass'** — `scoreNavigationDiscovery()` ternary had both branches returning `'pass'`; monolingual sites now correctly show status `'na'` with updated details string "Not applicable — monolingual site (no hreflang needed)" (`src/scoring/scoring-engine.js`)
-- **BUG-0081: Social Proof Depth context multiplier not applied** — `scoreAuthorityTrust()` was scoring Social Proof Depth at face value regardless of Want/Need/Hybrid context; now applies `this.multipliers.socialProof` and sets `contextual: true` on the factor (`src/scoring/scoring-engine.js`)
-- **BUG-0082: `isProductType` field uses exact match only** — `og.type === 'product'` missed Shopify variants `'og:product'` and `'product.item'`/`'product.group'`; updated to match all product og:type patterns; no scoring impact (scoring engine was correct), fixes JSON export accuracy (`src/content/content-script.js`)
-
-### Changed
-- **Recommendation sort order** — replaced priority-based sort with explicit impact DESC → effort ASC across all three engines (`RecommendationEngine`, `PdpQualityRecommendationEngine`, `SeoQualityRecommendationEngine`); high-impact items always surface first; within the same impact level, lowest-effort items appear first
-- **Recommendation badge labels** — impact and effort badges in the side panel (all three tabs) now show labeled, capitalized values ("Impact: High", "Effort: Low") instead of bare lowercase values; effort badges now use color variants (green = low, amber = medium, red = high) matching the existing HTML report semantics
 
 ---
 
