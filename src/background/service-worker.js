@@ -65,19 +65,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return;
 
   switch (message.type) {
-    case 'EXTRACT_DATA':
-      // Forward extraction request to content script
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]) {
-          chrome.tabs.sendMessage(tabs[0].id, { type: 'EXTRACT_DATA', requestId: message.requestId });
-        }
-      });
-      break;
-
     case 'EXTRACTION_COMPLETE':
-      // Verify content script origin
+      // Side panel sends ANALYZE_PAGE directly to content script (via chrome.tabs.sendMessage).
+      // Content script responds here; service worker forwards to side panel.
       if (!sender.tab) return;
-      // Forward extracted data to side panel
       chrome.runtime.sendMessage(message);
       break;
 
