@@ -984,8 +984,8 @@ class SidePanelApp {
       const expandBtn = rec ? '<button class="factor-expand-btn">▶</button>' : '';
       const recSection = rec ? `
         <div class="factor-recommendation hidden">
-          <p class="factor-rec-text">${rec.description}</p>
-          <p class="factor-rec-impl">${rec.implementation}</p>
+          <p class="factor-rec-text">${escapeHtml(rec.description || '')}</p>
+          <p class="factor-rec-impl">${escapeHtml(rec.implementation || '')}</p>
         </div>
       ` : '';
 
@@ -1115,8 +1115,8 @@ class SidePanelApp {
       const expandBtn = rec ? '<button class="factor-expand-btn">▶</button>' : '';
       const recSection = rec ? `
         <div class="factor-recommendation hidden">
-          <p class="factor-rec-text">${rec.description}</p>
-          <p class="factor-rec-impl">${rec.implementation}</p>
+          <p class="factor-rec-text">${escapeHtml(rec.description || '')}</p>
+          <p class="factor-rec-impl">${escapeHtml(rec.implementation || '')}</p>
         </div>
       ` : '';
 
@@ -1231,8 +1231,8 @@ class SidePanelApp {
       const expandBtn = rec ? '<button class="factor-expand-btn">▶</button>' : '';
       const recSection = rec ? `
         <div class="factor-recommendation hidden">
-          <p class="factor-rec-text">${rec.description}</p>
-          <p class="factor-rec-impl">${rec.implementation}</p>
+          <p class="factor-rec-text">${escapeHtml(rec.description || '')}</p>
+          <p class="factor-rec-impl">${escapeHtml(rec.implementation || '')}</p>
         </div>
       ` : '';
 
