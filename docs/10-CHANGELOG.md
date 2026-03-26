@@ -2,6 +2,42 @@
 
 > **PDS Document 10** | Last Updated: 2026-03-26
 
+## [Unreleased]
+### Fixed
+- **C-1: processResults() extraction error guard** — Added early-exit when `currentData.error` is set to prevent zeroed-out scores being saved to history (`src/sidepanel/sidepanel.js`)
+- **C-2: CATEGORY_DESCRIPTIONS XSS via title attribute** — Wrapped all three category name `title=""` interpolations in `escapeHtml()` (`src/sidepanel/sidepanel.js`)
+- **H-4: Storage ID collision** — Added random suffix to `Date.now()` IDs to prevent overwrites when two analyses complete in the same millisecond (`src/storage/storage-manager.js`)
+- **H-2: sendMessage error on panel close** — Added `.catch(() => {})` to `EXTRACTION_COMPLETE` sendMessage call in content script (`src/content/content-script.js`)
+- **M-5: rec.description/implementation XSS** — Wrapped inline recommendation strings in `escapeHtml()` in all three renderFactors methods (`src/sidepanel/sidepanel.js`)
+- **H-1: reviewCap maxPoints distortion** — Removed dead `* 1.5` branch from `reviewCap` calculation in `scoreAuthorityTrust()` (`src/scoring/scoring-engine.js`)
+- **M-4: Float scores in scoreProtocolMeta** — Wrapped all `weights.* * 0.7` partial assignments in `Math.round()` (`src/scoring/scoring-engine.js`)
+- **M-6: Dead spec cap line and warranty/compat maxPoints** — Removed redundant `Math.min(specificationCount * 1.5, specScore)` line; fixed `maxPoints` for warranty and compatibility factors to use the multiplied ceiling (`src/scoring/scoring-engine.js`)
+- **M-2: Partial robots.txt path blocking undetected** — `parseRobotsTxt()` now tracks `partiallyBlockedCrawlers` (non-root `Disallow` paths); scoring maps these to warning status at 70% of max points (`src/background/service-worker.js`, `src/scoring/scoring-engine.js`)
+- **UX-1,2: Grade B/C/D color contrast** — Updated `--grade-b`, `--grade-c`, `--grade-d` CSS variables to WCAG AA-compliant values (`src/sidepanel/sidepanel.css`)
+- **UX-14: N/A factor shows warning icon** — Added explicit `–` branch to statusIcon ternary; added `.factor.na .factor-status` CSS rule (`src/sidepanel/sidepanel.js`, `src/sidepanel/sidepanel.css`)
+- **UX-9: History comparison category name truncation** — Removed `.split(' ').slice(0, 2).join(' ')` JS truncation; CSS ellipsis handles overflow (`src/sidepanel/sidepanel.js`)
+- **UX-15: Report factor table contrast** — Passing row text color improved from `#9ca3af` to `#6b7280` (5.9:1 on white) (`src/sidepanel/report-template.js`)
+- **UX-16: Report subtitle missing SEO** — Updated to "AI Readiness, PDP Quality & SEO for eCommerce Product Pages" (`src/sidepanel/report-template.js`)
+- **M-3: Dead EXTRACT_DATA service worker handler** — Removed unused case; added routing comment to EXTRACTION_COMPLETE (`src/background/service-worker.js`)
+
+### Changed
+- **UX-8: confirm() for clear history** — Replaced browser `confirm()` dialog with inline double-tap pattern: first click turns button red with "Click again to confirm", auto-resets after 3 s (`src/sidepanel/sidepanel.js`)
+- **UX-11: Raw crawlable text scroll height** — Increased from 120 px to 180 px; added `resize: vertical` with 80 px min / 400 px max (`src/sidepanel/sidepanel.css`)
+
+### New Features
+- **UX-3,4: ARIA collapsible toggles** — Converted all four AI Visibility section headers from `<div>` to `<button>` elements with `aria-expanded` and consistent CSS rotation pattern (`src/sidepanel/sidepanel.html`, `src/sidepanel/sidepanel.js`, `src/sidepanel/sidepanel.css`)
+- **UX-5: Context selector horizontal layout** — Three context buttons now display side-by-side instead of stacked vertically (`src/sidepanel/sidepanel.css`)
+- **UX-6: Show X more recommendations** — All three tabs show top 10 recs then append remainder via "Show N more" button on click (`src/sidepanel/sidepanel.js`, `src/sidepanel/sidepanel.css`)
+- **UX-10: Dismissible platform divergence note** — Added ✕ button to note; dismissed state persisted in `chrome.storage.local`; note stays hidden across sessions until storage is cleared (`src/sidepanel/sidepanel.html`, `src/sidepanel/sidepanel.js`)
+- **UX-12: Nav tab analysis-complete dots** — Indigo dot indicator appears on AI Visibility, PDP, and SEO nav tabs after analysis completes; cleared on re-analyze (`src/sidepanel/sidepanel.js`, `src/sidepanel/sidepanel.css`)
+- **UX-13: History view button** — Arrow button on each history item opens that entry's scores in the AI Visibility tab (with re-analyze prompt for full breakdown), without interfering with compare-select behavior (`src/sidepanel/sidepanel.js`, `src/sidepanel/sidepanel.css`)
+
+### Performance
+- **H-3: Shared stripped body clone** — Moved `document.body.cloneNode(true)` for `rawDomText` out of IIFE into a named variable before extraction result is built (`src/content/content-script.js`)
+- **M-1: JSON-LD cache for schema extractors** — `extractSpecsFromSchema()` and `extractSchemaDateSignals()` now use `iterateSchemaItems()` / `getParsedJsonLd()` instead of re-parsing `<script>` tags directly (`src/content/content-script.js`)
+
+---
+
 All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/). Most recent version at the top.
 
 ## v3.2.0 — 2026-03-26

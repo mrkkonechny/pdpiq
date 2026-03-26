@@ -1,6 +1,6 @@
 # Bug Log
 
-> **PDS Document 09** | Last Updated: 2026-03-23 (BUG-0086)
+> **PDS Document 09** | Last Updated: 2026-03-26 (BUG-0097)
 
 Track all bugs encountered during development. Most recent entries at the top within each section.
 
@@ -44,6 +44,118 @@ Track all bugs encountered during development. Most recent entries at the top wi
 - **Fix:** —
 - **Related:** ROAD-0045
 - **Notes:** A valid material match should contain an actual fabric or material noun (e.g. rayon, cotton, polyester, spandex, linen, nylon, modal, viscose, wool, silk, leather, canvas). The fix should add a noun-presence check before awarding `hasMaterials: true`, and the `materialsText` captured should be validated to be informative enough for LLM use. Consider applying the same "informational threshold" principle to other `productDetails` sub-signals.
+
+## Resolved Bugs (2026-03-26)
+
+### BUG-0097 — N/A factor displays warning icon instead of neutral dash
+- **Status:** Fixed
+- **Severity:** Low
+- **Date Found:** 2026-03-26
+- **Date Resolved:** 2026-03-26
+- **Found In:** `src/sidepanel/sidepanel.js` → `renderFactors()` statusIcon ternary; `src/sidepanel/sidepanel.css`
+- **Root Cause:** The `statusIcon` ternary only handled `'pass'`, `'fail'`, and fell through to `⚠` for everything else — including `'na'` factors. N/A factors showed a yellow warning icon, misleading users into thinking something was wrong.
+- **Fix:** Added explicit `'na'` branch returning `'–'`; added `.factor.na .factor-status` CSS rule with `var(--text-secondary)` color.
+- **Related:** —
+
+### BUG-0096 — Grade B / C / D colors fail WCAG AA contrast minimum
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-26
+- **Date Resolved:** 2026-03-26
+- **Found In:** `src/sidepanel/sidepanel.css` → `--grade-b`, `--grade-c`, `--grade-d` CSS variables
+- **Root Cause:** Grade color variables used bright, low-contrast hues (`#84cc16` lime, `#eab308` yellow, `#f97316` orange) that failed WCAG AA 4.5:1 minimum against white backgrounds when used as text color. Grades B/C/D were illegible for low-vision users.
+- **Fix:** Replaced with darker accessible equivalents: `--grade-b: #4d7c0f` (7.3:1), `--grade-c: #a16207` (5.8:1), `--grade-d: #c2410c` (5.3:1).
+- **Related:** —
+
+### BUG-0095 — Partial robots.txt path blocking treated as full pass
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-26
+- **Date Resolved:** 2026-03-26
+- **Found In:** `src/background/service-worker.js` → `parseRobotsTxt()`; `src/scoring/scoring-engine.js` → `scoreAIDiscoverability()`
+- **Root Cause:** `parseRobotsTxt()` only tracked `blockedCrawlers` (root `Disallow: /` or `Disallow: /*`). Crawlers with non-root `Disallow` paths (e.g. `Disallow: /products/`) were treated identically to crawlers with no restrictions — both scored full points for AI crawler access. Sites with partial bot blocking received the same score as fully open sites.
+- **Fix:** Added `partiallyBlockedCrawlers` array tracking non-root disallow paths. Scoring maps partial blocking to warning status at 70% of max crawler access points.
+- **Related:** ROAD-0045
+
+### BUG-0094 — Dead spec score cap and wrong maxPoints for warranty/compatibility factors
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-26
+- **Date Resolved:** 2026-03-26
+- **Found In:** `src/scoring/scoring-engine.js` → `scoreContentQuality()`
+- **Root Cause:** Two issues: (1) A `specScore = Math.min(weights.specificationCount * 1.5, specScore)` line was dead after the spec scoring refactor — the `specScore` variable at that point had already been clamped and the 1.5× ceiling was meaningless. (2) `maxPoints` for `warrantyInfo` and `compatibilityInfo` used raw `weights.*` instead of the multiplied ceiling, making context-adjusted max points incorrect and overstating score deficits.
+- **Fix:** Removed dead cap line; updated both `maxPoints` to `Math.round(weights.* * (this.multipliers.* || 1.0))`.
+- **Related:** —
+
+### BUG-0093 — Float partial scores in `scoreProtocolMeta()` cause non-integer factor points
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-26
+- **Date Resolved:** 2026-03-26
+- **Found In:** `src/scoring/scoring-engine.js` → `scoreProtocolMeta()`
+- **Root Cause:** Five factors awarded partial points via `weights.* * 0.7` without rounding: og:title, og:description, Twitter Card, canonical, and meta description. These produced floating-point values (e.g. 7.7, 3.5) that rendered inconsistently in the UI and could cause summing errors.
+- **Fix:** Wrapped all five partial assignments in `Math.round()`.
+- **Related:** —
+
+### BUG-0092 — `reviewCap` `maxPoints` distorted by dead `1.5×` branch
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-26
+- **Date Resolved:** 2026-03-26
+- **Found In:** `src/scoring/scoring-engine.js` → `scoreAuthorityTrust()` reviewCap calculation
+- **Root Cause:** `reviewCap` was computed as `Math.min(weights.reviewCount * 1.5, weights.reviewCount * this.multipliers.reviewCount)`. The `* 1.5` branch was a dead remnant from before context multipliers existed. For "Want" context (multiplier 0.6×), `maxPoints` was set to this artificially inflated value, making the review count factor appear to have a higher ceiling than it actually did.
+- **Fix:** Simplified to `Math.round(weights.reviewCount * this.multipliers.reviewCount)`.
+- **Related:** —
+
+### BUG-0091 — `rec.description` and `rec.implementation` rendered as raw HTML in recommendations
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-26
+- **Date Resolved:** 2026-03-26
+- **Found In:** `src/sidepanel/sidepanel.js` → all three `renderFactors()` variants
+- **Root Cause:** Recommendation `description` and `implementation` strings from `RECOMMENDATION_TEMPLATES` were inserted via `innerHTML` without escaping. Although current templates are hardcoded, any future template containing `<`, `>`, or `&` characters (e.g. HTML examples in implementation guidance) would render as markup, creating a potential XSS vector.
+- **Fix:** Wrapped both fields in `escapeHtml()` before interpolation.
+- **Related:** BUG-0088
+
+### BUG-0090 — `sendMessage` throws uncaught error when side panel closes mid-extraction
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-26
+- **Date Resolved:** 2026-03-26
+- **Found In:** `src/content/content-script.js` → `EXTRACTION_COMPLETE` `chrome.runtime.sendMessage()` call
+- **Root Cause:** If the user closes the side panel before content script extraction completes, `chrome.runtime.sendMessage()` throws "Could not establish connection. Receiving end does not exist." The error was unhandled, appearing as an uncaught exception in the page's DevTools console.
+- **Fix:** Added `.catch(() => {})` — the message failure is expected and benign; the extraction result is simply discarded.
+- **Related:** —
+
+### BUG-0089 — History storage IDs collide when two analyses complete in the same millisecond
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-26
+- **Date Resolved:** 2026-03-26
+- **Found In:** `src/storage/storage-manager.js` → `saveAnalysis()`
+- **Root Cause:** `id: Date.now().toString()` generates identical IDs when two analyses complete within the same millisecond (e.g. rapid re-analyze clicks). The second write silently overwrites the first history entry.
+- **Fix:** Appended a 9-character random base-36 suffix: `` `${Date.now()}-${Math.random().toString(36).substr(2, 9)}` ``.
+- **Related:** —
+
+### BUG-0088 — `CATEGORY_DESCRIPTIONS` injected unsanitized into `title` attributes
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-26
+- **Date Resolved:** 2026-03-26
+- **Found In:** `src/sidepanel/sidepanel.js` → `renderCategories()` in all three score render methods
+- **Root Cause:** Category description strings were interpolated directly into `title="..."` HTML attributes via template literals. Values containing `"` would break out of the attribute; values containing `<` could inject markup if the attribute context was mishandled.
+- **Fix:** Wrapped all three interpolations in `escapeHtml()`.
+- **Related:** BUG-0091
+
+### BUG-0087 — `processResults()` saves zeroed-score history entry on extraction error
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-26
+- **Date Resolved:** 2026-03-26
+- **Found In:** `src/sidepanel/sidepanel.js` → `processResults()`
+- **Root Cause:** When the content script returns an error stub (`{ error: true, ... }`), `processResults()` continued into the scoring pipeline with an empty data object. All three scores computed as 0/F. These zero-score results were then saved to history, polluting the history list with invalid entries.
+- **Fix:** Added early-exit guard at the top of `processResults()`: if `this.currentData?.error` is truthy, show the error state and return without scoring or saving.
+- **Related:** —
 
 ## Resolved Bugs (2026-03-23)
 
