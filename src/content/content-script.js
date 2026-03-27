@@ -1837,6 +1837,7 @@ function analyzeTables() {
     'main, [role="main"], article, #content, .product-detail, .product-page, .product__description, .product-single__description'
   ) || document.body;
   const hasDataTable = Array.from(contentRoot.querySelectorAll('table')).some(t => {
+    if (t.closest('nav, header, footer, [role="navigation"]')) return false;
     const rows = t.querySelectorAll('tr');
     if (rows.length < 3) return false;
     const firstRowCols = rows[0].querySelectorAll('td, th').length;

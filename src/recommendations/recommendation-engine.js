@@ -285,9 +285,10 @@ export class RecommendationEngine {
       }
     }
 
-    // Data table missing
+    // Data table missing (skip on PLPs — no single-product spec context)
+    const isPlp = this.extractedData?.pageType?.type === 'plp';
     const tables = this.extractedData?.contentStructure?.tables || {};
-    if (!tables.hasDataTable) {
+    if (!tables.hasDataTable && !isPlp) {
       recs.push(this.createRecommendation('data-table-missing'));
     }
 
