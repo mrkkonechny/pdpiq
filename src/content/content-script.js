@@ -3111,7 +3111,8 @@ function extractTrustConfidence() {
         if (returnKeywords.test(hdr.textContent)) {
           // Found an accordion header mentioning returns — check its associated panel
           const panelId = hdr.getAttribute('aria-controls');
-          const panel = panelId ? document.getElementById(panelId) : hdr.closest('[class*="accordion"], [class*="collapsible"]');
+          if (!panelId) continue;
+          const panel = document.getElementById(panelId);
           const panelText = panel ? panel.textContent.trim() : '';
           const hdrLen = hdr.textContent.trim().length;
           if (panelText.length > hdrLen + 25) {
@@ -3186,12 +3187,14 @@ function extractTrustConfidence() {
       const accordionHeaders = document.querySelectorAll(
         '[class*="accordion"] button, [class*="accordion"] [role="button"], ' +
         '[class*="collapsible"] button, [class*="collapsible"] [role="button"], ' +
-        '[class*="expandable"] button, .product-info button, .product-details button'
+        '[class*="expandable"] button, [class*="tab"] button[aria-controls], ' +
+        '.product-info button, .product-details button'
       );
       for (const hdr of accordionHeaders) {
         if (shippingKeywords.test(hdr.textContent)) {
           const panelId = hdr.getAttribute('aria-controls');
-          const panel = panelId ? document.getElementById(panelId) : hdr.closest('[class*="accordion"], [class*="collapsible"]');
+          if (!panelId) continue;
+          const panel = document.getElementById(panelId);
           const panelText = panel ? panel.textContent.trim() : '';
           const hdrLen = hdr.textContent.trim().length;
           if (panelText.length > hdrLen + 25) {
