@@ -1506,15 +1506,19 @@ function extractProductDetails(text) {
   }
 
   // Extract materials with actual matched text
+  // materialNounRe validates Pattern 0 captures contain a real material noun (not just descriptive text)
+  const materialNounRe = /\b(?:cotton|polyester|leather|genuine leather|faux leather|metal|aluminum|aluminium|steel|stainless steel|plastic|wood|wooden|bamboo|ceramic|glass|silicone|nylon|rubber|canvas|suede|velvet|linen|silk|wool|cashmere|denim|mesh|foam|titanium|copper|brass|iron|oak|maple|walnut|pine|mahogany|teak|acrylic|polycarbonate|abs|pvc|eva|neoprene|lycra|spandex|microfiber|fleece|polyurethane|pu leather|rayon|viscose|modal)\b/i;
   const materialPatterns = [
     /(?:made (?:of|from|with)|material[:\s]+|constructed (?:of|from))([^.,\r\n]{10,50})/i,
-    /\b((?:100%\s+)?(?:cotton|polyester|leather|genuine leather|faux leather|metal|aluminum|aluminium|steel|stainless steel|plastic|wood|wooden|bamboo|ceramic|glass|silicone|nylon|rubber|canvas|suede|velvet|linen|silk|wool|cashmere|denim|mesh|foam|titanium|copper|brass|iron|oak|maple|walnut|pine|mahogany|teak|acrylic|polycarbonate|abs|pvc|eva|neoprene|lycra|spandex|microfiber|fleece|polyurethane|pu leather))\b/i
+    /\b((?:100%\s+)?(?:cotton|polyester|leather|genuine leather|faux leather|metal|aluminum|aluminium|steel|stainless steel|plastic|wood|wooden|bamboo|ceramic|glass|silicone|nylon|rubber|canvas|suede|velvet|linen|silk|wool|cashmere|denim|mesh|foam|titanium|copper|brass|iron|oak|maple|walnut|pine|mahogany|teak|acrylic|polycarbonate|abs|pvc|eva|neoprene|lycra|spandex|microfiber|fleece|polyurethane|pu leather|rayon|viscose|modal))\b/i
   ];
-  for (const pattern of materialPatterns) {
+  for (const [i, pattern] of materialPatterns.entries()) {
     const match = text.match(pattern);
     if (match) {
+      // Pattern 0 captures arbitrary text after a keyword — require it contains a material noun
+      if (i === 0 && !materialNounRe.test(match[1] || '')) continue;
       details.hasMaterials = true;
-      details.materialsText = match[1] ? match[1].trim().substring(0, 50) : match[0].trim().substring(0, 50);
+      details.materialsText = (match[1] || match[0]).trim().substring(0, 50);
       break;
     }
   }
@@ -1825,9 +1829,28 @@ function calculateContentRatio() {
 }
 
 function analyzeTables() {
-  const tables = document.querySelectorAll('table');
-  const hasProper = Array.from(tables).some(t => t.querySelector('thead, th'));
-  return { tableCount: tables.length, hasProperTables: hasProper, score: hasProper ? 100 : tables.length > 0 ? 50 : 0 };
+  const allTables = document.querySelectorAll('table');
+  const hasProper = Array.from(allTables).some(t => t.querySelector('thead, th'));
+
+  // Data table: ≥3 rows, ≥2 columns, within product content area, has meaningful text
+  const contentRoot = document.querySelector(
+    'main, [role="main"], article, #content, .product-detail, .product-page, .product__description, .product-single__description'
+  ) || document.body;
+  const hasDataTable = Array.from(contentRoot.querySelectorAll('table')).some(t => {
+    if (t.closest('nav, header, footer, [role="navigation"]')) return false;
+    const rows = t.querySelectorAll('tr');
+    if (rows.length < 3) return false;
+    const firstRowCols = rows[0].querySelectorAll('td, th').length;
+    if (firstRowCols < 2) return false;
+    return t.textContent.trim().length > 20;
+  });
+
+  return {
+    tableCount: allTables.length,
+    hasProperTables: hasProper,
+    hasDataTable,
+    score: hasProper ? 100 : allTables.length > 0 ? 50 : 0
+  };
 }
 
 function analyzeLists() {
@@ -3057,6 +3080,7 @@ function extractPurchaseExperience() {
  * Extract Trust & Confidence signals
  */
 function extractTrustConfidence() {
+  const _headingLike = new Set(['H1','H2','H3','H4','H5','H6','BUTTON','SUMMARY','A']);
   const bodyText = document.body.innerText;
   const lower = bodyText.toLowerCase();
 
@@ -3070,10 +3094,13 @@ function extractTrustConfidence() {
   for (const sel of returnSelectors) {
     try {
       const el = document.querySelector(sel);
-      if (el && el.textContent.trim().length > 10) {
-        hasReturnPolicy = true;
-        returnPolicyText = el.textContent.trim().substring(0, 60);
-        break;
+      if (el && !_headingLike.has(el.tagName)) {
+        const text = (el.innerText || el.textContent || '').trim();
+        if (text.length > 25 && text.length < 600) {
+          hasReturnPolicy = true;
+          returnPolicyText = text.substring(0, 60);
+          break;
+        }
       }
     } catch (e) { /* skip */ }
   }
@@ -3085,10 +3112,11 @@ function extractTrustConfidence() {
     for (const det of detailsEls) {
       const summary = det.querySelector('summary');
       if (summary && returnKeywords.test(summary.textContent)) {
-        const content = det.textContent.trim();
-        if (content.length > 10) {
+        const content = (det.innerText || det.textContent || '').trim();
+        const summaryLen = summary.textContent.trim().length;
+        if (content.length > summaryLen + 25) {
           hasReturnPolicy = true;
-          returnPolicyText = summary.textContent.trim().substring(0, 60);
+          returnPolicyText = content.substring(0, 60);
           break;
         }
       }
@@ -3105,11 +3133,13 @@ function extractTrustConfidence() {
         if (returnKeywords.test(hdr.textContent)) {
           // Found an accordion header mentioning returns — check its associated panel
           const panelId = hdr.getAttribute('aria-controls');
-          const panel = panelId ? document.getElementById(panelId) : hdr.closest('[class*="accordion"], [class*="collapsible"]');
-          const panelText = panel ? panel.textContent.trim() : hdr.textContent.trim();
-          if (panelText.length > 10) {
+          if (!panelId) continue;
+          const panel = document.getElementById(panelId);
+          const panelText = panel ? panel.textContent.trim() : '';
+          const hdrLen = hdr.textContent.trim().length;
+          if (panelText.length > hdrLen + 25) {
             hasReturnPolicy = true;
-            returnPolicyText = hdr.textContent.trim().substring(0, 60);
+            returnPolicyText = panelText.substring(0, 60);
             break;
           }
         }
@@ -3118,7 +3148,7 @@ function extractTrustConfidence() {
   }
   if (!hasReturnPolicy) {
     const returnMatch = lower.match(/((?:free |easy |hassle[\s-]?free )?(?:\d+[\s-]?day )?(?:return|refund|exchange)(?:s| policy| guarantee)?)/i);
-    if (returnMatch) {
+    if (returnMatch && returnMatch[1].trim().length > 10) {
       hasReturnPolicy = true;
       returnPolicyText = returnMatch[1].trim().substring(0, 60);
     }
@@ -3148,10 +3178,10 @@ function extractTrustConfidence() {
   for (const sel of shippingSelectors) {
     try {
       const el = document.querySelector(sel);
-      if (el) {
+      if (el && !_headingLike.has(el.tagName)) {
         // Use innerText to exclude CSS from <style> child elements; cap length to skip large containers
         const text = (el.innerText || el.textContent || '').trim();
-        if (text.length > 5 && text.length < 600) {
+        if (text.length > 25 && text.length < 600) {
           hasShippingInfo = true;
           shippingText = text.substring(0, 60);
           break;
@@ -3166,10 +3196,11 @@ function extractTrustConfidence() {
     for (const det of detailsEls) {
       const summary = det.querySelector('summary');
       if (summary && shippingKeywords.test(summary.textContent)) {
-        const content = det.textContent.trim();
-        if (content.length > 5) {
+        const content = (det.innerText || det.textContent || '').trim();
+        const summaryLen = summary.textContent.trim().length;
+        if (content.length > summaryLen + 25) {
           hasShippingInfo = true;
-          shippingText = summary.textContent.trim().substring(0, 60);
+          shippingText = content.substring(0, 60);
           break;
         }
       }
@@ -3178,13 +3209,21 @@ function extractTrustConfidence() {
       const accordionHeaders = document.querySelectorAll(
         '[class*="accordion"] button, [class*="accordion"] [role="button"], ' +
         '[class*="collapsible"] button, [class*="collapsible"] [role="button"], ' +
-        '[class*="expandable"] button, .product-info button, .product-details button'
+        '[class*="expandable"] button, [class*="tab"] button[aria-controls], ' +
+        '.product-info button, .product-details button'
       );
       for (const hdr of accordionHeaders) {
         if (shippingKeywords.test(hdr.textContent)) {
-          hasShippingInfo = true;
-          shippingText = hdr.textContent.trim().substring(0, 60);
-          break;
+          const panelId = hdr.getAttribute('aria-controls');
+          if (!panelId) continue;
+          const panel = document.getElementById(panelId);
+          const panelText = panel ? panel.textContent.trim() : '';
+          const hdrLen = hdr.textContent.trim().length;
+          if (panelText.length > hdrLen + 25) {
+            hasShippingInfo = true;
+            shippingText = panelText.substring(0, 60);
+            break;
+          }
         }
       }
     }

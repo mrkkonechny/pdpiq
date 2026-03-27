@@ -112,16 +112,17 @@ export const FACTOR_WEIGHTS = {
     descriptionLength: 10,   // was 15 — reduced to fund factualSpecificity
     descriptionQuality: 5,   // was 10 — reduced to fund factualSpecificity; Contextual
     factualSpecificity: 10,  // NEW — GEO paper (ACM SIGKDD 2024): statistics addition boosts AI visibility +40%
-    specificationCount: 10,  // Contextual
+    specificationCount: 8,   // Contextual; reduced by 2 to fund dataTablePresence
     specificationDetail: 5,  // Contextual
-    featureCount: 10,
-    faqPresence: 10,
+    featureCount: 8,         // reduced by 2 to fund dataTablePresence
+    faqPresence: 8,          // reduced by 2 to fund dataTablePresence
     dimensions: 5,           // Contextual
     materials: 5,
     careInstructions: 3,
     warrantyInfo: 7,         // Contextual
     compatibilityInfo: 10,   // Contextual
-    comparisonContent: 10    // Contextual (was 5, rebalanced to sum to 100)
+    comparisonContent: 8,        // reduced by 2 to fund dataTablePresence; Contextual
+    dataTablePresence: 8         // new: HTML tables 2.5-6.76x more likely to be AI-cited (WSDM '24, WWW '25)
   },
 
   // Content Structure (12% of total) — must sum to 100
@@ -143,12 +144,11 @@ export const FACTOR_WEIGHTS = {
   authorityTrust: {
     reviewCount: 22,         // Contextual
     averageRating: 20,       // Contextual
-    reviewRecency: 12,
+    reviewRecency: 17,          // +5 from contentFreshness (moved to aiDiscoverability)
     reviewDepth: 10,
     brandClarity: 12,
     certifications: 10,      // Contextual
     awards: 2,
-    contentFreshness: 5,
     socialProofDepth: 4,
     expertAttribution: 3
   },
@@ -157,9 +157,10 @@ export const FACTOR_WEIGHTS = {
   aiDiscoverability: {
     aiCrawlerAccess: 30,       // robots.txt rules for major AI bots
     entityConsistency: 30,     // Product name alignment across schema, H1, og:title, meta description (was 25 — well-supported signal)
-    answerFormatContent: 20,   // "Best for", comparison, how-to, use case content
-    productIdentifiers: 15,    // GTIN/UPC/MPN in Product schema
-    llmsTxtPresence: 5         // /llms.txt and /llms-full.txt presence (was 10 — no confirmed crawler adoption as of 2026)
+    answerFormatContent: 15,   // reduced by 5 to fund contentFreshness
+    productIdentifiers: 10,    // reduced by 5 to fund contentFreshness
+    llmsTxtPresence: 5,        // /llms.txt and /llms-full.txt presence (was 10 — no confirmed crawler adoption as of 2026)
+    contentFreshness: 10       // new: dateModified recency (76.4% of AI citations within 30 days)
   }
 };
 
@@ -417,6 +418,7 @@ export const FACTOR_RECOMMENDATIONS = {
   'Warranty Information': 'warranty-missing',
   'Compatibility Information': 'compatibility-missing',
   'Comparison Content': 'comparison-missing',
+  'Data Table Presence': 'data-table-missing',
 
   // Content Structure
   'H1 Heading': 'h1-missing',
@@ -440,7 +442,6 @@ export const FACTOR_RECOMMENDATIONS = {
   'Brand Clarity': 'brand-unclear',
   'Certifications': 'certifications-missing',
   'Awards': 'awards-missing',
-  'Content Freshness': 'content-stale',
   'Social Proof Depth': 'social-proof-missing',
   'Expert Attribution': 'expert-attribution-missing',
 
@@ -449,7 +450,8 @@ export const FACTOR_RECOMMENDATIONS = {
   'Entity Consistency': 'entity-consistency-low',
   'Answer-Format Content': 'answer-format-missing',
   'Product Identifiers': 'product-identifiers-missing',
-  'llms.txt Presence': 'llms-txt-missing'
+  'llms.txt Presence': 'llms-txt-missing',
+  'Content Freshness': 'content-freshness-stale'
 };
 
 // ==========================================

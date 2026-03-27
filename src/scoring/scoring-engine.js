@@ -46,7 +46,7 @@ export class ScoringEngine {
       protocolMeta: this.scoreProtocolMeta(extractedData.metaTags, imageVerification, aiDiscoverabilityData?.lastModified),
       contentQuality: this.scoreContentQuality(extractedData.contentQuality, extractedData.aiDiscoverability, extractedData),
       contentStructure: this.scoreContentStructure(extractedData.contentStructure, extractedData.contentQuality?.textMetrics),
-      authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals, extractedData.aiDiscoverability),
+      authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals),
       aiDiscoverability: this.scoreAIDiscoverability(extractedData, aiDiscoverabilityData, isPlp)
     };
 
@@ -759,6 +759,20 @@ export class ScoringEngine {
     });
     rawScore += comparisonScore;
 
+    // Data Table Presence (8 points)
+    const tables = extractedData?.contentStructure?.tables || {};
+    const tablePresenceScore = tables.hasDataTable ? weights.dataTablePresence : 0;
+    factors.push({
+      name: 'Data Table Presence',
+      status: tables.hasDataTable ? 'pass' : 'fail',
+      points: tablePresenceScore,
+      maxPoints: weights.dataTablePresence,
+      details: tables.hasDataTable
+        ? 'HTML data table found in product content area'
+        : 'No data table in product content area — HTML tables have 2.5–6.76× higher AI citation rate than prose (Table Meets LLM, WSDM \'24)'
+    });
+    rawScore += tablePresenceScore;
+
     return {
       score: Math.min(100, rawScore),
       maxScore,
@@ -948,9 +962,8 @@ export class ScoringEngine {
   /**
    * Score Authority & Trust category (13% weight)
    * @param {Object} data - Trust signals extraction data
-   * @param {Object} aiSignals - AI discoverability signals (for Content Freshness dates)
    */
-  scoreAuthorityTrust(data, aiSignals = null) {
+  scoreAuthorityTrust(data) {
     const factors = [];
     let rawScore = 0;
     const maxScore = 100;
@@ -1088,41 +1101,6 @@ export class ScoringEngine {
     });
     rawScore += awardScore;
 
-    // Content Freshness (5 points)
-    // Uses schema date signals from aiDiscoverability extraction
-    const schemaDate = aiSignals?.schemaDate || {};
-    const visibleDate = aiSignals?.visibleDate || {};
-    const bestDate = schemaDate.dateModified || schemaDate.datePublished || null;
-    let freshnessScore = 0;
-    let freshnessStatus = 'fail';
-    let freshnessDetails = 'No date information found';
-
-    if (bestDate) {
-      const daysAgo = (Date.now() - new Date(bestDate).getTime()) / (1000 * 60 * 60 * 24);
-      if (daysAgo <= 90) {
-        freshnessScore = weights.contentFreshness;
-        freshnessStatus = 'pass';
-        freshnessDetails = `Updated ${Math.round(daysAgo)} days ago`;
-      } else {
-        freshnessScore = Math.round(weights.contentFreshness * 0.5);
-        freshnessStatus = 'warning';
-        freshnessDetails = `Last updated ${Math.round(daysAgo)} days ago (aim for <90 days)`;
-      }
-    } else if (visibleDate?.found) {
-      freshnessScore = Math.round(weights.contentFreshness * 0.5);
-      freshnessStatus = 'warning';
-      freshnessDetails = 'Date visible on page but not in schema markup';
-    }
-
-    factors.push({
-      name: 'Content Freshness',
-      status: freshnessStatus,
-      points: freshnessScore,
-      maxPoints: weights.contentFreshness,
-      details: freshnessDetails
-    });
-    rawScore += freshnessScore;
-
     // Social Proof Depth (4 points)
     const socialProof = data?.socialProof || {};
     const hasSocialCount = !!(socialProof.soldCount || socialProof.customerCount);
@@ -1171,6 +1149,104 @@ export class ScoringEngine {
   }
 
   /**
+   * Score Content Freshness for AI Discoverability
+   * @param {Object} extractedData - Full extracted data from content script
+   * @param {number} maxPoints - Maximum points for this factor
+   */
+  scoreDateFreshness(extractedData, maxPoints) {
+    const aiDisc = extractedData.aiDiscoverability || {};
+    const schemaDate = aiDisc.schemaDate || {};
+    const visibleDate = aiDisc.visibleDate || {};
+
+    // Prefer dateModified from schema; fall back to datePublished; then visible DOM date
+    const dateStr = schemaDate.dateModified || schemaDate.datePublished ||
+                    (visibleDate.found && visibleDate.parsedDate ? visibleDate.parsedDate : null);
+
+    if (!dateStr) {
+      return {
+        score: 0,
+        factor: {
+          name: 'Content Freshness',
+          status: 'fail',
+          points: 0,
+          maxPoints,
+          details: 'No date signal found — add dateModified to Product schema (76.4% of AI citations are pages updated within 30 days)'
+        }
+      };
+    }
+
+    let date;
+    try {
+      date = new Date(dateStr);
+      if (isNaN(date.getTime())) throw new Error('invalid');
+    } catch (_) {
+      return {
+        score: 0,
+        factor: {
+          name: 'Content Freshness',
+          status: 'fail',
+          points: 0,
+          maxPoints,
+          details: 'Date signal found but could not be parsed — use ISO 8601 format (YYYY-MM-DD)'
+        }
+      };
+    }
+
+    const daysDiff = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysDiff < 0) {
+      return {
+        score: maxPoints,
+        factor: {
+          name: 'Content Freshness',
+          status: 'pass',
+          points: maxPoints,
+          maxPoints,
+          details: 'dateModified is set in the future — verify schema date is correct (ISO 8601 UTC)'
+        }
+      };
+    }
+
+    if (daysDiff < 30) {
+      return {
+        score: maxPoints,
+        factor: {
+          name: 'Content Freshness',
+          status: 'pass',
+          points: maxPoints,
+          maxPoints,
+          details: `Updated ${daysDiff} day${daysDiff === 1 ? '' : 's'} ago — recent content strongly favoured by AI citation systems`
+        }
+      };
+    }
+
+    if (daysDiff <= 180) {
+      const partialScore = Math.round(maxPoints * 0.5);
+      return {
+        score: partialScore,
+        factor: {
+          name: 'Content Freshness',
+          status: 'warning',
+          points: partialScore,
+          maxPoints,
+          details: `Updated ${daysDiff} days ago — 76.4% of AI citations are pages updated within 30 days`
+        }
+      };
+    }
+
+    return {
+      score: 0,
+      factor: {
+        name: 'Content Freshness',
+        status: 'fail',
+        points: 0,
+        maxPoints,
+        details: `Updated ${daysDiff} days ago — stale content is rarely cited by AI systems. Update page content and set schema dateModified`
+      }
+    };
+  }
+
+  /**
    * Score AI Discoverability category (20% weight)
    * @param {Object} extractedData - Full extracted data from content script
    * @param {Object} networkData - Network fetch data (robots.txt, llms.txt, Last-Modified)
@@ -1212,6 +1288,11 @@ export class ScoringEngine {
     const llmsResult = this.scoreLlmsTxt(llms, weights.llmsTxtPresence);
     factors.push(llmsResult.factor);
     rawScore += llmsResult.score;
+
+    // Content Freshness (10 points)
+    const freshnessResult = this.scoreDateFreshness(extractedData, weights.contentFreshness);
+    factors.push(freshnessResult.factor);
+    rawScore += freshnessResult.score;
 
     return {
       score: Math.min(100, rawScore),
