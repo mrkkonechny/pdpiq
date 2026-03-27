@@ -143,12 +143,11 @@ export const FACTOR_WEIGHTS = {
   authorityTrust: {
     reviewCount: 22,         // Contextual
     averageRating: 20,       // Contextual
-    reviewRecency: 12,
+    reviewRecency: 17,          // +5 from contentFreshness (moved to aiDiscoverability)
     reviewDepth: 10,
     brandClarity: 12,
     certifications: 10,      // Contextual
     awards: 2,
-    contentFreshness: 5,
     socialProofDepth: 4,
     expertAttribution: 3
   },
@@ -157,9 +156,10 @@ export const FACTOR_WEIGHTS = {
   aiDiscoverability: {
     aiCrawlerAccess: 30,       // robots.txt rules for major AI bots
     entityConsistency: 30,     // Product name alignment across schema, H1, og:title, meta description (was 25 — well-supported signal)
-    answerFormatContent: 20,   // "Best for", comparison, how-to, use case content
-    productIdentifiers: 15,    // GTIN/UPC/MPN in Product schema
-    llmsTxtPresence: 5         // /llms.txt and /llms-full.txt presence (was 10 — no confirmed crawler adoption as of 2026)
+    answerFormatContent: 15,   // reduced by 5 to fund contentFreshness
+    productIdentifiers: 10,    // reduced by 5 to fund contentFreshness
+    llmsTxtPresence: 5,        // /llms.txt and /llms-full.txt presence (was 10 — no confirmed crawler adoption as of 2026)
+    contentFreshness: 10       // new: dateModified recency (76.4% of AI citations within 30 days)
   }
 };
 
@@ -440,7 +440,7 @@ export const FACTOR_RECOMMENDATIONS = {
   'Brand Clarity': 'brand-unclear',
   'Certifications': 'certifications-missing',
   'Awards': 'awards-missing',
-  'Content Freshness': 'content-stale',
+  'Content Freshness': 'content-freshness-stale',
   'Social Proof Depth': 'social-proof-missing',
   'Expert Attribution': 'expert-attribution-missing',
 

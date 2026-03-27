@@ -433,12 +433,8 @@ export class RecommendationEngine {
       }
     }
 
-    // Content freshness — check via scoring results
     const trustFactors = this.scoreResult.categoryScores?.authorityTrust?.factors || [];
     for (const factor of trustFactors) {
-      if (factor.name === 'Content Freshness' && factor.status === 'fail') {
-        recs.push(this.createRecommendation('content-stale'));
-      }
       if (factor.name === 'Social Proof Depth' && factor.status === 'fail') {
         recs.push(this.createRecommendation('social-proof-missing'));
       }
@@ -479,6 +475,10 @@ export class RecommendationEngine {
 
       if (factor.name === 'llms.txt Presence' && factor.status === 'fail') {
         recs.push(this.createRecommendation('llms-txt-missing'));
+      }
+
+      if (factor.name === 'Content Freshness' && (factor.status === 'fail' || factor.status === 'warning')) {
+        recs.push(this.createRecommendation('content-freshness-stale'));
       }
     }
 

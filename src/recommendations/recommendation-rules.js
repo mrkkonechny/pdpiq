@@ -498,6 +498,15 @@ export const RECOMMENDATION_TEMPLATES = {
     implementation: 'Add at least two of: gtin (UPC/EAN/ISBN barcode number), mpn (manufacturer part number), or sku to your Product schema markup. These identifiers help AI systems confidently identify and recommend specific products.'
   },
 
+  'content-freshness-stale': {
+    title: 'Update content and set schema dateModified',
+    description: 'AI citation systems show strong recency bias — 76.4% of Perplexity citations come from pages updated within 30 days, and fresh content is 4× more likely to be cited (SE Ranking, 129K domain study). Stale or missing date signals put you at a structural disadvantage against competitors who regularly refresh product content.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'aiDiscoverability',
+    implementation: 'Two actions: (1) Update your product page content — add new specs, refresh description copy, or add recent reviews to the visible page. Even minor updates count. (2) Set schema dateModified in your Product JSON-LD to today\'s date when you update: `"dateModified": "2026-03-26"`. For Shopify: add dateModified to your product JSON-LD snippet in the theme. For WordPress/WooCommerce: plugins like Rank Math or Yoast auto-generate this from post modified date. Aim to update high-priority product pages at least monthly.'
+  },
+
   // Additional Structured Data
   'review-schema-missing': {
     title: 'Add Review schema markup',
