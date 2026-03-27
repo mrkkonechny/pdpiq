@@ -3061,6 +3061,7 @@ function extractPurchaseExperience() {
  * Extract Trust & Confidence signals
  */
 function extractTrustConfidence() {
+  const _headingLike = new Set(['H1','H2','H3','H4','H5','H6','BUTTON','SUMMARY','A']);
   const bodyText = document.body.innerText;
   const lower = bodyText.toLowerCase();
 
@@ -3074,7 +3075,7 @@ function extractTrustConfidence() {
   for (const sel of returnSelectors) {
     try {
       const el = document.querySelector(sel);
-      if (el && el.textContent.trim().length > 10) {
+      if (el && !_headingLike.has(el.tagName) && el.textContent.trim().length > 25) {
         hasReturnPolicy = true;
         returnPolicyText = el.textContent.trim().substring(0, 60);
         break;
@@ -3090,9 +3091,10 @@ function extractTrustConfidence() {
       const summary = det.querySelector('summary');
       if (summary && returnKeywords.test(summary.textContent)) {
         const content = det.textContent.trim();
-        if (content.length > 10) {
+        const summaryLen = summary.textContent.trim().length;
+        if (content.length > summaryLen + 25) {
           hasReturnPolicy = true;
-          returnPolicyText = summary.textContent.trim().substring(0, 60);
+          returnPolicyText = content.substring(0, 60);
           break;
         }
       }
@@ -3110,10 +3112,11 @@ function extractTrustConfidence() {
           // Found an accordion header mentioning returns — check its associated panel
           const panelId = hdr.getAttribute('aria-controls');
           const panel = panelId ? document.getElementById(panelId) : hdr.closest('[class*="accordion"], [class*="collapsible"]');
-          const panelText = panel ? panel.textContent.trim() : hdr.textContent.trim();
-          if (panelText.length > 10) {
+          const panelText = panel ? panel.textContent.trim() : '';
+          const hdrLen = hdr.textContent.trim().length;
+          if (panelText.length > hdrLen + 25) {
             hasReturnPolicy = true;
-            returnPolicyText = hdr.textContent.trim().substring(0, 60);
+            returnPolicyText = panelText.substring(0, 60);
             break;
           }
         }
@@ -3122,7 +3125,7 @@ function extractTrustConfidence() {
   }
   if (!hasReturnPolicy) {
     const returnMatch = lower.match(/((?:free |easy |hassle[\s-]?free )?(?:\d+[\s-]?day )?(?:return|refund|exchange)(?:s| policy| guarantee)?)/i);
-    if (returnMatch) {
+    if (returnMatch && returnMatch[1].trim().length > 10) {
       hasReturnPolicy = true;
       returnPolicyText = returnMatch[1].trim().substring(0, 60);
     }
@@ -3152,10 +3155,10 @@ function extractTrustConfidence() {
   for (const sel of shippingSelectors) {
     try {
       const el = document.querySelector(sel);
-      if (el) {
+      if (el && !_headingLike.has(el.tagName)) {
         // Use innerText to exclude CSS from <style> child elements; cap length to skip large containers
         const text = (el.innerText || el.textContent || '').trim();
-        if (text.length > 5 && text.length < 600) {
+        if (text.length > 25 && text.length < 600) {
           hasShippingInfo = true;
           shippingText = text.substring(0, 60);
           break;
@@ -3171,9 +3174,10 @@ function extractTrustConfidence() {
       const summary = det.querySelector('summary');
       if (summary && shippingKeywords.test(summary.textContent)) {
         const content = det.textContent.trim();
-        if (content.length > 5) {
+        const summaryLen = summary.textContent.trim().length;
+        if (content.length > summaryLen + 25) {
           hasShippingInfo = true;
-          shippingText = summary.textContent.trim().substring(0, 60);
+          shippingText = content.substring(0, 60);
           break;
         }
       }
@@ -3186,9 +3190,15 @@ function extractTrustConfidence() {
       );
       for (const hdr of accordionHeaders) {
         if (shippingKeywords.test(hdr.textContent)) {
-          hasShippingInfo = true;
-          shippingText = hdr.textContent.trim().substring(0, 60);
-          break;
+          const panelId = hdr.getAttribute('aria-controls');
+          const panel = panelId ? document.getElementById(panelId) : hdr.closest('[class*="accordion"], [class*="collapsible"]');
+          const panelText = panel ? panel.textContent.trim() : '';
+          const hdrLen = hdr.textContent.trim().length;
+          if (panelText.length > hdrLen + 25) {
+            hasShippingInfo = true;
+            shippingText = panelText.substring(0, 60);
+            break;
+          }
         }
       }
     }
