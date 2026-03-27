@@ -3075,10 +3075,13 @@ function extractTrustConfidence() {
   for (const sel of returnSelectors) {
     try {
       const el = document.querySelector(sel);
-      if (el && !_headingLike.has(el.tagName) && el.textContent.trim().length > 25) {
-        hasReturnPolicy = true;
-        returnPolicyText = el.textContent.trim().substring(0, 60);
-        break;
+      if (el && !_headingLike.has(el.tagName)) {
+        const text = (el.innerText || el.textContent || '').trim();
+        if (text.length > 25 && text.length < 600) {
+          hasReturnPolicy = true;
+          returnPolicyText = text.substring(0, 60);
+          break;
+        }
       }
     } catch (e) { /* skip */ }
   }
@@ -3090,7 +3093,7 @@ function extractTrustConfidence() {
     for (const det of detailsEls) {
       const summary = det.querySelector('summary');
       if (summary && returnKeywords.test(summary.textContent)) {
-        const content = det.textContent.trim();
+        const content = (det.innerText || det.textContent || '').trim();
         const summaryLen = summary.textContent.trim().length;
         if (content.length > summaryLen + 25) {
           hasReturnPolicy = true;
@@ -3174,7 +3177,7 @@ function extractTrustConfidence() {
     for (const det of detailsEls) {
       const summary = det.querySelector('summary');
       if (summary && shippingKeywords.test(summary.textContent)) {
-        const content = det.textContent.trim();
+        const content = (det.innerText || det.textContent || '').trim();
         const summaryLen = summary.textContent.trim().length;
         if (content.length > summaryLen + 25) {
           hasShippingInfo = true;
