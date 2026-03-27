@@ -112,16 +112,17 @@ export const FACTOR_WEIGHTS = {
     descriptionLength: 10,   // was 15 — reduced to fund factualSpecificity
     descriptionQuality: 5,   // was 10 — reduced to fund factualSpecificity; Contextual
     factualSpecificity: 10,  // NEW — GEO paper (ACM SIGKDD 2024): statistics addition boosts AI visibility +40%
-    specificationCount: 10,  // Contextual
+    specificationCount: 8,   // Contextual; reduced by 2 to fund dataTablePresence
     specificationDetail: 5,  // Contextual
-    featureCount: 10,
-    faqPresence: 10,
+    featureCount: 8,         // reduced by 2 to fund dataTablePresence
+    faqPresence: 8,          // reduced by 2 to fund dataTablePresence
     dimensions: 5,           // Contextual
     materials: 5,
     careInstructions: 3,
     warrantyInfo: 7,         // Contextual
     compatibilityInfo: 10,   // Contextual
-    comparisonContent: 10    // Contextual (was 5, rebalanced to sum to 100)
+    comparisonContent: 8,        // reduced by 2 to fund dataTablePresence; Contextual
+    dataTablePresence: 8         // new: HTML tables 2.5-6.76x more likely to be AI-cited (WSDM '24, WWW '25)
   },
 
   // Content Structure (12% of total) — must sum to 100
@@ -417,6 +418,7 @@ export const FACTOR_RECOMMENDATIONS = {
   'Warranty Information': 'warranty-missing',
   'Compatibility Information': 'compatibility-missing',
   'Comparison Content': 'comparison-missing',
+  'Data Table Presence': 'data-table-missing',
 
   // Content Structure
   'H1 Heading': 'h1-missing',

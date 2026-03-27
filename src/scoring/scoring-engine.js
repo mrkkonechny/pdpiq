@@ -759,6 +759,20 @@ export class ScoringEngine {
     });
     rawScore += comparisonScore;
 
+    // Data Table Presence (8 points)
+    const tables = extractedData?.contentStructure?.tables || {};
+    const tablePresenceScore = tables.hasDataTable ? weights.dataTablePresence : 0;
+    factors.push({
+      name: 'Data Table Presence',
+      status: tables.hasDataTable ? 'pass' : 'fail',
+      points: tablePresenceScore,
+      maxPoints: weights.dataTablePresence,
+      details: tables.hasDataTable
+        ? 'HTML data table found in product content area'
+        : 'No data table in product content area — HTML tables have 2.5–6.76× higher AI citation rate than prose (Table Meets LLM, WSDM \'24)'
+    });
+    rawScore += tablePresenceScore;
+
     return {
       score: Math.min(100, rawScore),
       maxScore,

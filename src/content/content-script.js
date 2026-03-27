@@ -1829,9 +1829,27 @@ function calculateContentRatio() {
 }
 
 function analyzeTables() {
-  const tables = document.querySelectorAll('table');
-  const hasProper = Array.from(tables).some(t => t.querySelector('thead, th'));
-  return { tableCount: tables.length, hasProperTables: hasProper, score: hasProper ? 100 : tables.length > 0 ? 50 : 0 };
+  const allTables = document.querySelectorAll('table');
+  const hasProper = Array.from(allTables).some(t => t.querySelector('thead, th'));
+
+  // Data table: ≥3 rows, ≥2 columns, within product content area, has meaningful text
+  const contentRoot = document.querySelector(
+    'main, [role="main"], article, #content, .product-detail, .product-page, .product__description, .product-single__description'
+  ) || document.body;
+  const hasDataTable = Array.from(contentRoot.querySelectorAll('table')).some(t => {
+    const rows = t.querySelectorAll('tr');
+    if (rows.length < 3) return false;
+    const firstRowCols = rows[0].querySelectorAll('td, th').length;
+    if (firstRowCols < 2) return false;
+    return t.textContent.trim().length > 20;
+  });
+
+  return {
+    tableCount: allTables.length,
+    hasProperTables: hasProper,
+    hasDataTable,
+    score: hasProper ? 100 : allTables.length > 0 ? 50 : 0
+  };
 }
 
 function analyzeLists() {

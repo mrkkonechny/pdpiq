@@ -600,6 +600,15 @@ export const RECOMMENDATION_TEMPLATES = {
     implementation: 'Review your specification entries and add units to each value: weight in lbs/kg/oz, dimensions in inches/cm, capacity in ml/oz, power in watts, etc. At least 30% of specs should have units for a passing score.'
   },
 
+  'data-table-missing': {
+    title: 'Present specifications as an HTML table',
+    description: 'HTML tables are 2.5–6.76× more likely to be cited by AI systems than the same information in prose or bullet lists (Table Meets LLM, WSDM \'24; HtmlRAG, WWW \'25). LLMs extract values precisely from structured rows and columns; prose specifications require interpretation and are often summarised or dropped.',
+    impact: 'medium',
+    effort: 'low',
+    category: 'contentQuality',
+    implementation: 'Convert your product specifications into an HTML <table> with header cells (<th>) for attribute names and data cells (<td>) for values. Minimum: 3 rows (header + 2 data rows) and 2 columns. Include: dimensions, weight, materials, compatibility, power ratings, and any numeric specifications. For Shopify: use a metafield rendered as a table or add a table block in the product description. For WordPress/WooCommerce: use the table block in Gutenberg or the WooCommerce Attributes tab which renders as a <table>. Avoid converting tables back to styled divs or lists in your theme CSS.'
+  },
+
   'comparison-missing': {
     title: 'Add product comparison content',
     description: 'Comparison and "best for" content is the single most-cited page format in AI search — Ahrefs analysis of ChatGPT citations found 43.8% of all cited pages are "best X" comparison formats. When AI systems recommend products, brands\' own comparison pages account for 34% of citations. Pages that answer both the main query and fan-out queries are 161% more likely to be cited overall.',

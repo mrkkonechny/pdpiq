@@ -285,6 +285,12 @@ export class RecommendationEngine {
       }
     }
 
+    // Data table missing
+    const tables = this.extractedData?.contentStructure?.tables || {};
+    if (!tables.hasDataTable) {
+      recs.push(this.createRecommendation('data-table-missing'));
+    }
+
     return recs;
   }
 
