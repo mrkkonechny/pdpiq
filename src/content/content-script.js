@@ -1506,15 +1506,19 @@ function extractProductDetails(text) {
   }
 
   // Extract materials with actual matched text
+  // materialNounRe validates Pattern 0 captures contain a real material noun (not just descriptive text)
+  const materialNounRe = /\b(?:cotton|polyester|leather|genuine leather|faux leather|metal|aluminum|aluminium|steel|stainless steel|plastic|wood|wooden|bamboo|ceramic|glass|silicone|nylon|rubber|canvas|suede|velvet|linen|silk|wool|cashmere|denim|mesh|foam|titanium|copper|brass|iron|oak|maple|walnut|pine|mahogany|teak|acrylic|polycarbonate|abs|pvc|eva|neoprene|lycra|spandex|microfiber|fleece|polyurethane|pu leather|rayon|viscose|modal)\b/i;
   const materialPatterns = [
     /(?:made (?:of|from|with)|material[:\s]+|constructed (?:of|from))([^.,\r\n]{10,50})/i,
-    /\b((?:100%\s+)?(?:cotton|polyester|leather|genuine leather|faux leather|metal|aluminum|aluminium|steel|stainless steel|plastic|wood|wooden|bamboo|ceramic|glass|silicone|nylon|rubber|canvas|suede|velvet|linen|silk|wool|cashmere|denim|mesh|foam|titanium|copper|brass|iron|oak|maple|walnut|pine|mahogany|teak|acrylic|polycarbonate|abs|pvc|eva|neoprene|lycra|spandex|microfiber|fleece|polyurethane|pu leather))\b/i
+    /\b((?:100%\s+)?(?:cotton|polyester|leather|genuine leather|faux leather|metal|aluminum|aluminium|steel|stainless steel|plastic|wood|wooden|bamboo|ceramic|glass|silicone|nylon|rubber|canvas|suede|velvet|linen|silk|wool|cashmere|denim|mesh|foam|titanium|copper|brass|iron|oak|maple|walnut|pine|mahogany|teak|acrylic|polycarbonate|abs|pvc|eva|neoprene|lycra|spandex|microfiber|fleece|polyurethane|pu leather|rayon|viscose|modal))\b/i
   ];
-  for (const pattern of materialPatterns) {
+  for (const [i, pattern] of materialPatterns.entries()) {
     const match = text.match(pattern);
     if (match) {
+      // Pattern 0 captures arbitrary text after a keyword — require it contains a material noun
+      if (i === 0 && !materialNounRe.test(match[1] || '')) continue;
       details.hasMaterials = true;
-      details.materialsText = match[1] ? match[1].trim().substring(0, 50) : match[0].trim().substring(0, 50);
+      details.materialsText = (match[1] || match[0]).trim().substring(0, 50);
       break;
     }
   }
