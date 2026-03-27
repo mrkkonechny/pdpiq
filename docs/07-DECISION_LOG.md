@@ -44,9 +44,9 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 
 ### DEC-0038 — Substantive content threshold required for policy/shipping/materials extractors
 - **Date:** 2026-03-26
-- **Status:** Proposed
+- **Status:** Accepted
 - **Context:** BUG-0085 and BUG-0086 both fail the same way: extraction regexes match short, non-informative text fragments that satisfy the pattern (a keyword appears) but provide zero useful content to an LLM crawler. "Shipping & Returns" in an accordion heading satisfies the shipping regex but contains no policy information. "is so soft" satisfies the materials regex but names no material. The tool awards full points for these matches, inflating scores and undermining client trust.
-- **Decision:** Require minimum substantive content for `hasReturnPolicy`, `hasShippingInfo`, and `hasMaterials`: (1) minimum 20-character match for policy/shipping, (2) fabric/material noun presence required for materials, (3) exclude matches found only inside `<h2>`, `<h3>`, `<button>`, `<summary>` elements (these are navigation/heading elements, not content).
+- **Decision:** Require minimum substantive content for `hasReturnPolicy`, `hasShippingInfo`, and `hasMaterials`: (1) minimum content threshold for policy/shipping CSS selector path (>25 chars, <600 chars, using `innerText` to exclude `<style>` content), (2) fabric/material noun presence required for materials Pattern 0, (3) exclude matches in heading/navigation elements: `H1–H6`, `BUTTON`, `SUMMARY`, `A`. Implementation note: the original spec said 20-char minimum; final implementation uses 25 chars for the CSS selector path, and `<details>` accordion path requires panel content to exceed the summary length by ≥25 chars. Aria-controls accordion path requires a panel ID (skips if absent, preventing whole-container fallback).
 - **Rationale:** An LLM crawler ingesting "Shipping & Returns" learns nothing about the actual policy. The factor should measure whether actionable policy content exists, not whether the word appears. The heading exclusion also begins to address the ROAD-0045 JS-gated content problem for the specific case of accordion heading labels.
 - **Alternatives Considered:** Minimum word count only (misses the heading-as-label pattern). DOM-position check only (misses short prose fragments that still aren't informative).
 - **Consequences:** Sites with accordion-only policy labels will see `hasReturnPolicy` and `hasShippingInfo` drop from pass to fail — a correct outcome. Sites with "is so soft" style materials claims will see `hasMaterials` drop. May require communication in release notes.
@@ -64,7 +64,7 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 
 ### DEC-0036 — Add HTML data table as a scored AI Readiness factor
 - **Date:** 2026-03-26
-- **Status:** Proposed
+- **Status:** Accepted
 - **Context:** Three independent studies (Table Meets LLM, WSDM '24; HtmlRAG, WWW '25; Trafilatura benchmarks) show HTML tables are 2.5–6.76× more effective than equivalent prose or CSV for AI citation and extraction. pdpIQ already extracts `contentStructure.tables.count` but uses it only for semantic HTML scoring, not as a standalone factor.
 - **Decision:** Add `hasDataTable` as a scored factor in Content Quality (AI Readiness). Qualify as "data table" only: > 2 rows AND > 1 column within the product content area (excludes layout tables and single-column lists). Score: pass if ≥ 1 data table, fail otherwise. Weight: ~8 pts.
 - **Rationale:** This is one of the strongest multi-source evidence signals in the research. Most eCommerce product pages use prose specs, not tables. This factor directly translates to actionable advice for content and dev teams.
@@ -94,7 +94,7 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 
 ### DEC-0033 — Add content freshness (dateModified) as scored AI Readiness factor
 - **Date:** 2026-03-26
-- **Status:** Proposed
+- **Status:** Accepted
 - **Context:** Multiple research sources confirm strong recency bias in AI citation systems: 76.4% of Perplexity citations are content updated within 30 days (SE Ranking 129K domain study); freshness is one of the top 3 Perplexity ranking signals; ChatGPT also shows measurable recency preference. pdpIQ already extracts `dateModified` from JSON-LD/microdata and `visibleDate` from DOM text, but these are used only as display signals — they are not scored.
 - **Decision:** Promote `dateModified` to a scored factor in AI Discoverability. Scoring thresholds: pass if < 30 days, warning if 30–180 days, fail if > 180 days or absent. Schema source preferred over visible date. Weight: ~10 pts. Recommendation: "Update product content and set schema dateModified — 76.4% of Perplexity citations are pages updated within 30 days."
 - **Rationale:** High-confidence signal (multiple independent sources), actionable advice (content teams can update pages and schema), and directly maps to the Perplexity platform profile (ROAD-0063). The extraction infrastructure already exists.
