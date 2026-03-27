@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 ### Fixed
+- **BUG-0085: `hasMaterials` false positive on sensory fragments** — Pattern 0 now requires the captured text to contain a known material noun; added rayon/viscose/modal to noun list (`src/content/content-script.js`)
+- **BUG-0086: `hasReturnPolicy` / `hasShippingInfo` match accordion heading labels** — Added heading/button element exclusion, raised minimum content threshold to 25 chars, require accordion panel content to exceed header length by ≥25 chars; `innerText` used instead of `textContent` to exclude `<style>` elements; aria-controls panel lookup now requires panel ID to prevent whole-container fallback (`src/content/content-script.js`)
 - **C-1: processResults() extraction error guard** — Added early-exit when `currentData.error` is set to prevent zeroed-out scores being saved to history (`src/sidepanel/sidepanel.js`)
 - **C-2: CATEGORY_DESCRIPTIONS XSS via title attribute** — Wrapped all three category name `title=""` interpolations in `escapeHtml()` (`src/sidepanel/sidepanel.js`)
 - **H-4: Storage ID collision** — Added random suffix to `Date.now()` IDs to prevent overwrites when two analyses complete in the same millisecond (`src/storage/storage-manager.js`)
@@ -21,6 +23,8 @@
 - **M-3: Dead EXTRACT_DATA service worker handler** — Removed unused case; added routing comment to EXTRACTION_COMPLETE (`src/background/service-worker.js`)
 
 ### Changed
+- **Content Freshness factor moved to AI Discoverability** — Migrated from Authority & Trust (5 pts, 90-day threshold) to AI Discoverability (10 pts, 30-day pass / 30–180-day warning / >180-day fail); weights rebalanced: answerFormatContent 20→15, productIdentifiers 15→10, reviewRecency 12→17 (ROAD-0064)
+- **Data Table Presence factor added to Content Quality** — `analyzeTables()` now detects qualifying data tables (≥3 rows, ≥2 cols, in product content area, excluding nav/header/footer); scored as 8pt Content Quality factor; weights rebalanced: specificationCount/featureCount/faqPresence/comparisonContent each 10→8 (ROAD-0066)
 - **UX-8: confirm() for clear history** — Replaced browser `confirm()` dialog with inline double-tap pattern: first click turns button red with "Click again to confirm", auto-resets after 3 s (`src/sidepanel/sidepanel.js`)
 - **UX-11: Raw crawlable text scroll height** — Increased from 120 px to 180 px; added `resize: vertical` with 80 px min / 400 px max (`src/sidepanel/sidepanel.css`)
 

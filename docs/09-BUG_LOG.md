@@ -23,29 +23,31 @@ Track all bugs encountered during development. Most recent entries at the top wi
 
 ## Active Bugs
 
-### BUG-0086 — `hasReturnPolicy` / `hasShippingInfo` match accordion label, not policy content
-- **Status:** Open
-- **Severity:** Medium
-- **Date Found:** 2026-03-23
-- **Date Resolved:** —
-- **Found In:** `src/content/content-script.js` → `extractTrustConfidence()` within `extractPdpQualitySignals()`
-- **Root Cause:** The return policy and shipping info extractors match on the presence of the words "return" / "shipping" anywhere in visible text — including accordion heading labels. When the actual policy content is not in the initial DOM (JS-injected on accordion open), only the heading label ("Shipping & Returns") is found. Both `hasReturnPolicy` and `hasShippingInfo` score true on this label alone, awarding PDP Quality points for content an LLM crawler would never see.
-- **Fix:** —
-- **Related:** ROAD-0045
-- **Notes:** Discovered during analysis of `www.naturallife.com`. `returnPolicyText: "Shipping & Returns"` and `shippingText: "Shipping & Returns"` are identical — both matched the same accordion heading. A fix should require minimum substantive content (e.g. a policy sentence, a day count, a URL to a returns page) before awarding the flag, and/or exclude matches that are only heading elements (`<h2>`, `<h3>`, `<button>`, `<summary>`).
-
-### BUG-0085 — `hasMaterials` awards pass on sensory fragment with no fabric/material noun
-- **Status:** Open
-- **Severity:** Medium
-- **Date Found:** 2026-03-23
-- **Date Resolved:** —
-- **Found In:** `src/content/content-script.js` → `extractProductDetails()` materials regex
-- **Root Cause:** The materials regex matches any text containing a fabric/softness keyword in proximity to common adjectives. On Natural Life's page it extracted `"is so soft"` from the sentence "The fabric is so soft it feels like butter!" — a sensory claim, not a material specification. `hasMaterials` scores true, but an LLM reading "is so soft" cannot determine what the product is made of. The same issue may affect other `productDetails` signals (dimensions, care, compatibility) if their regex patterns are similarly permissive.
-- **Fix:** —
-- **Related:** ROAD-0045
-- **Notes:** A valid material match should contain an actual fabric or material noun (e.g. rayon, cotton, polyester, spandex, linen, nylon, modal, viscose, wool, silk, leather, canvas). The fix should add a noun-presence check before awarding `hasMaterials: true`, and the `materialsText` captured should be validated to be informative enough for LLM use. Consider applying the same "informational threshold" principle to other `productDetails` sub-signals.
+*(No active bugs.)*
 
 ## Resolved Bugs (2026-03-26)
+
+### BUG-0086 — `hasReturnPolicy` / `hasShippingInfo` match accordion label, not policy content
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-23
+- **Date Resolved:** 2026-03-26
+- **Found In:** `src/content/content-script.js` → `extractTrustConfidence()` within `extractPdpQualitySignals()`
+- **Root Cause:** The return policy and shipping info extractors match on the presence of the words "return" / "shipping" anywhere in visible text — including accordion heading labels. When the actual policy content is not in the initial DOM (JS-injected on accordion open), only the heading label ("Shipping & Returns") is found. Both `hasReturnPolicy` and `hasShippingInfo` score true on this label alone, awarding PDP Quality points for content an LLM crawler would never see.
+- **Fix:** Three changes in `extractTrustConfidence()`: (1) CSS selector path uses `innerText` instead of `textContent`, excludes heading/button/summary tags and requires >25 chars with 600-char cap; (2) `<details>` blocks use `(innerText || textContent)` to exclude inline `<style>` content; (3) aria-controls accordion path requires panel ID (`continue` if absent) preventing whole-container fallback. Tab selector parity added for shipping path. (`src/content/content-script.js`)
+- **Related:** ROAD-0045, ROAD-0068
+- **Notes:** Discovered during analysis of `www.naturallife.com`. `returnPolicyText: "Shipping & Returns"` and `shippingText: "Shipping & Returns"` are identical — both matched the same accordion heading.
+
+### BUG-0085 — `hasMaterials` awards pass on sensory fragment with no fabric/material noun
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-23
+- **Date Resolved:** 2026-03-26
+- **Found In:** `src/content/content-script.js` → `extractProductDetails()` materials regex
+- **Root Cause:** The materials regex matches any text containing a fabric/softness keyword in proximity to common adjectives. On Natural Life's page it extracted `"is so soft"` from the sentence "The fabric is so soft it feels like butter!" — a sensory claim, not a material specification. `hasMaterials` scores true, but an LLM reading "is so soft" cannot determine what the product is made of.
+- **Fix:** Added `materialNounRe` validation to Pattern 0 in `extractProductDetails()` — the capture group must contain a fabric/material noun before `hasMaterials` is set true. Added rayon, viscose, modal to the noun list. (`src/content/content-script.js`)
+- **Related:** ROAD-0045, ROAD-0068
+- **Notes:** A valid material match should contain an actual fabric or material noun (e.g. rayon, cotton, polyester, spandex, linen, nylon, modal, viscose, wool, silk, leather, canvas). The fix should add a noun-presence check before awarding `hasMaterials: true`, and the `materialsText` captured should be validated to be informative enough for LLM use.
 
 ### BUG-0097 — N/A factor displays warning icon instead of neutral dash
 - **Status:** Fixed

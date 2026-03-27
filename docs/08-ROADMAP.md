@@ -336,11 +336,12 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** ROAD-0045, DEC-0037, BUG-0085, BUG-0086
 
 ### ROAD-0068 — Fix BUG-0085 and BUG-0086: substantive content thresholds
-- **Status:** Proposed
+- **Status:** Done
 - **Type:** Bug Fix
 - **Priority:** P1 (High)
 - **Target Phase/Sprint:** Unscheduled
 - **Date Added:** 2026-03-26
+- **Date Completed:** 2026-03-26
 - **Requested By:** Strategic review (client trust / accuracy)
 - **Scope:** Small (< 1 day)
 - **Description:** Fix two active extraction bugs that inflate scores on accordion-heavy and SPA pages. BUG-0086: `hasReturnPolicy` and `hasShippingInfo` match accordion heading labels ("Shipping & Returns") that contain no actual policy content. BUG-0085: `hasMaterials` matches sensory fragments ("is so soft") that contain no material noun. Fix: require ≥ 20-character match for policy/shipping outside heading elements (`<h2>`, `<h3>`, `<button>`, `<summary>`); require at least one fabric/material noun alongside sensory keywords for materials.
@@ -372,11 +373,12 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** DEC-0037, ROAD-0045, ROAD-0069
 
 ### ROAD-0066 — HTML data table factor (AI Readiness — Content Quality)
-- **Status:** Proposed
+- **Status:** Done
 - **Type:** Scoring Change
 - **Priority:** P2 (Medium)
 - **Target Phase/Sprint:** Unscheduled
 - **Date Added:** 2026-03-26
+- **Date Completed:** 2026-03-26
 - **Requested By:** Strategic review (competitive positioning — research-driven scoring)
 - **Scope:** Small (< 1 day)
 - **Description:** Add `hasDataTable` as a scored Content Quality factor. Qualify as data table: `<table>` with > 2 rows AND > 1 column in the product content area (excludes layout tables). Weight: ~8 pts. Recommendation: "Present specifications in an HTML table — research shows 2.5–6.76× higher AI citation rate vs. prose (Table Meets LLM, WSDM '24; HtmlRAG, WWW '25)."
@@ -408,11 +410,12 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** DEC-0034, DEC-0031
 
 ### ROAD-0064 — Content freshness factor (dateModified scoring — AI Discoverability)
-- **Status:** Proposed
+- **Status:** Done
 - **Type:** Scoring Change
 - **Priority:** P1 (High)
 - **Target Phase/Sprint:** Unscheduled
 - **Date Added:** 2026-03-26
+- **Date Completed:** 2026-03-26
 - **Requested By:** Strategic review (competitive positioning — research-driven scoring)
 - **Scope:** Small (< 1 day)
 - **Description:** Promote `dateModified` from a display-only signal to a scored AI Discoverability factor. Extraction already exists (JSON-LD/microdata schema date signals). Scoring: pass if < 30 days, warning if 30–180 days, fail if > 180 days or absent. Schema source preferred over visible DOM date. Weight: ~10 pts. Recommendation: "Update product content and set schema dateModified — 76.4% of Perplexity citations are pages updated within 30 days (SE Ranking, 129K domain study)."
