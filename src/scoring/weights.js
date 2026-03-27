@@ -440,7 +440,6 @@ export const FACTOR_RECOMMENDATIONS = {
   'Brand Clarity': 'brand-unclear',
   'Certifications': 'certifications-missing',
   'Awards': 'awards-missing',
-  'Content Freshness': 'content-freshness-stale',
   'Social Proof Depth': 'social-proof-missing',
   'Expert Attribution': 'expert-attribution-missing',
 
@@ -449,7 +448,8 @@ export const FACTOR_RECOMMENDATIONS = {
   'Entity Consistency': 'entity-consistency-low',
   'Answer-Format Content': 'answer-format-missing',
   'Product Identifiers': 'product-identifiers-missing',
-  'llms.txt Presence': 'llms-txt-missing'
+  'llms.txt Presence': 'llms-txt-missing',
+  'Content Freshness': 'content-freshness-stale'
 };
 
 // ==========================================

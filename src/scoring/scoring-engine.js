@@ -46,7 +46,7 @@ export class ScoringEngine {
       protocolMeta: this.scoreProtocolMeta(extractedData.metaTags, imageVerification, aiDiscoverabilityData?.lastModified),
       contentQuality: this.scoreContentQuality(extractedData.contentQuality, extractedData.aiDiscoverability, extractedData),
       contentStructure: this.scoreContentStructure(extractedData.contentStructure, extractedData.contentQuality?.textMetrics),
-      authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals, extractedData.aiDiscoverability),
+      authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals),
       aiDiscoverability: this.scoreAIDiscoverability(extractedData, aiDiscoverabilityData, isPlp)
     };
 
@@ -948,9 +948,8 @@ export class ScoringEngine {
   /**
    * Score Authority & Trust category (13% weight)
    * @param {Object} data - Trust signals extraction data
-   * @param {Object} aiSignals - AI discoverability signals (for Content Freshness dates)
    */
-  scoreAuthorityTrust(data, aiSignals = null) {
+  scoreAuthorityTrust(data) {
     const factors = [];
     let rawScore = 0;
     const maxScore = 100;
@@ -1180,6 +1179,19 @@ export class ScoringEngine {
     }
 
     const daysDiff = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysDiff < 0) {
+      return {
+        score: maxPoints,
+        factor: {
+          name: 'Content Freshness',
+          status: 'pass',
+          points: maxPoints,
+          maxPoints,
+          details: 'dateModified is set in the future — verify schema date is correct (ISO 8601 UTC)'
+        }
+      };
+    }
 
     if (daysDiff < 30) {
       return {
