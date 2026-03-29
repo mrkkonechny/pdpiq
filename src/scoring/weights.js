@@ -77,6 +77,48 @@ export const CONTEXT_MULTIPLIERS = {
 };
 
 /**
+ * AI Platform multipliers — compose with CONTEXT_MULTIPLIERS in ScoringEngine constructor.
+ * Research basis:
+ *   ChatGPT: 87% citations from Bing top results; traditional authority signals dominate
+ *   Perplexity: 76.4% of citations within 30 days; FAQ/comparison format performs well
+ *   Google AIO: E-E-A-T signals; structured data; expertise & authority
+ *   Unified: no platform-specific adjustment (default)
+ *
+ * Ranges kept to 0.85–1.25 to avoid extreme compounding with CONTEXT_MULTIPLIERS.
+ * Keys overlap with CONTEXT_MULTIPLIERS keys — they are MULTIPLIED together in ScoringEngine constructor.
+ * New key: contentFreshness — handled in scoreDateFreshness() via this.multipliers.contentFreshness.
+ */
+export const AI_PLATFORM_MULTIPLIERS = {
+  chatgpt: {
+    // Bing-backed retrieval: authority and entity signals dominate
+    certifications: 1.15,
+    reviewCount: 1.1,
+    reviewRating: 1.1,
+    warrantyInfo: 1.1,
+    technicalSpecifications: 1.1,
+    contentFreshness: 0.9
+  },
+  perplexity: {
+    // Recency-first: 76.4% of citations within 30 days; Q&A format preferred
+    contentFreshness: 1.25,
+    comparisonContent: 1.2,
+    socialProof: 0.9,
+    certifications: 0.9,
+    reviewCount: 0.85,
+    reviewRating: 0.9
+  },
+  googleaio: {
+    // E-E-A-T: expertise, authority, trustworthiness; structured data
+    certifications: 1.2,
+    reviewCount: 1.2,
+    reviewRating: 1.2,
+    technicalSpecifications: 1.1,
+    socialProof: 1.15
+  },
+  unified: {}
+};
+
+/**
  * Factor weights within each category
  */
 export const FACTOR_WEIGHTS = {

@@ -6,6 +6,7 @@
 import {
   CATEGORY_WEIGHTS,
   CONTEXT_MULTIPLIERS,
+  AI_PLATFORM_MULTIPLIERS,
   FACTOR_WEIGHTS,
   getGrade,
   getGradeDescription,
@@ -25,10 +26,18 @@ import {
 export class ScoringEngine {
   /**
    * @param {string} context - Consumer context: 'want', 'need', or 'hybrid'
+   * @param {string} aiPlatform - AI platform profile: 'unified', 'chatgpt', 'perplexity', or 'googleaio'
    */
-  constructor(context = 'hybrid') {
+  constructor(context = 'hybrid', aiPlatform = 'unified') {
     this.context = context;
-    this.multipliers = CONTEXT_MULTIPLIERS[context] || CONTEXT_MULTIPLIERS.hybrid;
+    this.aiPlatform = aiPlatform;
+    const contextMults = CONTEXT_MULTIPLIERS[context] || CONTEXT_MULTIPLIERS.hybrid;
+    const platformMults = AI_PLATFORM_MULTIPLIERS[aiPlatform] || {};
+    // Compose: context multipliers × platform multipliers (shared keys multiply; new keys pass through)
+    this.multipliers = { ...contextMults };
+    for (const [key, val] of Object.entries(platformMults)) {
+      this.multipliers[key] = (this.multipliers[key] || 1.0) * val;
+    }
   }
 
   /**
@@ -71,6 +80,7 @@ export class ScoringEngine {
       grade,
       gradeDescription: getGradeDescription(grade),
       context: this.context,
+      aiPlatform: this.aiPlatform,
       categoryScores,
       jsDependent,
       pageType,
@@ -1148,6 +1158,8 @@ export class ScoringEngine {
    * @param {number} maxPoints - Maximum points for this factor
    */
   scoreDateFreshness(extractedData, maxPoints) {
+    const freshnessMult = this.multipliers.contentFreshness || 1.0;
+    const scaledMax = freshnessMult !== 1.0 ? Math.round(maxPoints * freshnessMult) : maxPoints;
     const aiDisc = extractedData.aiDiscoverability || {};
     const schemaDate = aiDisc.schemaDate || {};
     const visibleDate = aiDisc.visibleDate || {};
@@ -1163,7 +1175,8 @@ export class ScoringEngine {
           name: 'Content Freshness',
           status: 'fail',
           points: 0,
-          maxPoints,
+          maxPoints: scaledMax,
+          contextual: freshnessMult !== 1.0,
           details: 'No date signal found — add dateModified to Product schema (76.4% of AI citations are pages updated within 30 days)'
         }
       };
@@ -1180,7 +1193,8 @@ export class ScoringEngine {
           name: 'Content Freshness',
           status: 'fail',
           points: 0,
-          maxPoints,
+          maxPoints: scaledMax,
+          contextual: freshnessMult !== 1.0,
           details: 'Date signal found but could not be parsed — use ISO 8601 format (YYYY-MM-DD)'
         }
       };
@@ -1190,12 +1204,13 @@ export class ScoringEngine {
 
     if (daysDiff < 0) {
       return {
-        score: maxPoints,
+        score: scaledMax,
         factor: {
           name: 'Content Freshness',
           status: 'pass',
-          points: maxPoints,
-          maxPoints,
+          points: scaledMax,
+          maxPoints: scaledMax,
+          contextual: freshnessMult !== 1.0,
           details: 'dateModified is set in the future — verify schema date is correct (ISO 8601 UTC)'
         }
       };
@@ -1203,26 +1218,28 @@ export class ScoringEngine {
 
     if (daysDiff < 30) {
       return {
-        score: maxPoints,
+        score: scaledMax,
         factor: {
           name: 'Content Freshness',
           status: 'pass',
-          points: maxPoints,
-          maxPoints,
+          points: scaledMax,
+          maxPoints: scaledMax,
+          contextual: freshnessMult !== 1.0,
           details: `Updated ${daysDiff} day${daysDiff === 1 ? '' : 's'} ago — recent content strongly favoured by AI citation systems`
         }
       };
     }
 
     if (daysDiff <= 180) {
-      const partialScore = Math.round(maxPoints * 0.5);
+      const partialScore = Math.round(scaledMax * 0.5);
       return {
         score: partialScore,
         factor: {
           name: 'Content Freshness',
           status: 'warning',
           points: partialScore,
-          maxPoints,
+          maxPoints: scaledMax,
+          contextual: freshnessMult !== 1.0,
           details: `Updated ${daysDiff} days ago — 76.4% of AI citations are pages updated within 30 days`
         }
       };
@@ -1234,7 +1251,8 @@ export class ScoringEngine {
         name: 'Content Freshness',
         status: 'fail',
         points: 0,
-        maxPoints,
+        maxPoints: scaledMax,
+        contextual: freshnessMult !== 1.0,
         details: `Updated ${daysDiff} days ago — stale content is rarely cited by AI systems. Update page content and set schema dateModified`
       }
     };

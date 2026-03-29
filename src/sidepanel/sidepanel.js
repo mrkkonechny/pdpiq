@@ -37,6 +37,7 @@ class SidePanelApp {
   constructor() {
     this.currentData = null;
     this.selectedContext = null;
+    this.selectedPlatform = 'unified';
     this.scoreResult = null;
     this.recommendations = [];
     this.pdpScoreResult = null;
@@ -60,6 +61,7 @@ class SidePanelApp {
     this.displayVersion();
     await this.updatePageInfo();
     await this.loadHistory();
+    await this.loadPlatformSelection();
   }
 
   bindEvents() {
@@ -68,6 +70,16 @@ class SidePanelApp {
       btn.addEventListener('click', (e) => {
         const context = e.currentTarget.dataset.context;
         this.startAnalysis(context);
+      });
+    });
+
+    // Platform selection buttons
+    document.querySelectorAll('.platform-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const platform = e.currentTarget.dataset.platform;
+        this.selectedPlatform = platform;
+        this.updatePlatformUI(platform);
+        chrome.storage.local.set({ selectedPlatform: platform });
       });
     });
 
@@ -267,6 +279,26 @@ class SidePanelApp {
     document.getElementById('versionBadge').textContent = `v${version}`;
   }
 
+  async loadPlatformSelection() {
+    return new Promise(resolve => {
+      chrome.storage.local.get('selectedPlatform', (result) => {
+        if (result.selectedPlatform) {
+          this.selectedPlatform = result.selectedPlatform;
+          this.updatePlatformUI(result.selectedPlatform);
+        }
+        resolve();
+      });
+    });
+  }
+
+  updatePlatformUI(platform) {
+    document.querySelectorAll('.platform-btn').forEach(btn => {
+      const isSelected = btn.dataset.platform === platform;
+      btn.classList.toggle('selected', isSelected);
+      btn.setAttribute('aria-pressed', String(isSelected));
+    });
+  }
+
   async startAnalysis(context) {
     this.selectedContext = context;
     this.showLoading();
@@ -350,7 +382,7 @@ class SidePanelApp {
       this.aiDiscoverabilityData = aiDiscoverabilityData;
 
       // Score the data
-      const scoringEngine = new ScoringEngine(this.selectedContext);
+      const scoringEngine = new ScoringEngine(this.selectedContext, this.selectedPlatform);
       this.scoreResult = scoringEngine.calculateScore(this.currentData, imageVerification, aiDiscoverabilityData);
 
       // Generate AI Readiness recommendations
@@ -531,8 +563,10 @@ class SidePanelApp {
     document.getElementById('scoreValue').textContent = this.scoreResult.totalScore;
 
     // Update context label
+    const platformLabels = { unified: '', chatgpt: ' · ChatGPT', perplexity: ' · Perplexity', googleaio: ' · Google AIO' };
+    const platformSuffix = platformLabels[this.selectedPlatform] || '';
     document.getElementById('contextLabel').textContent =
-      `${this.selectedContext.charAt(0).toUpperCase() + this.selectedContext.slice(1)} Context`;
+      `${this.selectedContext.charAt(0).toUpperCase() + this.selectedContext.slice(1)} Context${platformSuffix}`;
 
     // Update grade description
     document.getElementById('gradeDescription').textContent =
@@ -1661,6 +1695,7 @@ class SidePanelApp {
       pageTitle: this.currentData.pageInfo?.title,
       domain,
       context: this.selectedContext,
+      aiPlatform: this.selectedPlatform,
       extraction: this.currentData,
       scoring: this.scoreResult,
       recommendations: this.recommendations,

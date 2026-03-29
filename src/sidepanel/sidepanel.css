@@ -173,6 +173,53 @@ body {
   transform: scale(0.98);
 }
 
+/* Platform Selector */
+.platform-selector {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border-color);
+}
+
+.platform-description {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+  text-align: center;
+}
+
+.platform-options {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-xs);
+  justify-content: center;
+}
+
+.platform-btn {
+  flex: 1;
+  padding: 6px var(--space-xs);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.platform-btn:hover {
+  border-color: var(--text-secondary);
+  background: var(--bg-secondary);
+}
+
+.platform-btn.selected {
+  border-color: #4f46e5;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-weight: 600;
+}
+
 .context-icon {
   width: 40px;
   height: 40px;
