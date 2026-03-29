@@ -1045,6 +1045,16 @@ class SidePanelApp {
                          f.status === 'na'   ? '–' : '⚠';
       const contextualLabel = f.contextual ? '<span class="multiplier">CTX</span>' : '';
 
+      // Source confidence badge
+      const schemaTypes = new Set(['schema', 'product-nested', 'microdata', 'json-ld']);
+      const normalizedSource = f.source
+        ? (schemaTypes.has(f.source) ? 'schema' : f.source)
+        : null;
+      const sourceLabels = { schema: 'Schema', dom: 'DOM', network: 'Network' };
+      const sourceBadge = normalizedSource
+        ? `<span class="source-badge source-${normalizedSource}">${sourceLabels[normalizedSource] || normalizedSource}</span>`
+        : '';
+
       // Get recommendation if factor has a mapping
       const recId = FACTOR_RECOMMENDATIONS[f.name];
       const rec = recId ? RECOMMENDATION_TEMPLATES[recId] : null;
@@ -1062,6 +1072,7 @@ class SidePanelApp {
           <div class="factor-row">
             ${expandBtn}
             <span class="factor-name">${f.name}${contextualLabel}</span>
+            ${sourceBadge}
             <span class="factor-status">${statusIcon}</span>
             <span class="factor-points">${f.points}/${f.maxPoints}</span>
           </div>

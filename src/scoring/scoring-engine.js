@@ -99,7 +99,7 @@ export class ScoringEngine {
 
     // Product Schema (30 points) - Critical, graduated scoring (N/A for PLP)
     if (isPlp) {
-      factors.push({ name: 'Product Schema', status: 'na', points: weights.productSchema, maxPoints: weights.productSchema, critical: true, details: 'N/A — Collection Page' });
+      factors.push({ name: 'Product Schema', status: 'na', points: weights.productSchema, maxPoints: weights.productSchema, critical: true, source: 'schema', details: 'N/A — Collection Page' });
       rawScore += weights.productSchema;
     } else {
       const product = data?.schemas?.product;
@@ -142,6 +142,7 @@ export class ScoringEngine {
         points: productScore,
         maxPoints: weights.productSchema,
         critical: true,
+        source: 'schema',
         details: productDetails
       });
       rawScore += productScore;
@@ -149,7 +150,7 @@ export class ScoringEngine {
 
     // Offer Schema (20 points) - Critical (N/A for PLP)
     if (isPlp) {
-      factors.push({ name: 'Offer Schema', status: 'na', points: weights.offerSchema, maxPoints: weights.offerSchema, critical: true, details: 'N/A — Collection Page' });
+      factors.push({ name: 'Offer Schema', status: 'na', points: weights.offerSchema, maxPoints: weights.offerSchema, critical: true, source: 'schema', details: 'N/A — Collection Page' });
       rawScore += weights.offerSchema;
     } else {
       const hasOffer = data?.schemas?.offer !== null;
@@ -160,6 +161,7 @@ export class ScoringEngine {
         points: offerScore,
         maxPoints: weights.offerSchema,
         critical: true,
+        source: 'schema',
         details: hasOffer ? 'Price and availability structured' : 'Missing Offer schema'
       });
       rawScore += offerScore;
@@ -173,6 +175,7 @@ export class ScoringEngine {
       status: hasRating ? 'pass' : 'fail',
       points: ratingScore,
       maxPoints: weights.aggregateRating,
+      source: 'schema',
       details: hasRating ?
         `Rating: ${data.schemas.aggregateRating.ratingValue}/5` :
         'Missing rating schema'
@@ -181,7 +184,7 @@ export class ScoringEngine {
 
     // Review Schema (10 points) — N/A for PLP
     if (isPlp) {
-      factors.push({ name: 'Review Schema', status: 'na', points: weights.reviewSchema, maxPoints: weights.reviewSchema, details: 'N/A — Collection Page' });
+      factors.push({ name: 'Review Schema', status: 'na', points: weights.reviewSchema, maxPoints: weights.reviewSchema, source: 'schema', details: 'N/A — Collection Page' });
       rawScore += weights.reviewSchema;
     } else {
       const hasReviews = data?.schemas?.reviews?.length > 0;
@@ -191,6 +194,7 @@ export class ScoringEngine {
         status: hasReviews ? 'pass' : 'fail',
         points: reviewScore,
         maxPoints: weights.reviewSchema,
+        source: 'schema',
         details: hasReviews ?
           `${data.schemas.reviews.length} reviews structured` :
           'No structured reviews'
@@ -210,6 +214,7 @@ export class ScoringEngine {
       status: hasFaq ? (faqSchemaIsPageLevel ? 'warning' : 'pass') : 'fail',
       points: faqScore,
       maxPoints: weights.faqSchema,
+      source: 'schema',
       details: hasFaq
         ? `${data.schemas.faq.questionCount} FAQs structured${faqSchemaIsPageLevel ? ' (page-level — not product-specific)' : ''}`
         : 'No FAQ schema'
@@ -225,6 +230,7 @@ export class ScoringEngine {
       status: hasBreadcrumb ? 'pass' : 'fail',
       points: breadcrumbScore,
       maxPoints: weights.breadcrumbSchema,
+      source: 'schema',
       details: hasBreadcrumb ? `${breadcrumbCount} level${breadcrumbCount !== 1 ? 's' : ''} found` : 'Missing breadcrumb schema'
     });
     rawScore += breadcrumbScore;
@@ -238,6 +244,7 @@ export class ScoringEngine {
       status: hasOrg ? 'pass' : 'fail',
       points: orgScore,
       maxPoints: weights.organizationSchema,
+      source: 'schema',
       details: hasOrg ? (orgName ? `Found: ${orgName}` : 'Schema present') : 'Missing organization/brand schema'
     });
     rawScore += orgScore;
@@ -251,6 +258,7 @@ export class ScoringEngine {
       status: hasImageSchema ? 'pass' : 'fail',
       points: imageSchemaScore,
       maxPoints: weights.imageSchema,
+      source: 'schema',
       details: hasImageSchema ? `${imageCount} image${imageCount !== 1 ? 's' : ''} in schema` : 'No ImageObject schema'
     });
     rawScore += imageSchemaScore;
@@ -283,6 +291,7 @@ export class ScoringEngine {
       points: ogImageScore,
       maxPoints: weights.ogImage,
       critical: true,
+      source: 'dom',
       details: hasOgImage ? (og.image.length > 80 ? og.image.substring(0, 80) + '...' : og.image) : 'No og:image tag found'
     });
     rawScore += ogImageScore;
@@ -333,6 +342,7 @@ export class ScoringEngine {
       status: imageFormatStatus,
       points: imageFormatScore,
       maxPoints: weights.ogImageFormat,
+      source: 'dom',
       details: imageFormatDetails
     });
     rawScore += imageFormatScore;
@@ -347,6 +357,7 @@ export class ScoringEngine {
       status: hasOgTitle ? (titleOptimal ? 'pass' : 'warning') : 'fail',
       points: ogTitleScore,
       maxPoints: weights.ogTitle,
+      source: 'dom',
       details: hasOgTitle ? `${titleLength} chars${titleLength > 60 ? ' (too long)' : ''}` : 'Missing'
     });
     rawScore += ogTitleScore;
@@ -361,6 +372,7 @@ export class ScoringEngine {
       status: hasOgDesc ? (descOptimal ? 'pass' : 'warning') : 'fail',
       points: ogDescScore,
       maxPoints: weights.ogDescription,
+      source: 'dom',
       details: hasOgDesc ? `${descLength} chars` : 'Missing'
     });
     rawScore += ogDescScore;
@@ -373,6 +385,7 @@ export class ScoringEngine {
       status: isProductType ? 'pass' : 'fail',
       points: ogTypeScore,
       maxPoints: weights.ogType,
+      source: 'dom',
       details: og.type ? `Type: ${og.type}` : 'Missing og:type'
     });
     rawScore += ogTypeScore;
@@ -383,6 +396,7 @@ export class ScoringEngine {
       status: 'na',
       points: weights.twitterCard,
       maxPoints: weights.twitterCard,
+      source: 'dom',
       details: 'Not applicable for AI readiness — X/Twitter-only social signal'
     });
     rawScore += weights.twitterCard;
@@ -393,6 +407,7 @@ export class ScoringEngine {
       status: 'na',
       points: weights.twitterImage,
       maxPoints: weights.twitterImage,
+      source: 'dom',
       details: 'Not applicable for AI readiness — X/Twitter-only social signal'
     });
     rawScore += weights.twitterImage;
@@ -409,6 +424,7 @@ export class ScoringEngine {
       status: hasCanonical ? (canonicalIsValid ? 'pass' : 'warning') : 'fail',
       points: canonicalScore,
       maxPoints: weights.canonical,
+      source: 'dom',
       details: hasCanonical ?
         (canonicalMatches ? 'Matches current URL' :
          isProductCanonical ? 'Points to canonical product URL' :
@@ -427,6 +443,7 @@ export class ScoringEngine {
       status: hasMetaDesc ? (metaDescOptimal ? 'pass' : 'warning') : 'fail',
       points: metaDescScore,
       maxPoints: weights.metaDescription,
+      source: 'dom',
       details: hasMetaDesc ? `${metaDescLength} chars` : 'Missing'
     });
     rawScore += metaDescScore;
@@ -441,6 +458,7 @@ export class ScoringEngine {
       points: robotsScore,
       maxPoints: weights.robotsAllowsIndex,
       critical: isBlocked,
+      source: 'dom',
       details: isBlocked ? 'BLOCKED: noindex directive found' : 'Indexing allowed'
     });
     rawScore += robotsScore;
@@ -476,6 +494,7 @@ export class ScoringEngine {
       status: lastModifiedStatus,
       points: lastModifiedScore,
       maxPoints: weights.lastModified,
+      source: 'network',
       details: lastModifiedDetails
     });
     rawScore += lastModifiedScore;
@@ -544,6 +563,7 @@ export class ScoringEngine {
       status: wordCount >= 100 ? 'pass' : wordCount >= 50 ? 'warning' : 'fail',
       points: descScore,
       maxPoints: weights.descriptionLength,
+      source: data?.description?.source || 'dom',
       details: `${wordCount} words${descSource}${wordCount < 100 ? ' (aim for 100+)' : ''}`
     });
     rawScore += descScore;
@@ -570,6 +590,7 @@ export class ScoringEngine {
       points: descQualityScore,
       maxPoints: weights.descriptionQuality,
       contextual: true,
+      source: data?.description?.source || 'dom',
       details: [
         hasBenefits ? 'Benefits' : null,
         hasTechnical ? 'Technical' : null
@@ -649,6 +670,7 @@ export class ScoringEngine {
       status: faqSectionStatus,
       points: faqSectionScore,
       maxPoints: weights.faqPresence,
+      source: extractedData?.contentQuality?.faq?.source || 'dom',
       details: faqCount > 0
         ? `${faqCount} FAQ${faqCount !== 1 ? 's' : ''}${faqSource}${faqScopeLabel}`
         : 'No FAQ found'
@@ -1273,6 +1295,7 @@ export class ScoringEngine {
 
     // AI Crawler Access (30 points)
     const crawlerResult = this.scoreAICrawlerAccess(robots, weights.aiCrawlerAccess);
+    crawlerResult.factor.source = 'network';
     factors.push(crawlerResult.factor);
     rawScore += crawlerResult.score;
 
@@ -1298,11 +1321,15 @@ export class ScoringEngine {
 
     // llms.txt Presence (5 points)
     const llmsResult = this.scoreLlmsTxt(llms, weights.llmsTxtPresence);
+    llmsResult.factor.source = 'network';
     factors.push(llmsResult.factor);
     rawScore += llmsResult.score;
 
     // Content Freshness (10 points)
     const freshnessResult = this.scoreDateFreshness(extractedData, weights.contentFreshness);
+    const hasSchemaDate = !!(extractedData?.aiDiscoverability?.schemaDate?.dateModified ||
+                             extractedData?.aiDiscoverability?.schemaDate?.datePublished);
+    freshnessResult.factor.source = hasSchemaDate ? 'schema' : 'dom';
     factors.push(freshnessResult.factor);
     rawScore += freshnessResult.score;
 
