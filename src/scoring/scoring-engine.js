@@ -368,30 +368,25 @@ export class ScoringEngine {
     });
     rawScore += ogTypeScore;
 
-    // Twitter Card (10 points)
-    const hasTwitterCard = !!twitter.card;
-    const isLargeImage = twitter.card === 'summary_large_image';
-    const twitterScore = hasTwitterCard ? (isLargeImage ? weights.twitterCard : Math.round(weights.twitterCard * 0.7)) : 0;
+    // Twitter Card — N/A for AI readiness (DEC-0035): X/Twitter-only signal; zero LLM provider documentation
     factors.push({
       name: 'Twitter Card',
-      status: hasTwitterCard ? (isLargeImage ? 'pass' : 'warning') : 'fail',
-      points: twitterScore,
+      status: 'na',
+      points: weights.twitterCard,
       maxPoints: weights.twitterCard,
-      details: hasTwitterCard ? `Type: ${twitter.card}` : 'Missing twitter:card'
+      details: 'Not applicable for AI readiness — X/Twitter-only social signal'
     });
-    rawScore += twitterScore;
+    rawScore += weights.twitterCard;
 
-    // Twitter Image (5 points)
-    const hasTwitterImage = !!twitter.image;
-    const twitterImageScore = hasTwitterImage ? weights.twitterImage : 0;
+    // Twitter Image — N/A for AI readiness (DEC-0035)
     factors.push({
       name: 'Twitter Image',
-      status: hasTwitterImage ? 'pass' : 'fail',
-      points: twitterImageScore,
+      status: 'na',
+      points: weights.twitterImage,
       maxPoints: weights.twitterImage,
-      details: hasTwitterImage ? 'twitter:image present' : 'Missing twitter:image'
+      details: 'Not applicable for AI readiness — X/Twitter-only social signal'
     });
-    rawScore += twitterImageScore;
+    rawScore += weights.twitterImage;
 
     // Canonical URL (10 points)
     const hasCanonical = data?.canonical?.present;

@@ -96,19 +96,9 @@ export class RecommendationEngine {
       recs.push(this.createRecommendation('og-description-missing'));
     }
 
-    // Twitter Card missing
-    if (!twitter.card) {
-      recs.push(this.createRecommendation('twitter-card-missing'));
-    }
-
     // og:type missing or not product — mirror scorer's isProductType check
     if (!og.type || (og.type !== 'product' && og.type !== 'og:product' && !og.type.startsWith('product.'))) {
       recs.push(this.createRecommendation('og-type-missing'));
-    }
-
-    // Twitter image missing
-    if (twitter.card && !twitter.image) {
-      recs.push(this.createRecommendation('twitter-image-missing'));
     }
 
     // Canonical URL issues
