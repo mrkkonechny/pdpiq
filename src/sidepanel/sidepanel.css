@@ -1168,6 +1168,7 @@ button.citation-header {
 
 /* Focus States */
 .context-btn:focus-visible,
+.platform-btn:focus-visible,
 .btn:focus-visible,
 .btn-icon:focus-visible,
 .nav-btn:focus-visible,
