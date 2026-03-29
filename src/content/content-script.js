@@ -818,13 +818,20 @@ function extractFactualSpecificity(text) {
   // {0,3} allows up to 3 optional words between the verb and "by" (e.g. "reduces carbon emissions by")
   const outcomeMatches = text.match(/(?:saves?|reduces?|increases?|improves?)\s+(?:\w+\s+){0,3}(?:by\s+)?\d+/gi) || [];
 
-  const statisticsCount = percentageMatches.length + comparisonMatches.length + sourceMatches.length + outcomeMatches.length;
+  // Physical measurement units: "150W", "2.5 kg", "12in", "1500 RPM", "32°F"
+  // Requires a digit immediately before the unit (with optional single space)
+  const measurementMatches = text.match(
+    /\b\d+(?:\.\d+)?\s*(?:lbs?|kgs?|g\b|oz\b|mm\b|cm\b|(?<!\w)m\b|ft\b|in\b|inches?|pounds?|kilograms?|ounces?|watts?|(?<!\w)W\b|kW\b|(?<!\w)V\b|volts?|(?<!\w)A\b|amps?|mAh\b|RPM\b|mph\b|km\/h|°[CF]|dB\b|psi\b|bar\b)/gi
+  ) || [];
+
+  const statisticsCount = percentageMatches.length + comparisonMatches.length + sourceMatches.length + outcomeMatches.length + measurementMatches.length;
 
   return {
     hasStatisticalClaims: percentageMatches.length > 0,
     statisticsCount,
     hasNamedSources: sourceMatches.length > 0,
-    hasQuantifiedComparisons: comparisonMatches.length > 0
+    hasQuantifiedComparisons: comparisonMatches.length > 0,
+    hasMeasurements: measurementMatches.length > 0
   };
 }
 
