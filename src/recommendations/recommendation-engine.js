@@ -64,7 +64,6 @@ export class RecommendationEngine {
     const recs = [];
     const og = this.extractedData.metaTags?.openGraph || {};
     const robots = this.extractedData.metaTags?.robots || {};
-    const twitter = this.extractedData.metaTags?.twitterCards || {};
     const canonical = this.extractedData.metaTags?.canonical || {};
     const standard = this.extractedData.metaTags?.standard || {};
 

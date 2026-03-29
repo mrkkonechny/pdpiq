@@ -263,7 +263,6 @@ export class ScoringEngine {
     const maxScore = 100;
     const weights = FACTOR_WEIGHTS.protocolMeta;
     const og = data?.openGraph || {};
-    const twitter = data?.twitterCards || {};
 
     // og:image presence (20 points) - Critical
     const hasOgImage = !!og.image;
