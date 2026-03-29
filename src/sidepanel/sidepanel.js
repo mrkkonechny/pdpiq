@@ -1039,6 +1039,10 @@ class SidePanelApp {
   }
 
   renderFactors(factors) {
+    // Hoisted outside map — created once per renderFactors() call, not per factor
+    const schemaTypes = new Set(['schema', 'product-nested', 'microdata', 'json-ld']);
+    const sourceLabels = { schema: 'Schema', dom: 'DOM', network: 'Network' };
+
     return factors.map(f => {
       const statusIcon = f.status === 'pass' ? '✓' :
                          f.status === 'fail' ? '✗' :
@@ -1046,11 +1050,9 @@ class SidePanelApp {
       const contextualLabel = f.contextual ? '<span class="multiplier">CTX</span>' : '';
 
       // Source confidence badge
-      const schemaTypes = new Set(['schema', 'product-nested', 'microdata', 'json-ld']);
       const normalizedSource = f.source
         ? (schemaTypes.has(f.source) ? 'schema' : f.source)
         : null;
-      const sourceLabels = { schema: 'Schema', dom: 'DOM', network: 'Network' };
       const sourceBadge = normalizedSource
         ? `<span class="source-badge source-${normalizedSource}">${sourceLabels[normalizedSource] || normalizedSource}</span>`
         : '';
