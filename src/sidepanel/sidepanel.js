@@ -385,6 +385,13 @@ class SidePanelApp {
       const scoringEngine = new ScoringEngine(this.selectedContext, this.selectedPlatform);
       this.scoreResult = scoringEngine.calculateScore(this.currentData, imageVerification, aiDiscoverabilityData);
 
+      // Pre-calculate AI scores for all platform profiles (used by comparison bar)
+      this.platformScores = {};
+      for (const platform of ['unified', 'chatgpt', 'perplexity', 'googleaio']) {
+        this.platformScores[platform] = new ScoringEngine(this.selectedContext, platform)
+          .calculateScore(this.currentData, imageVerification, aiDiscoverabilityData).totalScore;
+      }
+
       // Generate AI Readiness recommendations
       const recEngine = new RecommendationEngine(
         this.scoreResult,
@@ -572,6 +579,9 @@ class SidePanelApp {
     document.getElementById('gradeDescription').textContent =
       getGradeDescription(this.scoreResult.grade);
 
+    // Render platform comparison bar
+    this.renderPlatformComparison();
+
     // Show JS-dependency warning when content scores may be understated
     const jsWarn = document.getElementById('jsDependencyWarning');
     jsWarn.classList.toggle('hidden', !this.scoreResult.jsDependent);
@@ -606,6 +616,57 @@ class SidePanelApp {
     // Raw Crawlable Text (AI Visibility tab only)
     this.renderRawCrawlableText(this.currentData);
     document.getElementById('rawCrawlableTextSection')?.classList.remove('hidden');
+  }
+
+  renderPlatformComparison() {
+    const el = document.getElementById('platformComparison');
+    if (!el || !this.platformScores) return;
+
+    const platformDefs = [
+      { platform: 'unified', label: 'Unified' },
+      { platform: 'chatgpt', label: 'ChatGPT' },
+      { platform: 'perplexity', label: 'Perplexity' },
+      { platform: 'googleaio', label: 'Google AIO' }
+    ];
+
+    el.innerHTML = platformDefs.map(({ platform, label }) => {
+      const score = this.platformScores[platform] ?? '–';
+      const isActive = platform === this.selectedPlatform;
+      return `<button class="platform-chip${isActive ? ' active' : ''}" data-platform="${platform}" aria-pressed="${isActive}" title="Re-score optimized for ${escapeHtml(label)}">
+        <span class="chip-name">${escapeHtml(label)}</span>
+        <span class="chip-score">${score}</span>
+      </button>`;
+    }).join('');
+
+    el.classList.remove('hidden');
+
+    el.querySelectorAll('.platform-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.rescoreWithPlatform(btn.dataset.platform);
+      });
+    });
+  }
+
+  rescoreWithPlatform(platform) {
+    this.selectedPlatform = platform;
+    this.updatePlatformUI(platform);
+    chrome.storage.local.set({ selectedPlatform: platform });
+
+    const scoringEngine = new ScoringEngine(this.selectedContext, platform);
+    this.scoreResult = scoringEngine.calculateScore(
+      this.currentData, this.imageVerification, this.aiDiscoverabilityData
+    );
+
+    const recEngine = new RecommendationEngine(this.scoreResult, this.currentData, this.imageVerification);
+    this.recommendations = recEngine.generateRecommendations();
+
+    const citationEngine = new CitationOpportunityEngine(this.scoreResult, this.currentData);
+    this.citationOpportunities = citationEngine.generateOpportunities();
+
+    const roadmapEngine = new CitationRoadmapEngine(this.scoreResult, this.currentData);
+    this.citationRoadmap = roadmapEngine.generateRoadmap();
+
+    this.displayResults();
   }
 
   updatePageTypeBadges() {
@@ -1506,6 +1567,7 @@ class SidePanelApp {
       scoreEl.textContent = entry.score;
       document.getElementById('gradeDescription').textContent = `Viewed from history · ${entry.domain}`;
       document.getElementById('contextLabel').textContent = entry.context || '';
+      document.getElementById('platformComparison')?.classList.add('hidden');
       document.getElementById('categoryList').innerHTML = '<p style="padding:12px 14px;color:var(--text-secondary);font-size:12px">Re-analyze the page to see full factor breakdown.</p>';
       document.getElementById('recommendationList').innerHTML = '';
       document.getElementById('recCount').textContent = '';

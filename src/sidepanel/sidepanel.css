@@ -335,6 +335,60 @@ body {
   margin-top: var(--space-xs);
 }
 
+/* Platform Comparison Bar (AI Visibility tab) */
+.platform-comparison {
+  display: flex;
+  gap: 6px;
+  margin-top: calc(-1 * var(--space-md));
+  margin-bottom: var(--space-lg);
+}
+
+.platform-chip {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px var(--space-xs);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1.2;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.platform-chip:hover {
+  border-color: var(--text-secondary);
+  background: var(--bg-tertiary);
+}
+
+.platform-chip.active {
+  border-color: #4f46e5;
+  background: #eef2ff;
+}
+
+.chip-name {
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.platform-chip.active .chip-name {
+  color: #4f46e5;
+}
+
+.chip-score {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.platform-chip.active .chip-score {
+  color: #4f46e5;
+}
+
 /* JS-dependency warning */
 .js-warning {
   font-size: 11px;
@@ -1196,6 +1250,7 @@ button.citation-header {
 /* Focus States */
 .context-btn:focus-visible,
 .platform-btn:focus-visible,
+.platform-chip:focus-visible,
 .btn:focus-visible,
 .btn-icon:focus-visible,
 .nav-btn:focus-visible,
