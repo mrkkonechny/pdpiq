@@ -727,14 +727,14 @@ export class ScoringEngine {
     factors.push({
       name: 'Warranty Information',
       status: warrantyNA ? 'pass' : (details.hasWarranty ? 'pass' : 'fail'),
-      points: Math.min(weights.warrantyInfo, warrantyScore),
+      points: warrantyScore,
       maxPoints: Math.round(weights.warrantyInfo * (this.multipliers.warrantyInfo || 1.0)),
       contextual: true,
       details: warrantyNA ? 'N/A for apparel'
         : details.hasWarranty ? (details.warrantyText || 'Warranty found')
         : 'No warranty information found'
     });
-    rawScore += Math.min(weights.warrantyInfo, warrantyScore);
+    rawScore += warrantyScore;
 
     // Compatibility Info (10 points) - Contextual; N/A for apparel
     const compatNA = isApparel && !details.hasCompatibility;
@@ -743,14 +743,14 @@ export class ScoringEngine {
     factors.push({
       name: 'Compatibility Information',
       status: compatNA ? 'pass' : (details.hasCompatibility ? 'pass' : 'fail'),
-      points: Math.min(weights.compatibilityInfo, compatScore),
+      points: compatScore,
       maxPoints: Math.round(weights.compatibilityInfo * (this.multipliers.compatibilityInfo || 1.0)),
       contextual: true,
       details: compatNA ? 'N/A for apparel'
         : details.hasCompatibility ? (details.compatibilityText || 'Compatibility info found')
         : 'No compatibility information found'
     });
-    rawScore += Math.min(weights.compatibilityInfo, compatScore);
+    rawScore += compatScore;
 
     // Specification Detail (5 points) - Contextual
     // Score based on fraction of specs that include measurement units
