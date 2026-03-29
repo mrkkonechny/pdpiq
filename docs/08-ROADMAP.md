@@ -1,6 +1,6 @@
 # Roadmap
 
-> **PDS Document 08** | Last Updated: 2026-03-26 (12 new items ROAD-0063–ROAD-0074 from strategic review)
+> **PDS Document 08** | Last Updated: 2026-03-29 (Sprint 2 complete: ROAD-0063, ROAD-0065, ROAD-0067 → Done)
 
 Strategic feature plan and working backlog. Combines the "what's planned" view with the "what's in the queue" view. Most recent entries at the top within each section.
 
@@ -355,11 +355,12 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** BUG-0085, BUG-0086, ROAD-0045, ROAD-0069
 
 ### ROAD-0067 — Schema-backed factor confidence badges
-- **Status:** Proposed
+- **Status:** Done
 - **Type:** Feature
 - **Priority:** P1 (High)
-- **Target Phase/Sprint:** Unscheduled
+- **Target Phase/Sprint:** Sprint 2
 - **Date Added:** 2026-03-26
+- **Date Completed:** 2026-03-29
 - **Requested By:** Strategic review (client trust / crawler visibility gap)
 - **Scope:** Medium (1-3 days)
 - **Description:** Add a data-source confidence badge to each factor row in the side panel and HTML report. Badge values: "Schema" (sourced from JSON-LD/microdata — LLM crawlers always parse this), "DOM" (sourced from rendered DOM — may be JS-injected and invisible to crawlers), "Inferred" (heuristic detection). Most extractors already return a `source` field ('dom', 'schema', 'product-nested', 'microdata'). The badge directly addresses the client trust gap: "why does pdpIQ score a factor I can't see on the raw page?" The answer becomes visible — if it says "Schema," it's because the information exists in structured data the crawler can read even without JS execution.
@@ -392,11 +393,12 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** DEC-0036, DEC-0031
 
 ### ROAD-0065 — Statistics/numerical claims factor (AI Readiness — Content Quality)
-- **Status:** Proposed
+- **Status:** Done
 - **Type:** Scoring Change
 - **Priority:** P2 (Medium)
-- **Target Phase/Sprint:** Unscheduled
+- **Target Phase/Sprint:** Sprint 2
 - **Date Added:** 2026-03-26
+- **Date Completed:** 2026-03-29
 - **Requested By:** Strategic review (competitive positioning — research-driven scoring)
 - **Scope:** Small (< 1 day)
 - **Description:** Add `hasStatistics` extraction and scoring in Content Quality. Detect numerical claims with units or percentages in product description and features text. Pattern: number adjacent to %, lbs, kg, oz, mm, cm, in, ft, W, V, A, RPM, Hz, and similar measurable units. Score: pass if ≥ 2 statistical claims, warning if 1, fail if 0. Weight: ~10 pts. Recommendation references +22–40% citation boost (GEO paper, SIGKDD '24; Perplexity study; AirOps 548K page analysis — three independent sources). First audit whether this overlaps with existing `factualSpecificity` factor before implementation.
@@ -429,11 +431,12 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** DEC-0033, DEC-0031
 
 ### ROAD-0063 — AI Platform context selector (ChatGPT / Perplexity / Google AIO)
-- **Status:** Proposed
+- **Status:** Done
 - **Type:** Feature
 - **Priority:** P1 (High)
-- **Target Phase/Sprint:** Unscheduled
+- **Target Phase/Sprint:** Sprint 2
 - **Date Added:** 2026-03-26
+- **Date Completed:** 2026-03-29
 - **Requested By:** Strategic review (competitive positioning — platform divergence)
 - **Scope:** Medium (1-3 days)
 - **Description:** Add "AI Platform" as a second context dimension alongside Want/Need/Hybrid. Options: ChatGPT, Perplexity, Google AIO, Unified (current default). Extends the existing multiplier architecture — no scoring engine rewrite required. Platform multiplier profiles based on research: ChatGPT profile upweights authority signals, entity consistency, structured data; Perplexity profile upweights content freshness, FAQ format, statistics; Google AIO profile upweights E-E-A-T signals, structured data, heading hierarchy. Unified keeps current weights (backward-compatible default). History entries record both buyer context and platform context. Report and side panel display active platform context.

@@ -54,7 +54,7 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 
 ### DEC-0037 — Schema-backed confidence badges per factor
 - **Date:** 2026-03-26
-- **Status:** Proposed
+- **Status:** Accepted
 - **Context:** pdpIQ's most common client objection is "that's not what I see on my page." The underlying cause is that pdpIQ runs in a fully-rendered Chrome DOM, while LLM crawlers (GPTBot, ClaudeBot, PerplexityBot) execute no JavaScript and see raw HTML only. A factor scored from JSON-LD structured data is reliable — crawlers always parse JSON-LD as raw text. The same factor scored from a JS-rendered DOM element may be invisible to crawlers. Currently there is no way for a client or consultant to distinguish these cases.
 - **Decision:** Add a data-source confidence badge to each factor in the side panel and HTML report. Badge values: "Schema" (sourced from JSON-LD/microdata — high confidence, crawlers always see this), "DOM" (sourced from rendered DOM — medium confidence, may be JS-injected), "Inferred" (heuristic detection — lower confidence). Most extractors already return a `source` field; wire it to the UI.
 - **Rationale:** Directly addresses the client trust gap without requiring a full server-rendered HTML comparison (which has auth/CORS constraints). Gives consultants a clear talking point: "Schema-backed signals are visible to all LLM crawlers; these DOM-only signals may not be."
@@ -74,7 +74,7 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 
 ### DEC-0035 — Demote Twitter Cards from scored AI Readiness factor to not-applicable
 - **Date:** 2026-03-26
-- **Status:** Proposed
+- **Status:** Accepted
 - **Context:** Twitter Cards are currently scored at 5 pts in Protocol & Meta. Research review found zero documentation of any LLM system (ChatGPT, Claude, Perplexity, Google AI Overviews) using Twitter Card metadata for AI visibility. Twitter Cards are an X/Twitter-only social sharing protocol with no cross-platform SEO or AI search value. After the v3.0.0 OG signal demotion and v3.1.0 guidance corrections, Twitter Cards remain an anomaly.
 - **Decision:** Move Twitter Cards to `'na'` status for AI Readiness scoring (score full points regardless of presence, same as hreflang on monolingual sites). Retain the factor in PDP Quality context if a social sharing signal is relevant there. Redistribute the 5 pts within Protocol & Meta.
 - **Rationale:** Scoring a signal at 5 pts signals it has importance. Recommending users "add Twitter Card meta tags" when it has zero LLM visibility impact is noise in the recommendation list and a credibility risk. N/A is the correct status for a signal that is irrelevant in this scoring context.
@@ -84,7 +84,7 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 
 ### DEC-0034 — Add statistics/numerical claims as scored AI Readiness factor
 - **Date:** 2026-03-26
-- **Status:** Proposed
+- **Status:** Accepted
 - **Context:** Three independent research sources confirm statistics addition as a high-impact AI visibility signal: GEO paper (SIGKDD '24) found +22% for Perplexity, +30–40% for custom engines; Kevin Indig 3M response analysis confirmed numerical claims correlate with citation; AirOps 548K page fan-out study found factual specificity (numbers, measurements, percentages) as top predictor. pdpIQ added `factualSpecificity` as a factor in DEC-0030 but the extraction logic may not fully capture numerical claim density.
 - **Decision:** Add or enhance `hasStatistics` extraction in Content Quality: detect numerical claims with units or percentages in product description and features text. Pattern: numbers adjacent to %, lbs, kg, oz, mm, cm, in, ft, W, V, A, RPM, and other measurable units. Score: pass if ≥ 2 statistical claims, warning if 1, fail if 0. Weight: ~10 pts. Recommendation references the +22–40% citation boost with source citation.
 - **Rationale:** Three-source convergence on a single signal is unusually strong in this research area. The extraction is straightforward regex work. The recommendation ("add specific measurements and statistics") is concrete and actionable for content teams.
@@ -104,7 +104,7 @@ Track architectural, technical, and strategic decisions with their rationale. Mo
 
 ### DEC-0032 — Platform context selector for AI Readiness (ChatGPT / Perplexity / Google AIO)
 - **Date:** 2026-03-26
-- **Status:** Proposed
+- **Status:** Accepted
 - **Context:** DEC-0030 noted platform divergence as a deferred concern: ChatGPT and Perplexity cite only 11% of the same domains. Research now provides sufficient per-platform signal data to define multiplier profiles. The current Want/Need/Hybrid context selector already demonstrates that the architecture supports multiplier-based scoring variants. ROAD-0061 proposed platform-specific profiles as a v4.0 full redesign, but a lower-friction option exists: a second context axis using the existing multiplier pattern.
 - **Decision:** Add "AI Platform" as a second context dimension alongside Want/Need/Hybrid. Options: ChatGPT, Perplexity, Google AIO, Unified (current default). Each platform has a distinct multiplier profile: ChatGPT — upweight authority signals, entity consistency, structured data, Bing-indexability signals; Perplexity — upweight content freshness, FAQ format, statistics presence, recency; Google AIO — upweight E-E-A-T signals, structured data, heading hierarchy, content depth. Unified keeps existing weights (backward-compatible default).
 - **Rationale:** Option A (multiplier profiles) is architecturally identical to the existing context pattern — it requires adding a new multiplier set and a UI selector, not a full scoring engine rewrite. This ships real client value in days rather than the weeks required for a full v4.0 redesign (ROAD-0061). The full redesign (showing three sub-scores simultaneously) remains the v4.0 goal.

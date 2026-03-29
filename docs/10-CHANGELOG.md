@@ -1,6 +1,6 @@
 # Changelog
 
-> **PDS Document 10** | Last Updated: 2026-03-26
+> **PDS Document 10** | Last Updated: 2026-03-29
 
 ## [Unreleased]
 ### Fixed
@@ -23,6 +23,14 @@
 - **M-3: Dead EXTRACT_DATA service worker handler** — Removed unused case; added routing comment to EXTRACTION_COMPLETE (`src/background/service-worker.js`)
 
 ### Changed
+- **Twitter Cards demoted to N/A in AI Readiness** — `twitterCard` and `twitterImage` factors now always return `status: 'na'` with full points; removed `twitter-card-missing` and `twitter-image-missing` recommendation checks; zero empirical evidence for LLM system use of Twitter Card metadata (DEC-0035, `src/scoring/scoring-engine.js`, `src/recommendations/recommendation-engine.js`)
+- **Physical measurement units added to Factual Specificity extraction** — `extractFactualSpecificity()` now detects numeric claims adjacent to common units (lbs, kg, g, oz, mm, cm, m, ft, in, W, kW, V, A, mAh, RPM, mph, km/h, °C/F, dB, psi, bar); `hasMeasurements` and updated `statisticsCount` surfaced in extracted data (ROAD-0065, DEC-0034, `src/content/content-script.js`)
+- **Warranty and Compatibility factor points aligned with scaled maxPoints** — Under composed context + platform multipliers, `points` was capped at base weight while `maxPoints` was correctly scaled; removed erroneous `Math.min` cap so passing factors no longer show partial points (e.g., 7/12); `src/scoring/scoring-engine.js`)
+
+### New Features
+- **AI Platform context selector** — Second context axis alongside Want/Need/Hybrid: Unified (default, backward-compatible), ChatGPT, Perplexity, Google AIO; each platform has a distinct multiplier profile in `AI_PLATFORM_MULTIPLIERS`; platform multipliers compose with buyer context multipliers; selection persists in `chrome.storage.local`; results header shows active platform; export payload includes `aiPlatform` (ROAD-0063, DEC-0032, `src/scoring/weights.js`, `src/scoring/scoring-engine.js`, `src/sidepanel/sidepanel.html`, `src/sidepanel/sidepanel.css`, `src/sidepanel/sidepanel.js`)
+- **Schema confidence badges on factor rows** — Each AI Readiness factor row in the side panel shows a small source badge: "Schema" (JSON-LD/microdata — always visible to LLM crawlers), "DOM" (rendered DOM — may be JS-injected), or "Network" (robots.txt / HTTP headers / llms.txt fetches); factors without a `source` field render no badge; addresses client trust gap between rendered page and crawler-visible content (ROAD-0067, DEC-0037, `src/scoring/scoring-engine.js`, `src/sidepanel/sidepanel.js`, `src/sidepanel/sidepanel.css`)
+
 - **Content Freshness factor moved to AI Discoverability** — Migrated from Authority & Trust (5 pts, 90-day threshold) to AI Discoverability (10 pts, 30-day pass / 30–180-day warning / >180-day fail); weights rebalanced: answerFormatContent 20→15, productIdentifiers 15→10, reviewRecency 12→17 (ROAD-0064)
 - **Data Table Presence factor added to Content Quality** — `analyzeTables()` now detects qualifying data tables (≥3 rows, ≥2 cols, in product content area, excluding nav/header/footer); scored as 8pt Content Quality factor; weights rebalanced: specificationCount/featureCount/faqPresence/comparisonContent each 10→8 (ROAD-0066)
 - **UX-8: confirm() for clear history** — Replaced browser `confirm()` dialog with inline double-tap pattern: first click turns button red with "Click again to confirm", auto-resets after 3 s (`src/sidepanel/sidepanel.js`)
