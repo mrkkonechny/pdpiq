@@ -3,6 +3,8 @@
 > **PDS Document 10** | Last Updated: 2026-03-29
 
 ## [Unreleased]
+
+## v3.3.0 — 2026-03-29
 ### Fixed
 - **BUG-0085: `hasMaterials` false positive on sensory fragments** — Pattern 0 now requires the captured text to contain a known material noun; added rayon/viscose/modal to noun list (`src/content/content-script.js`)
 - **BUG-0086: `hasReturnPolicy` / `hasShippingInfo` match accordion heading labels** — Added heading/button element exclusion, raised minimum content threshold to 25 chars, require accordion panel content to exceed header length by ≥25 chars; `innerText` used instead of `textContent` to exclude `<style>` elements; aria-controls panel lookup now requires panel ID to prevent whole-container fallback (`src/content/content-script.js`)
@@ -15,6 +17,7 @@
 - **M-4: Float scores in scoreProtocolMeta** — Wrapped all `weights.* * 0.7` partial assignments in `Math.round()` (`src/scoring/scoring-engine.js`)
 - **M-6: Dead spec cap line and warranty/compat maxPoints** — Removed redundant `Math.min(specificationCount * 1.5, specScore)` line; fixed `maxPoints` for warranty and compatibility factors to use the multiplied ceiling (`src/scoring/scoring-engine.js`)
 - **M-2: Partial robots.txt path blocking undetected** — `parseRobotsTxt()` now tracks `partiallyBlockedCrawlers` (non-root `Disallow` paths); scoring maps these to warning status at 70% of max points (`src/background/service-worker.js`, `src/scoring/scoring-engine.js`)
+- **Warranty and Compatibility factor points aligned with scaled maxPoints** — Under composed context + platform multipliers, `points` was capped at base weight while `maxPoints` was correctly scaled; removed erroneous `Math.min` cap so passing factors no longer show partial points (`src/scoring/scoring-engine.js`)
 - **UX-1,2: Grade B/C/D color contrast** — Updated `--grade-b`, `--grade-c`, `--grade-d` CSS variables to WCAG AA-compliant values (`src/sidepanel/sidepanel.css`)
 - **UX-14: N/A factor shows warning icon** — Added explicit `–` branch to statusIcon ternary; added `.factor.na .factor-status` CSS rule (`src/sidepanel/sidepanel.js`, `src/sidepanel/sidepanel.css`)
 - **UX-9: History comparison category name truncation** — Removed `.split(' ').slice(0, 2).join(' ')` JS truncation; CSS ellipsis handles overflow (`src/sidepanel/sidepanel.js`)
@@ -25,18 +28,14 @@
 ### Changed
 - **Twitter Cards demoted to N/A in AI Readiness** — `twitterCard` and `twitterImage` factors now always return `status: 'na'` with full points; removed `twitter-card-missing` and `twitter-image-missing` recommendation checks; zero empirical evidence for LLM system use of Twitter Card metadata (DEC-0035, `src/scoring/scoring-engine.js`, `src/recommendations/recommendation-engine.js`)
 - **Physical measurement units added to Factual Specificity extraction** — `extractFactualSpecificity()` now detects numeric claims adjacent to common units (lbs, kg, g, oz, mm, cm, m, ft, in, W, kW, V, A, mAh, RPM, mph, km/h, °C/F, dB, psi, bar); `hasMeasurements` and updated `statisticsCount` surfaced in extracted data (ROAD-0065, DEC-0034, `src/content/content-script.js`)
-- **Warranty and Compatibility factor points aligned with scaled maxPoints** — Under composed context + platform multipliers, `points` was capped at base weight while `maxPoints` was correctly scaled; removed erroneous `Math.min` cap so passing factors no longer show partial points (e.g., 7/12); `src/scoring/scoring-engine.js`)
-
-### New Features
-- **AI Platform context selector** — Second context axis alongside Want/Need/Hybrid: Unified (default, backward-compatible), ChatGPT, Perplexity, Google AIO; each platform has a distinct multiplier profile in `AI_PLATFORM_MULTIPLIERS`; platform multipliers compose with buyer context multipliers; selection persists in `chrome.storage.local`; results header shows active platform; export payload includes `aiPlatform` (ROAD-0063, DEC-0032, `src/scoring/weights.js`, `src/scoring/scoring-engine.js`, `src/sidepanel/sidepanel.html`, `src/sidepanel/sidepanel.css`, `src/sidepanel/sidepanel.js`)
-- **Schema confidence badges on factor rows** — Each AI Readiness factor row in the side panel shows a small source badge: "Schema" (JSON-LD/microdata — always visible to LLM crawlers), "DOM" (rendered DOM — may be JS-injected), or "Network" (robots.txt / HTTP headers / llms.txt fetches); factors without a `source` field render no badge; addresses client trust gap between rendered page and crawler-visible content (ROAD-0067, DEC-0037, `src/scoring/scoring-engine.js`, `src/sidepanel/sidepanel.js`, `src/sidepanel/sidepanel.css`)
-
 - **Content Freshness factor moved to AI Discoverability** — Migrated from Authority & Trust (5 pts, 90-day threshold) to AI Discoverability (10 pts, 30-day pass / 30–180-day warning / >180-day fail); weights rebalanced: answerFormatContent 20→15, productIdentifiers 15→10, reviewRecency 12→17 (ROAD-0064)
 - **Data Table Presence factor added to Content Quality** — `analyzeTables()` now detects qualifying data tables (≥3 rows, ≥2 cols, in product content area, excluding nav/header/footer); scored as 8pt Content Quality factor; weights rebalanced: specificationCount/featureCount/faqPresence/comparisonContent each 10→8 (ROAD-0066)
 - **UX-8: confirm() for clear history** — Replaced browser `confirm()` dialog with inline double-tap pattern: first click turns button red with "Click again to confirm", auto-resets after 3 s (`src/sidepanel/sidepanel.js`)
 - **UX-11: Raw crawlable text scroll height** — Increased from 120 px to 180 px; added `resize: vertical` with 80 px min / 400 px max (`src/sidepanel/sidepanel.css`)
 
 ### New Features
+- **AI Platform context selector** — Second context axis alongside Want/Need/Hybrid: Unified (default, backward-compatible), ChatGPT, Perplexity, Google AIO; each platform has a distinct multiplier profile in `AI_PLATFORM_MULTIPLIERS`; platform multipliers compose with buyer context multipliers; selection persists in `chrome.storage.local`; results header shows active platform; export payload includes `aiPlatform` (ROAD-0063, DEC-0032, `src/scoring/weights.js`, `src/scoring/scoring-engine.js`, `src/sidepanel/sidepanel.html`, `src/sidepanel/sidepanel.css`, `src/sidepanel/sidepanel.js`)
+- **Schema confidence badges on factor rows** — Each AI Readiness factor row in the side panel shows a small source badge: "Schema" (JSON-LD/microdata — always visible to LLM crawlers), "DOM" (rendered DOM — may be JS-injected), or "Network" (robots.txt / HTTP headers / llms.txt fetches); factors without a `source` field render no badge; addresses client trust gap between rendered page and crawler-visible content (ROAD-0067, DEC-0037, `src/scoring/scoring-engine.js`, `src/sidepanel/sidepanel.js`, `src/sidepanel/sidepanel.css`)
 - **UX-3,4: ARIA collapsible toggles** — Converted all four AI Visibility section headers from `<div>` to `<button>` elements with `aria-expanded` and consistent CSS rotation pattern (`src/sidepanel/sidepanel.html`, `src/sidepanel/sidepanel.js`, `src/sidepanel/sidepanel.css`)
 - **UX-5: Context selector horizontal layout** — Three context buttons now display side-by-side instead of stacked vertically (`src/sidepanel/sidepanel.css`)
 - **UX-6: Show X more recommendations** — All three tabs show top 10 recs then append remainder via "Show N more" button on click (`src/sidepanel/sidepanel.js`, `src/sidepanel/sidepanel.css`)
