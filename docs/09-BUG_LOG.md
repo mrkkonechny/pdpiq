@@ -1,6 +1,6 @@
 # Bug Log
 
-> **PDS Document 09** | Last Updated: 2026-03-26 (BUG-0097)
+> **PDS Document 09** | Last Updated: 2026-03-31 (BUG-0103, all fixed)
 
 Track all bugs encountered during development. Most recent entries at the top within each section.
 
@@ -24,6 +24,70 @@ Track all bugs encountered during development. Most recent entries at the top wi
 ## Active Bugs
 
 *(No active bugs.)*
+
+## Resolved Bugs (2026-03-31)
+
+### BUG-0098 — `detectPageType()` misclassifies Amazon product pages as PLP
+- **Status:** Fixed
+- **Severity:** Critical
+- **Date Found:** 2026-03-31
+- **Date Resolved:** 2026-03-31
+- **Found In:** `src/content/content-script.js` → `detectPageType()`
+- **Root Cause:** Amazon product pages under `/dp/ASIN` accumulate `pdpScore=2` from URL pattern but `plpScore=3` from product grid detection (4+ cards in "Customers also bought" carousels) + `og:type=website` weak-signal bonus. PLP wins despite the URL being a definitive PDP indicator.
+- **Fix:** Added `pdpUrlMatched` flag; `og:type=website` plpScore bonus now gated on `!pdpUrlMatched`. Commit `5a30898`.
+- **Related:** ROAD-0075
+- **Notes:** Confirmed via `pdpiq-www.amazon.ca-2026-03-31.json`. Amazon AI Readiness was inflated ~12 pts; critical "Missing Product Schema" recommendation was suppressed.
+
+### BUG-0099 — Apparel-NA warranty/compatibility factors show `points > maxPoints`
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-31
+- **Date Resolved:** 2026-03-31
+- **Found In:** `src/scoring/scoring-engine.js` → `scoreContentQuality()` warranty/compat N/A blocks
+- **Root Cause:** N/A factors used base weight for `points` but scaled `maxPoints`, producing 7/5 in want context.
+- **Fix:** Extracted `warrantyMaxPoints`/`compatMaxPoints` constants; N/A branch uses base weight for both. Commit `1ab4740`.
+- **Related:** ROAD-0075
+
+### BUG-0100 — `factualSpecificity` scores pass on any DOM-heavy page regardless of description quality
+- **Status:** Fixed
+- **Severity:** High
+- **Date Found:** 2026-03-31
+- **Date Resolved:** 2026-03-31
+- **Found In:** `src/scoring/scoring-engine.js` → `scoreContentQuality()` ~line 601
+- **Root Cause:** `statisticsCount` aggregates measurements from the full content zone; pass threshold ≥3 fires on any page with a spec table regardless of description quality.
+- **Fix:** Added `description.wordCount >= 50` guard via `effectiveStatsCount`; fail branch shows descriptive message for short-description pages. Commit `deb1ae3`.
+- **Related:** ROAD-0075
+
+### BUG-0101 — `og:image Format` emits `status: 'unknown'` (invalid) when no og:image present
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-31
+- **Date Resolved:** 2026-03-31
+- **Found In:** `src/scoring/scoring-engine.js` → `scoreProtocolMeta()`
+- **Root Cause:** `!hasOgImage` path fell through all branches, leaving `status: 'unknown'` — not a valid status value.
+- **Fix:** Added `if (!hasOgImage)` N/A branch at top of format block; awards full points with `status: 'na'`. Commit `054c8cd`.
+- **Related:** ROAD-0075
+
+### BUG-0102 — `materialsText` false positive: "modal" matches UI keyword on Amazon
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-31
+- **Date Resolved:** 2026-03-31
+- **Found In:** `src/content/content-script.js` → `extractProductDetails()` Pattern 1
+- **Root Cause:** Pattern 1 matched "modal" (5 chars) as the fabric Modal from React modal dialog references in page content.
+- **Fix:** Pattern 1 matches now require `captured.length >= 8` and no code-like characters. Commit `291a5c3`.
+- **Related:** BUG-0085, ROAD-0075
+
+### BUG-0103 — Brand Clarity extractor returns `clarity: "missing"` for manufacturer-direct sites
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-31
+- **Date Resolved:** 2026-03-31
+- **Found In:** `src/content/content-script.js` → `extractBrandSignals()`
+- **Root Cause:** Apple's Product schema has no `brand` field and no Organization schema; brand fallback chain exhausted before checking `og:site_name`.
+- **Fix:** Added `og:site_name` as final fallback in `extractBrandSignals()`; added `siteName` field to `extractMetaTags()`. Commit `ba077c8`.
+- **Related:** ROAD-0075
+- **Notes:** Applies to Apple, Nike, Dyson and other D2C brands with minimal schema markup.
 
 ## Resolved Bugs (2026-03-26)
 

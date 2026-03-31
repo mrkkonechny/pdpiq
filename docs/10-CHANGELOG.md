@@ -6,6 +6,14 @@
 ### New Features
 - **Platform comparison bar on AI Visibility results** — Four clickable chips (Unified / ChatGPT / Perplexity / Google AIO) appear below the main score card showing the AI Readiness score for each platform profile; clicking a chip instantly re-scores and re-renders the AI tab using cached extraction data (no re-extraction); active chip highlighted in indigo; bar hidden in history detail view (`src/sidepanel/sidepanel.html`, `src/sidepanel/sidepanel.css`, `src/sidepanel/sidepanel.js`)
 
+### Fixed
+- **BUG-0098: `detectPageType()` misclassifies Amazon `/dp/` pages as PLP** — Added `pdpUrlMatched` flag; `og:type=website` weak-signal bonus is now suppressed when a PDP URL pattern already matched, preventing recommendation carousels from tipping classification (`src/content/content-script.js`)
+- **BUG-0099: Apparel-NA warranty/compat factors show `points > maxPoints`** — N/A factors now use base weight (unscaled) for both `points` and `maxPoints`; non-NA cases use the multiplied ceiling for both (`src/scoring/scoring-engine.js`)
+- **BUG-0100: `factualSpecificity` scores pass on any DOM-heavy page regardless of description quality** — Added `description.wordCount >= 50` guard; pages without a substantive product description score fail with a specific diagnostic message (`src/scoring/scoring-engine.js`)
+- **BUG-0101: `og:image Format` emits invalid `status: 'unknown'` when no og:image present** — Added N/A branch awarding full points with `status: 'na'` when `hasOgImage` is false; eliminates double-penalty for missing og:image (`src/scoring/scoring-engine.js`)
+- **BUG-0102: `materialsText` false positive matches "modal" from React UI code** — Pattern 1 bare material noun matches now require ≥8 chars and must not contain code-like characters (`"`, `'`, `\`, `{`, `}`) (`src/content/content-script.js`)
+- **BUG-0103: Brand Clarity scores zero for manufacturer-direct sites with no schema `brand` field** — Added `og:site_name` as final fallback in `extractBrandSignals()`; `extractMetaTags()` now captures `og:site_name` (`src/content/content-script.js`)
+
 ## v3.3.0 — 2026-03-29
 ### Fixed
 - **BUG-0085: `hasMaterials` false positive on sensory fragments** — Pattern 0 now requires the captured text to contain a known material noun; added rayon/viscose/modal to noun list (`src/content/content-script.js`)

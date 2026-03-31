@@ -29,6 +29,27 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 
 ## In Progress
 
+### ROAD-0075 — Fix scoring accuracy bugs from March 2026 real-world audit
+- **Status:** Done
+- **Type:** Tech Debt
+- **Priority:** P0 (Critical)
+- **Target Phase/Sprint:** Sprint 3
+- **Date Added:** 2026-03-31
+- **Date Completed:** 2026-03-31
+- **Requested By:** Internal audit (7-site real-world scoring review)
+- **Scope:** Medium (1-3 days)
+- **Description:** Six scoring accuracy bugs found during a cross-site audit using real pdpIQ exports. Two are critical (Amazon PLP misclassification inflates AI Readiness; factualSpecificity passes on any page regardless of description quality). Four are medium/high (apparel-NA points > maxPoints; invalid og:image Format status; modal false positive; brand clarity extractor missing og:site_name fallback).
+- **Acceptance Criteria:**
+  - [ ] Amazon `/dp/` URLs classified as PDP; missing Product schema recommendation fires (BUG-0098)
+  - [ ] Apparel-NA factors show `points === maxPoints` in all contexts (BUG-0099)
+  - [ ] `factualSpecificity` scores fail when `description.wordCount < 50` (BUG-0100)
+  - [ ] `og:image Format` shows `status: 'na'` when no og:image present (BUG-0101)
+  - [ ] `materialsText: "modal"` from UI code no longer awards `hasMaterials: true` (BUG-0102)
+  - [ ] Apple/Nike-style pages extract brand from `og:site_name` (BUG-0103)
+- **Dependencies:** None
+- **Related:** BUG-0098, BUG-0099, BUG-0100, BUG-0101, BUG-0102, BUG-0103
+- **Notes:** Implementation plan at `docs/superpowers/plans/2026-03-31-scoring-accuracy-fixes.md`
+
 ### ROAD-0001 — Add automated test suite (Vitest/Jest)
 - **Status:** In Progress
 - **Type:** Tech Debt
