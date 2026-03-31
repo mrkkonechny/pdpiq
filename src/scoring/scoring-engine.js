@@ -606,19 +606,26 @@ export class ScoringEngine {
     // Factual Specificity (10 points) — GEO paper: statistics addition boosts AI visibility +40%
     const fsData = extractedData?.contentQuality?.factualSpecificity || {};
     const statsCount = fsData.statisticsCount || 0;
+    const descWordCount = extractedData?.contentQuality?.description?.wordCount || 0;
+    // Guard: if there is no substantive product description (< 50 words), statisticsCount
+    // reflects spec tables, reviews, and page boilerplate — not the product description.
+    // Require a real description before awarding any points.
+    const effectiveStatsCount = descWordCount >= 50 ? statsCount : 0;
     let factualSpecScore, factualSpecStatus, factualSpecDetails;
-    if (statsCount >= 3) {
+    if (effectiveStatsCount >= 3) {
       factualSpecScore = weights.factualSpecificity;
       factualSpecStatus = 'pass';
       factualSpecDetails = `${statsCount} quantified claim${statsCount !== 1 ? 's' : ''} detected (percentages, measurements, named sources)`;
-    } else if (statsCount >= 1) {
+    } else if (effectiveStatsCount >= 1) {
       factualSpecScore = Math.round(weights.factualSpecificity * 0.5);
       factualSpecStatus = 'warning';
       factualSpecDetails = `${statsCount} quantified claim${statsCount !== 1 ? 's' : ''} detected — add statistics and measurements for full score`;
     } else {
       factualSpecScore = 0;
       factualSpecStatus = 'fail';
-      factualSpecDetails = 'No statistics, percentages, or quantified claims detected in product description';
+      factualSpecDetails = descWordCount < 50
+        ? 'No substantial product description found — add a detailed description with quantified claims'
+        : 'No statistics, percentages, or quantified claims detected in product description';
     }
     // Context-neutral: factual specificity benefits all purchase intents equally
     factors.push({
