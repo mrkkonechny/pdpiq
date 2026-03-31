@@ -1,6 +1,6 @@
 # Bug Log
 
-> **PDS Document 09** | Last Updated: 2026-03-31 (BUG-0103, all fixed)
+> **PDS Document 09** | Last Updated: 2026-03-31 (BUG-0106, all fixed)
 
 Track all bugs encountered during development. Most recent entries at the top within each section.
 
@@ -26,6 +26,38 @@ Track all bugs encountered during development. Most recent entries at the top wi
 *(No active bugs.)*
 
 ## Resolved Bugs (2026-03-31)
+
+### BUG-0104 — `isLikelyApparel()` does not trigger for apparel brands using category-specific URL segments
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-31
+- **Date Resolved:** 2026-03-31
+- **Found In:** `src/scoring/scoring-engine.js` → `isLikelyApparel()`
+- **Root Cause:** `apparelKeywords` regex did not include "tee/tees/tank/tanks/tunic" — common URL and breadcrumb segments for lifestyle/fashion brands (e.g. Natural Life's `/collections/tees-tanks/`). Apparel detection returned false, leaving warranty/compat/certs corrections inactive.
+- **Fix:** Added `tees?|tanks?|tunic` to the `apparelKeywords` regex. Commit pending.
+- **Related:** BUG-0105, BUG-0106, ROAD-0075
+
+### BUG-0105 — Industrial/electrical certifications (ANSI, CSA) falsely detected on apparel product pages
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-31
+- **Date Resolved:** 2026-03-31
+- **Found In:** `src/scoring/scoring-engine.js` → `scoreAuthorityTrust()`
+- **Root Cause:** Certification extractor matched "ansi" and "csA" substrings present in boilerplate copy on apparel pages. No apparel-awareness in the scoring layer, so industrial standards inflated Authority & Trust by ~3–4 points.
+- **Fix:** `scoreAuthorityTrust()` now accepts `extractedData`, calls `isLikelyApparel()`, and filters certs matching `INDUSTRIAL_CERT_PATTERN` (ANSI, CSA, UL, ETL, RoHS, FCC, NFPA, ASTM, FMVSS, OSHA, Energy Star) before scoring. Commit pending.
+- **Related:** BUG-0104, ROAD-0075
+
+### BUG-0106 — Fit-language ("true to size") scored as tech compatibility on apparel pages
+- **Status:** Fixed
+- **Severity:** Medium
+- **Date Found:** 2026-03-31
+- **Date Resolved:** 2026-03-31
+- **Found In:** `src/scoring/scoring-engine.js` → `scoreContentQuality()`
+- **Root Cause:** `compatNA` required `isApparel && !details.hasCompatibility` — so a page that matched fit language ("true to size") as compatibility would still score non-zero points rather than N/A. Compatibility is never applicable to apparel regardless of what the extractor finds.
+- **Fix:** Changed guard to `compatNA = isApparel` — compatibility is unconditionally N/A for apparel pages. Commit pending.
+- **Related:** BUG-0104, ROAD-0075
+
+
 
 ### BUG-0098 — `detectPageType()` misclassifies Amazon product pages as PLP
 - **Status:** Fixed

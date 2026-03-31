@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Fixed
+- **BUG-0104: `isLikelyApparel()` misses apparel brands using category URL segments like "tees-tanks"** — Added `tees?|tanks?|tunic` to `apparelKeywords` regex; Natural Life and similar lifestyle brands now correctly trigger apparel-specific N/A behavior for warranty, compatibility, and certifications (`src/scoring/scoring-engine.js`)
+- **BUG-0105: Industrial certifications (ANSI, CSA, UL, etc.) falsely inflate Authority & Trust on apparel pages** — `scoreAuthorityTrust()` now calls `isLikelyApparel()` and filters INDUSTRIAL_CERT_PATTERN matches from certs before scoring when apparel is detected (`src/scoring/scoring-engine.js`)
+- **BUG-0106: Fit language ("true to size") scored as tech compatibility on apparel pages** — `compatNA` is now unconditionally true when `isApparel`, regardless of whether the extractor matched fit-description text (`src/scoring/scoring-engine.js`)
+
 ## v3.4.0 — 2026-03-31
 ### New Features
 - **Platform comparison bar on AI Visibility results** — Four clickable chips (Unified / ChatGPT / Perplexity / Google AIO) appear below the main score card showing the AI Readiness score for each platform profile; clicking a chip instantly re-scores and re-renders the AI tab using cached extraction data (no re-extraction); active chip highlighted in indigo; bar hidden in history detail view (`src/sidepanel/sidepanel.html`, `src/sidepanel/sidepanel.css`, `src/sidepanel/sidepanel.js`)

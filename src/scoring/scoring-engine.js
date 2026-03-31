@@ -55,7 +55,7 @@ export class ScoringEngine {
       protocolMeta: this.scoreProtocolMeta(extractedData.metaTags, imageVerification, aiDiscoverabilityData?.lastModified),
       contentQuality: this.scoreContentQuality(extractedData.contentQuality, extractedData.aiDiscoverability, extractedData),
       contentStructure: this.scoreContentStructure(extractedData.contentStructure, extractedData.contentQuality?.textMetrics),
-      authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals),
+      authorityTrust: this.scoreAuthorityTrust(extractedData.trustSignals, extractedData),
       aiDiscoverability: this.scoreAIDiscoverability(extractedData, aiDiscoverabilityData, isPlp)
     };
 
@@ -519,7 +519,7 @@ export class ScoringEngine {
    * @returns {boolean}
    */
   static isLikelyApparel(extractedData) {
-    const apparelKeywords = /\b(clothing|apparel|fashion|dress|dresses|shirt|shirts|pants|jeans|jacket|jackets|sweater|tops|blouse|skirt|shorts|lingerie|underwear|swimwear|activewear|outerwear|footwear|shoes|boots|sneakers|sandals|socks|hosiery|accessories|jewel|handbag|purse|scarf|hat|gloves|belt|tie|suit|blazer|coat|hoodie|legging|romper|jumpsuit|bodysuit|cardigan|pullover|vest|parka|v[eê]tements|robes?|pantalon|chaussure|manteau)\b/i;
+    const apparelKeywords = /\b(clothing|apparel|fashion|dress|dresses|shirt|shirts|pants|jeans|jacket|jackets|sweater|tops|blouse|skirt|shorts|lingerie|underwear|swimwear|activewear|outerwear|footwear|shoes|boots|sneakers|sandals|socks|hosiery|accessories|jewel|handbag|purse|scarf|hat|gloves|belt|tie|suit|blazer|coat|hoodie|legging|romper|jumpsuit|bodysuit|cardigan|pullover|vest|parka|tees?|tanks?|tunic|v[eê]tements|robes?|pantalon|chaussure|manteau)\b/i;
 
     // Check breadcrumbs
     const breadcrumb = extractedData?.structuredData?.schemas?.breadcrumb;
@@ -751,8 +751,8 @@ export class ScoringEngine {
     });
     rawScore += warrantyScore;
 
-    // Compatibility Info (10 points) - Contextual; N/A for apparel
-    const compatNA = isApparel && !details.hasCompatibility;
+    // Compatibility Info (10 points) - Contextual; N/A for apparel (fit language is not tech compatibility)
+    const compatNA = isApparel;
     const compatMaxPoints = compatNA
       ? weights.compatibilityInfo
       : Math.round(weights.compatibilityInfo * (this.multipliers.compatibilityInfo || 1.0));
@@ -1007,15 +1007,32 @@ export class ScoringEngine {
    * Score Authority & Trust category (13% weight)
    * @param {Object} data - Trust signals extraction data
    */
-  scoreAuthorityTrust(data) {
+  scoreAuthorityTrust(data, extractedData) {
     const factors = [];
     let rawScore = 0;
     const maxScore = 100;
     const weights = FACTOR_WEIGHTS.authorityTrust;
     const reviews = data?.reviews || {};
     const brand = data?.brand || {};
-    const certs = data?.certifications || {};
     const awards = data?.awards || {};
+    const isApparel = extractedData ? ScoringEngine.isLikelyApparel(extractedData) : false;
+
+    // For apparel pages, filter out industrial/electrical certifications that don't apply to clothing
+    const INDUSTRIAL_CERT_PATTERN = /\b(ansi|csa|ul\b|etl|rohs|fcc|nfpa|astm|fmvss|osha|energy\s*star)\b/i;
+    let certs = data?.certifications || {};
+    if (isApparel && certs.details && certs.details.length > 0) {
+      const filteredDetails = certs.details.filter(c => !INDUSTRIAL_CERT_PATTERN.test(c.matched || c.name || ''));
+      const filteredCount = filteredDetails.length;
+      certs = {
+        ...certs,
+        details: filteredDetails,
+        count: filteredCount,
+        score: filteredCount > 0 ? certs.score : 0
+      };
+    } else if (isApparel && certs.items && certs.items.length > 0) {
+      const filteredItems = certs.items.filter(item => !INDUSTRIAL_CERT_PATTERN.test(item));
+      certs = { ...certs, items: filteredItems, count: filteredItems.length, score: filteredItems.length > 0 ? certs.score : 0 };
+    }
 
     // Review Count (25 points) - Contextual
     let reviewCountScore = reviews.countScore ? Math.round((reviews.countScore / 100) * weights.reviewCount) : 0;
