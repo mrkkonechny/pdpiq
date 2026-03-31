@@ -1,9 +1,10 @@
 # Changelog
 
-> **PDS Document 10** | Last Updated: 2026-03-31
+> **PDS Document 10** | Last Updated: 2026-03-31 (v3.4.1)
 
 ## [Unreleased]
 
+## v3.4.1 — 2026-03-31
 ### Fixed
 - **BUG-0104: `isLikelyApparel()` misses apparel brands using category URL segments like "tees-tanks"** — Added `tees?|tanks?|tunic` to `apparelKeywords` regex; Natural Life and similar lifestyle brands now correctly trigger apparel-specific N/A behavior for warranty, compatibility, and certifications (`src/scoring/scoring-engine.js`)
 - **BUG-0105: Industrial certifications (ANSI, CSA, UL, etc.) falsely inflate Authority & Trust on apparel pages** — `scoreAuthorityTrust()` now calls `isLikelyApparel()` and filters INDUSTRIAL_CERT_PATTERN matches from certs before scoring when apparel is detected (`src/scoring/scoring-engine.js`)

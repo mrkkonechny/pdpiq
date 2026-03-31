@@ -1,6 +1,6 @@
 # Roadmap
 
-> **PDS Document 08** | Last Updated: 2026-03-29 (Sprint 2 complete: ROAD-0063, ROAD-0065, ROAD-0067 → Done)
+> **PDS Document 08** | Last Updated: 2026-03-31 (ROAD-0075, ROAD-0076 → Done)
 
 Strategic feature plan and working backlog. Combines the "what's planned" view with the "what's in the queue" view. Most recent entries at the top within each section.
 
@@ -29,26 +29,7 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 
 ## In Progress
 
-### ROAD-0075 — Fix scoring accuracy bugs from March 2026 real-world audit
-- **Status:** Done
-- **Type:** Tech Debt
-- **Priority:** P0 (Critical)
-- **Target Phase/Sprint:** Sprint 3
-- **Date Added:** 2026-03-31
-- **Date Completed:** 2026-03-31
-- **Requested By:** Internal audit (7-site real-world scoring review)
-- **Scope:** Medium (1-3 days)
-- **Description:** Six scoring accuracy bugs found during a cross-site audit using real pdpIQ exports. Two are critical (Amazon PLP misclassification inflates AI Readiness; factualSpecificity passes on any page regardless of description quality). Four are medium/high (apparel-NA points > maxPoints; invalid og:image Format status; modal false positive; brand clarity extractor missing og:site_name fallback).
-- **Acceptance Criteria:**
-  - [ ] Amazon `/dp/` URLs classified as PDP; missing Product schema recommendation fires (BUG-0098)
-  - [ ] Apparel-NA factors show `points === maxPoints` in all contexts (BUG-0099)
-  - [ ] `factualSpecificity` scores fail when `description.wordCount < 50` (BUG-0100)
-  - [ ] `og:image Format` shows `status: 'na'` when no og:image present (BUG-0101)
-  - [ ] `materialsText: "modal"` from UI code no longer awards `hasMaterials: true` (BUG-0102)
-  - [ ] Apple/Nike-style pages extract brand from `og:site_name` (BUG-0103)
-- **Dependencies:** None
-- **Related:** BUG-0098, BUG-0099, BUG-0100, BUG-0101, BUG-0102, BUG-0103
-- **Notes:** Implementation plan at `docs/superpowers/plans/2026-03-31-scoring-accuracy-fixes.md`
+*(No items in progress.)*
 
 ### ROAD-0001 — Add automated test suite (Vitest/Jest)
 - **Status:** In Progress
@@ -1199,6 +1180,44 @@ Strategic feature plan and working backlog. Combines the "what's planned" view w
 - **Related:** —
 
 ## Completed
+
+### ROAD-0076 — Fix apparel scoring accuracy bugs from Natural Life per-platform analysis
+- **Status:** Done
+- **Type:** Tech Debt
+- **Priority:** P1 (High)
+- **Target Phase/Sprint:** Sprint 3
+- **Date Added:** 2026-03-31
+- **Date Completed:** 2026-03-31
+- **Requested By:** Internal audit (Natural Life 4-platform export review)
+- **Scope:** Small (< 1 day)
+- **Description:** Three apparel-scoring bugs found while reviewing per-platform score differentiation using Natural Life exports. `isLikelyApparel()` missed lifestyle brands with URL segments like "tees-tanks"; industrial certs (ANSI/CSA) falsely inflated Authority & Trust; compatibility fit-language scored as tech compatibility.
+- **Acceptance Criteria:**
+  - [x] Natural Life URL `/collections/tees-tanks/products/...` triggers `isLikelyApparel = true` (BUG-0104)
+  - [x] ANSI/CSA certifications produce 0 cert score on apparel pages (BUG-0105)
+  - [x] "True to size" compatibility text scores as N/A on apparel pages (BUG-0106)
+- **Dependencies:** ROAD-0075
+- **Related:** BUG-0104, BUG-0105, BUG-0106
+
+### ROAD-0075 — Fix scoring accuracy bugs from March 2026 real-world audit
+- **Status:** Done
+- **Type:** Tech Debt
+- **Priority:** P0 (Critical)
+- **Target Phase/Sprint:** Sprint 3
+- **Date Added:** 2026-03-31
+- **Date Completed:** 2026-03-31
+- **Requested By:** Internal audit (7-site real-world scoring review)
+- **Scope:** Medium (1-3 days)
+- **Description:** Six scoring accuracy bugs found during a cross-site audit using real pdpIQ exports. Two are critical (Amazon PLP misclassification inflates AI Readiness; factualSpecificity passes on any page regardless of description quality). Four are medium/high (apparel-NA points > maxPoints; invalid og:image Format status; modal false positive; brand clarity extractor missing og:site_name fallback).
+- **Acceptance Criteria:**
+  - [x] Amazon `/dp/` URLs classified as PDP; missing Product schema recommendation fires (BUG-0098)
+  - [x] Apparel-NA factors show `points === maxPoints` in all contexts (BUG-0099)
+  - [x] `factualSpecificity` scores fail when `description.wordCount < 50` (BUG-0100)
+  - [x] `og:image Format` shows `status: 'na'` when no og:image present (BUG-0101)
+  - [x] `materialsText: "modal"` from UI code no longer awards `hasMaterials: true` (BUG-0102)
+  - [x] Apple/Nike-style pages extract brand from `og:site_name` (BUG-0103)
+- **Dependencies:** None
+- **Related:** BUG-0098, BUG-0099, BUG-0100, BUG-0101, BUG-0102, BUG-0103
+- **Notes:** Implementation plan at `docs/superpowers/plans/2026-03-31-scoring-accuracy-fixes.md`
 
 ### ROAD-0043 — Content-to-Citation Roadmap (AI Visibility tab + report)
 - **Status:** Done
