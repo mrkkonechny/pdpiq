@@ -1,8 +1,10 @@
 # Changelog
 
-> **PDS Document 10** | Last Updated: 2026-03-29
+> **PDS Document 10** | Last Updated: 2026-03-31
 
 ## [Unreleased]
+
+## v3.4.0 — 2026-03-31
 ### New Features
 - **Platform comparison bar on AI Visibility results** — Four clickable chips (Unified / ChatGPT / Perplexity / Google AIO) appear below the main score card showing the AI Readiness score for each platform profile; clicking a chip instantly re-scores and re-renders the AI tab using cached extraction data (no re-extraction); active chip highlighted in indigo; bar hidden in history detail view (`src/sidepanel/sidepanel.html`, `src/sidepanel/sidepanel.css`, `src/sidepanel/sidepanel.js`)
 
