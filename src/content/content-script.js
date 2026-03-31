@@ -651,7 +651,7 @@ function categorizeMicrodataSchemas(microdataItems, schemas) {
 // ==========================================
 
 function extractMetaTags() {
-  const og = { title: null, description: null, image: null, type: null, url: null, imageWidth: null, imageHeight: null, imageAlt: null };
+  const og = { title: null, description: null, image: null, type: null, url: null, imageWidth: null, imageHeight: null, imageAlt: null, siteName: null };
   const twitter = { card: null, title: null, description: null, image: null };
   const standard = { description: null, keywords: null };
 
@@ -666,6 +666,7 @@ function extractMetaTags() {
     if (prop === 'og:image:width') og.imageWidth = parseInt(content, 10);
     if (prop === 'og:image:height') og.imageHeight = parseInt(content, 10);
     if (prop === 'og:image:alt') og.imageAlt = content;
+    if (prop === 'og:site_name') og.siteName = content || null;
   });
 
   document.querySelectorAll('meta[name^="twitter:"]').forEach(meta => {
@@ -2274,6 +2275,15 @@ function extractBrandSignals() {
   if (!brandName) {
     const brandEl = document.querySelector('[itemprop="brand"]');
     brandName = brandEl?.content || brandEl?.textContent?.trim();
+  }
+
+  // Fallback: og:site_name (used by Apple, Nike, Dyson, and other D2C brands that
+  // omit schema brand fields but set og:site_name to their brand name)
+  if (!brandName) {
+    const siteName = document.querySelector('meta[property="og:site_name"]')?.content?.trim();
+    if (siteName && siteName.length > 0 && siteName.length <= 50) {
+      brandName = siteName;
+    }
   }
 
   // Normalize brand name by stripping legal entity suffixes (e.g. "Unplugged Performance INC" → "Unplugged Performance")
