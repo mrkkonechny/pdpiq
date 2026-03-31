@@ -3893,8 +3893,10 @@ function detectPageType() {
     /\/search/i                 // Search results pages
   ];
 
+  let pdpUrlMatched = false;
   if (pdpUrlPatterns.some(p => p.test(path))) {
     pdpScore += 2;
+    pdpUrlMatched = true;
     signals.push(`URL pattern matches PDP (${path})`);
   } else if (plpUrlPatterns.some(p => p.test(path))) {
     plpScore += 2;
@@ -3937,7 +3939,9 @@ function detectPageType() {
     signals.push(`og:type = "${ogType}" (product)`);
   } else if (ogType === 'website' || ogType === '') {
     // "website" is default/generic — weak PLP signal only if other PLP signals present
-    if (plpScore > 0) {
+    // and no strong PDP URL pattern was already matched (prevents recommendation carousels
+    // on Amazon /dp/ pages from tipping classification to PLP)
+    if (plpScore > 0 && !pdpUrlMatched) {
       plpScore += 1;
       signals.push('og:type = "website" (generic, supporting PLP signals)');
     }
