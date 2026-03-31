@@ -727,13 +727,16 @@ export class ScoringEngine {
 
     // Warranty Info (7 points) - Contextual; N/A for apparel (return policy suffices)
     const warrantyNA = isApparel && !details.hasWarranty;
-    let warrantyScore = (details.hasWarranty || warrantyNA) ? weights.warrantyInfo : 0;
-    if (!warrantyNA) warrantyScore = Math.round(warrantyScore * this.multipliers.warrantyInfo);
+    const warrantyMaxPoints = warrantyNA
+      ? weights.warrantyInfo
+      : Math.round(weights.warrantyInfo * (this.multipliers.warrantyInfo || 1.0));
+    let warrantyScore = warrantyNA ? weights.warrantyInfo
+      : (details.hasWarranty ? warrantyMaxPoints : 0);
     factors.push({
       name: 'Warranty Information',
       status: warrantyNA ? 'pass' : (details.hasWarranty ? 'pass' : 'fail'),
       points: warrantyScore,
-      maxPoints: Math.round(weights.warrantyInfo * (this.multipliers.warrantyInfo || 1.0)),
+      maxPoints: warrantyMaxPoints,
       contextual: true,
       details: warrantyNA ? 'N/A for apparel'
         : details.hasWarranty ? (details.warrantyText || 'Warranty found')
@@ -743,13 +746,16 @@ export class ScoringEngine {
 
     // Compatibility Info (10 points) - Contextual; N/A for apparel
     const compatNA = isApparel && !details.hasCompatibility;
-    let compatScore = (details.hasCompatibility || compatNA) ? weights.compatibilityInfo : 0;
-    if (!compatNA) compatScore = Math.round(compatScore * this.multipliers.compatibilityInfo);
+    const compatMaxPoints = compatNA
+      ? weights.compatibilityInfo
+      : Math.round(weights.compatibilityInfo * (this.multipliers.compatibilityInfo || 1.0));
+    let compatScore = compatNA ? weights.compatibilityInfo
+      : (details.hasCompatibility ? compatMaxPoints : 0);
     factors.push({
       name: 'Compatibility Information',
       status: compatNA ? 'pass' : (details.hasCompatibility ? 'pass' : 'fail'),
       points: compatScore,
-      maxPoints: Math.round(weights.compatibilityInfo * (this.multipliers.compatibilityInfo || 1.0)),
+      maxPoints: compatMaxPoints,
       contextual: true,
       details: compatNA ? 'N/A for apparel'
         : details.hasCompatibility ? (details.compatibilityText || 'Compatibility info found')
