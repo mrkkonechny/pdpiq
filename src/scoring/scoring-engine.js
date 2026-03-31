@@ -306,7 +306,12 @@ export class ScoringEngine {
     let imageFormatStatus = 'unknown';
     let imageFormatDetails = 'Image format not verified';
 
-    if (imageVerification) {
+    if (!hasOgImage) {
+      // No image present — format is not applicable; absence already captured by og:image Present (0/20)
+      imageFormatScore = weights.ogImageFormat;
+      imageFormatStatus = 'na';
+      imageFormatDetails = 'N/A — no og:image present';
+    } else if (imageVerification) {
       if (imageVerification.isWebP) {
         imageFormatScore = Math.round(weights.ogImageFormat / 2);
         imageFormatStatus = 'warning';
@@ -320,8 +325,8 @@ export class ScoringEngine {
         imageFormatStatus = 'warning';
         imageFormatDetails = `Format: ${imageVerification.format || 'Unknown'} — verify compatibility`;
       }
-    } else if (hasOgImage) {
-      // Infer from URL if not verified
+    } else {
+      // og:image present but not verified — infer from URL
       const url = og.image.toLowerCase();
       if (url.endsWith('.webp') || url.includes('.webp?')) {
         imageFormatScore = Math.round(weights.ogImageFormat / 2);
