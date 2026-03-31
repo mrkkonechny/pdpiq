@@ -1525,8 +1525,14 @@ function extractProductDetails(text) {
     if (match) {
       // Pattern 0 captures arbitrary text after a keyword — require it contains a material noun
       if (i === 0 && !materialNounRe.test(match[1] || '')) continue;
+      const captured = (match[1] || match[0]).trim();
+      // For Pattern 1 (bare material noun), require ≥8 chars to filter single-word
+      // UI keyword false positives (e.g. "modal" from React modal components)
+      if (i === 1 && captured.length < 8) continue;
+      // Reject code-like captures (contain quotes, backslashes, or braces)
+      if (/["'\\{}]/.test(captured)) continue;
       details.hasMaterials = true;
-      details.materialsText = (match[1] || match[0]).trim().substring(0, 50);
+      details.materialsText = captured.substring(0, 50);
       break;
     }
   }
